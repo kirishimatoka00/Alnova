@@ -1,9 +1,9 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 11.0 - 終極修復版</title>
+    <title>Nova 12.0 - OpenRouter 聚合版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -42,11 +42,11 @@
         <aside class="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-6 flex-shrink-0">
             <div class="flex items-center space-x-3 mb-10 px-2">
                 <div class="w-10 h-10 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <i class="ph-bold ph-magic-wand text-white text-xl"></i>
+                    <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Fix v11</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">OpenRouter Core</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -62,10 +62,10 @@
                 </div>
             </div>
         </aside>
- 
+
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2"><i class="ph-bold ph-magic-wand text-blue-500 text-xl"></i><span class="font-bold text-white">Nova</span></div>
+                <div class="flex items-center space-x-2"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova</span></div>
                 <div class="flex items-center space-x-2 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                     <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white">更新</span>
                 </div>
@@ -87,10 +87,12 @@
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                     <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">API 設定</h3><button onclick="closeSettings()"><i class="ph ph-x text-2xl text-slate-400"></i></button></div>
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
-                        <div class="bg-blue-900/20 p-3 rounded border border-blue-800/50 mb-4">
-                            <p class="text-xs text-blue-300">💡 提示：若遇到「無內容」，系統將自動重試。天氣若無法自動定位，請點擊天氣卡片手動切換。</p>
-                        </div>
                         <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none" placeholder="AIzaSy..."></div>
+                        <div>
+                            <label class="block text-xs text-purple-400 mb-1">OpenRouter API Key (推薦)</label>
+                            <input type="password" id="key-openrouter" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-purple-500 outline-none" placeholder="sk-or-...">
+                            <p class="text-[10px] text-slate-500 mt-1">支援 DeepSeek, Claude, Llama 等模型</p>
+                        </div>
                         <div><label class="block text-xs text-orange-400 mb-1">Cerebras API Key</label><input type="password" id="key-cerebras" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-orange-500 outline-none" placeholder="csk-..."></div>
                         <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-emerald-500 outline-none" placeholder="sk-..."></div>
                         <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-slate-500 outline-none" placeholder="xai-..."></div>
@@ -106,22 +108,22 @@
                             <span id="web-search-badge" class="hidden md:flex items-center space-x-1 text-[10px] bg-blue-900/30 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full"><i class="ph-bold ph-globe"></i><span>連網搜尋</span></span>
                          </div>
                          <div class="flex space-x-1">
-                            <button onclick="setModel('gemini')" class="model-pill px-2 py-1 rounded text-[10px] font-bold bg-blue-600 text-white" data-model="gemini">Gemini</button>
-                            <button onclick="setModel('cerebras')" class="model-pill px-2 py-1 rounded text-[10px] font-bold bg-slate-800 text-slate-400" data-model="cerebras">Cerebras</button>
-                            <button onclick="setModel('gpt')" class="model-pill px-2 py-1 rounded text-[10px] font-bold bg-slate-800 text-slate-400" data-model="gpt">GPT</button>
-                            <button onclick="setModel('grok')" class="model-pill px-2 py-1 rounded text-[10px] font-bold bg-slate-800 text-slate-400" data-model="grok">Grok</button>
+                            <button onclick="setModel('gemini')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-blue-600 text-white transition-all whitespace-nowrap" data-model="gemini">Gemini</button>
+                            <button onclick="setModel('openrouter')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="openrouter">OpenRouter</button>
+                            <button onclick="setModel('cerebras')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="cerebras">Cerebras</button>
+                            <button onclick="setModel('gpt')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="gpt">GPT</button>
                          </div>
                     </div>
                     <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700"></div>
                     
                     <div class="p-4 bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
-                            <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
+                            <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
                             <button id="voice-btn" onclick="toggleVoice()" class="p-3 mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95 flex-shrink-0"><i id="voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
                             <input type="text" id="user-input" placeholder="輸入訊息..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
                             <button onclick="handleSendMessage()" id="send-btn" class="ml-2 p-3 rounded-lg text-white bg-blue-600 hover:opacity-90 flex-shrink-0 transition-all"><i id="send-icon" class="ph-bold ph-paper-plane-right"></i></button>
                         </div>
-                        <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋模式 (僅支援 Gemini)</div>
+                        <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
                     </div>
                 </div>
                 
@@ -163,16 +165,23 @@
     <script>
         const appState = {
             currentModel: 'gemini', detectedGeminiModel: null,
-            messages: [{ id: 1, text: 'Nova 11.0 系統就緒。\n\n💡 若搜尋回傳「無內容」，系統將自動重試並關閉搜尋工具以確保回答。\n\n📍 若定位失敗，將自動預設為台北，您可點擊地點名稱手動切換。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.0 就緒！\n新增 OpenRouter 支援 (DeepSeek R1, Claude, Llama)。\n請至設定輸入 OpenRouter API Key。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: [], notes: [],
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
-            keys: { gemini: localStorage.getItem('nova_key_gemini')||'', cerebras: localStorage.getItem('nova_key_cerebras')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'' },
+            keys: { 
+                gemini: localStorage.getItem('nova_key_gemini')||'', 
+                cerebras: localStorage.getItem('nova_key_cerebras')||'', 
+                openrouter: localStorage.getItem('nova_key_openrouter')||'',
+                openai: localStorage.getItem('nova_key_openai')||'', 
+                grok: localStorage.getItem('nova_key_grok')||'' 
+            },
             isThinking: false, isListening: false, isSearchEnabled: false,
             manualLocIndex: 0,
             manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}]
         };
         const MODEL_CONFIG = {
-            gemini: { name: 'Gemini', color: 'text-blue-400', bg: 'bg-blue-600', icon: 'ph-sparkle' },
+            gemini: { name: 'Gemini', color: 'text-blue-400', bg: 'bg-blue-600', icon: 'ph-globe' },
+            openrouter: { name: 'OpenRouter', color: 'text-purple-400', bg: 'bg-purple-600', icon: 'ph-infinity' },
             cerebras: { name: 'Cerebras', color: 'text-orange-400', bg: 'bg-orange-600', icon: 'ph-rocket-launch' },
             gpt: { name: 'ChatGPT', color: 'text-emerald-400', bg: 'bg-emerald-600', icon: 'ph-cpu' },
             grok: { name: 'Grok', color: 'text-slate-100', bg: 'bg-slate-600', icon: 'ph-lightning' }
@@ -182,83 +191,16 @@
             renderAll();
             document.getElementById('key-gemini').value = appState.keys.gemini;
             document.getElementById('key-cerebras').value = appState.keys.cerebras;
+            document.getElementById('key-openrouter').value = appState.keys.openrouter;
             document.getElementById('key-openai').value = appState.keys.openai;
             document.getElementById('key-grok').value = appState.keys.grok;
-            tryGetLocation(true); 
+            tryGetLocation(true);
             updateModelUI();
         };
 
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
-        // --- 🌍 ROBUST LOCATION LOGIC (GPS -> IP -> Default Fallback) ---
-        
-        async function tryGetLocation(silent=false) {
-            updateLocStatus("定位中...");
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), 
-                    (e) => { console.warn("GPS Fail", e); getIPLocation(silent); },
-                    { timeout: 5000 }
-                );
-            } else getIPLocation(silent);
-        }
-
-        async function getIPLocation(silent) {
-            updateLocStatus("IP定位...");
-            try {
-                // Primary: ipapi.co (HTTPS only)
-                const res = await fetch('https://ipapi.co/json/');
-                if (!res.ok) throw new Error();
-                const data = await res.json();
-                fetchWeather(data.latitude, data.longitude, `${data.city} (IP)`, silent);
-            } catch (e) {
-                // Secondary: ipwho.is
-                try {
-                    const res2 = await fetch('https://ipwho.is/');
-                    const data2 = await res2.json();
-                    if(!data2.success) throw new Error();
-                    fetchWeather(data2.latitude, data2.longitude, `${data2.city} (IP)`, silent);
-                } catch(e2) {
-                    // FINAL FALLBACK: Default to Taipei
-                    const def = appState.manualLocs[0];
-                    fetchWeather(def.lat, def.lon, def.name + " (預設)", true);
-                    if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system");
-                }
-            }
-        }
-
-        function cycleManualLocation() {
-            appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length;
-            const loc = appState.manualLocs[appState.manualLocIndex];
-            fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false);
-        }
-
-        async function fetchWeather(lat, lon, locName, silent) {
-            updateLocStatus("更新天氣...");
-            try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`;
-                const res = await fetch(url); const data = await res.json();
-                if(data.current) {
-                    const c = data.current;
-                    appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName };
-                    renderWeather(); updateLocStatus("已更新");
-                    if(!silent) addMessage(`✅ 天氣更新 (${locName}): ${c.temperature_2m}°C`, "system");
-                }
-            } catch(e) { updateLocStatus("錯誤"); }
-        }
-
-        function updateLocStatus(msg) {
-            document.getElementById('location-status').innerText = msg;
-            if(msg==="已更新" || msg.includes("預設") || msg.includes("手動")) {
-                const {loc, temp} = appState.weather;
-                document.getElementById('location-name').innerText = loc;
-                document.getElementById('mobile-weather-temp').innerText = `${temp}°`;
-            }
-        }
-        function wmoToCondition(code) { if(code===0)return 'sunny'; if(code<=48)return 'cloudy'; if(code<=82)return 'rainy'; if(code<=77)return 'snow'; return 'storm'; }
-
-        // --- HANDLER & SEARCH FALLBACK ---
-        
+        // --- CORE HANDLER ---
         function handleEnter(e) { if(e.key==='Enter') handleSendMessage(); }
         
         async function handleSendMessage() {
@@ -266,32 +208,32 @@
             const input = document.getElementById('user-input');
             const text = input.value.trim();
             if(!text) return;
-            
-            if(text.includes('天氣')) { tryGetLocation(false); }
 
-            addMessage(text, 'user');
-            input.value = '';
-            
             appState.isThinking = true;
             updateSendButtonState(true);
+            addMessage(text, 'user');
+            input.value = '';
             renderThinkingState(true);
 
             try {
-                let systemPromptAddon = "";
+                let systemPromptAddon = "", actionTriggered = false;
+                
                 const navMatch = text.match(/(導航|帶我去|怎麼去|路線|前往)\s*(.+)/i);
                 if (navMatch) {
                     const dest = navMatch[2].replace(/到|去/g, '').trim();
                     appState.messages.push({ id:Date.now(), sender:'system', type:'nav', text:`前往：${dest}`, url:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`, time:getTime() });
-                    renderMessages(); systemPromptAddon = `(系統: 已產生導航卡片)`; 
+                    renderMessages(); systemPromptAddon = `(系統: 已產生導航卡片)`; actionTriggered = true;
+                } else if(text.includes('天氣')) { 
+                    tryGetLocation(false); systemPromptAddon = `(系統: 查詢天氣)`; actionTriggered = true; 
                 } else if (text.match(/^(提醒我|行程|任務|todo)\s*(.+)/i) || text.includes('提醒')) {
                     let content = text.match(/^(提醒我|行程|任務|todo)\s*(.+)/i)?.[2] || text.replace(/提醒我|提醒/g, '').trim();
-                    if(content) { appState.todos.push({id:Date.now(), text:content, done:false, time:'剛剛'}); renderTodos(); addMessage(`已新增：${content}`, 'system'); systemPromptAddon = `(系統: 已新增待辦)`; }
+                    if(content) { appState.todos.push({id:Date.now(), text:content, done:false, time:'剛剛'}); renderTodos(); addMessage(`已新增：${content}`, 'system'); systemPromptAddon = `(系統: 已新增待辦)`; actionTriggered = true; }
                 } else if (text.match(/^(筆記|紀錄|記錄|note)\s*(.+)/i)) {
                     let content = text.match(/^(筆記|紀錄|記錄|note)\s*(.+)/i)?.[2];
-                    if(content) { appState.notes.push({id:Date.now(), title:content.substring(0,10)+'...', content, date:new Date().toLocaleDateString()}); renderNotes(); addMessage(`已筆記`, 'system'); systemPromptAddon = `(系統: 已儲存筆記)`; }
+                    if(content) { appState.notes.push({id:Date.now(), title:content.substring(0,10)+'...', content, date:new Date().toLocaleDateString()}); renderNotes(); addMessage(`已筆記`, 'system'); systemPromptAddon = `(系統: 已儲存筆記)`; actionTriggered = true; }
                 }
 
-                const prompt = systemPromptAddon ? `${text}\n${systemPromptAddon}` : text;
+                const prompt = actionTriggered ? `${text}\n${systemPromptAddon}` : text;
                 const res = await fetchAIResponse(prompt, appState.currentModel);
                 
                 if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel);
@@ -307,54 +249,54 @@
             }
         }
 
-        function updateSendButtonState(isLoading) {
-            const btn = document.getElementById('send-btn');
-            const icon = document.getElementById('send-icon');
-            if(isLoading) { btn.classList.add('cursor-not-allowed', 'opacity-70'); icon.classList.remove('ph-paper-plane-right'); icon.classList.add('ph-spinner', 'animate-spin'); }
-            else { btn.classList.remove('cursor-not-allowed', 'opacity-70'); icon.classList.remove('ph-spinner', 'animate-spin'); icon.classList.add('ph-paper-plane-right'); }
-        }
-
+        // --- AI API ---
         async function fetchAIResponse(userText, model) {
             const key = appState.keys[model];
             if(!key) throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
-            const fetchWithTimeout = async (url, options, timeout = 15000) => {
+            const fetchWithTimeout = async (url, options, timeout = 25000) => {
                 const controller = new AbortController();
                 const id = setTimeout(() => controller.abort(), timeout);
                 try { const response = await fetch(url, { ...options, signal: controller.signal }); clearTimeout(id); return response; } 
-                catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時' : error.message); }
+                catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時 (25s)' : error.message); }
             };
 
             try {
                 if(model === 'gemini') {
                     if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key);
                     const name = appState.detectedGeminiModel.replace('models/', '');
-                    
-                    // Force text only if search disabled
                     const payload = { contents:[{parts:[{text:userText}]}] };
                     if (appState.isSearchEnabled) payload.tools = [{google_search:{}}];
-
                     const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
                     const data = await res.json();
-                    
-                    // --- SEARCH FALLBACK MECHANISM ---
-                    // If error or no text content, retry WITHOUT search tools
-                    if(data.error || !data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                        if (appState.isSearchEnabled) { 
-                            // Add system log
-                            addMessage(`⚠️ 搜尋無結果或被阻擋，正嘗試純文字模式...`, 'system');
+                    if(data.error) {
+                        if (appState.isSearchEnabled) { // Fallback
                             const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contents:[{parts:[{text:userText}]}] }) });
-                            const d = await retry.json();
-                            return (d.candidates?.[0]?.content?.parts?.[0]?.text) || `[API Error] ${d.error?.message || '無內容'}`;
+                            const d = await retry.json(); return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容";
                         }
-                        throw new Error(data.error?.message || '無內容');
+                        throw new Error(data.error.message);
                     }
-                    
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無內容";
                     let sources = []; data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); });
                     return {text, sources};
-                } 
-                // Other models logic...
-                else if(model === 'cerebras') {
+                } else if (model === 'openrouter') {
+                    // OpenRouter API
+                    const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json',
+                            'HTTP-Referer': 'https://github.com/nova-ai', // Required by OpenRouter
+                            'X-Title': 'Nova AI'
+                        },
+                        body: JSON.stringify({
+                            model: 'deepseek/deepseek-r1:free', // Default to DeepSeek R1 Free
+                            messages: [{ role: 'user', content: userText }]
+                        })
+                    });
+                    const data = await res.json();
+                    if(data.error) throw new Error(data.error.message);
+                    return data.choices?.[0]?.message?.content || "無回應";
+                } else if(model === 'cerebras') {
                     const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
                     const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices[0].message.content;
                 } else {
@@ -374,25 +316,22 @@
             return (models.find(m=>m.name.includes("gemini-1.5-flash")) || models.find(m=>m.name.includes("gemini-1.5-pro")) || models[0]).name;
         }
 
-        // --- Standard Functions ---
+        // --- UI & Location Utils ---
+        function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
         function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
-        let recognition = null;
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) { const SR = window.SpeechRecognition || window.webkitSpeechRecognition; recognition = new SR(); recognition.lang = 'zh-TW'; recognition.onstart = () => {appState.isListening=true;updateVoiceUI();}; recognition.onend = () => {appState.isListening=false;updateVoiceUI();}; recognition.onresult = (e) => {document.getElementById('user-input').value = e.results[0][0].transcript; setTimeout(()=>handleSendMessage(),500);}; }
+        function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
+        async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
+        async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
+        async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
+        function updateLocStatus(msg) { document.getElementById('location-status').innerText = msg; if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { const {loc, temp} = appState.weather; document.getElementById('location-name').innerText = loc; document.getElementById('mobile-weather-temp').innerText = `${temp}°`; } }
+        function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
+        
+        let recognition = null; if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) { const SR = window.SpeechRecognition || window.webkitSpeechRecognition; recognition = new SR(); recognition.lang = 'zh-TW'; recognition.onstart = () => {appState.isListening=true;updateVoiceUI();}; recognition.onend = () => {appState.isListening=false;updateVoiceUI();}; recognition.onresult = (e) => {document.getElementById('user-input').value = e.results[0][0].transcript; setTimeout(()=>handleSendMessage(),500);}; }
         function toggleVoice() { if(!recognition){alert("瀏覽器不支援");return;} if(appState.isListening)recognition.stop(); else recognition.start(); }
         function updateVoiceUI() { const btn=document.getElementById('voice-btn'),icon=document.getElementById('voice-icon'); if(appState.isListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} }
 
         function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
-        function renderMessages() {
-            document.getElementById('chat-container').innerHTML = appState.messages.map(msg => {
-                if (msg.sender === 'system') {
-                    if (msg.type === 'nav') return `<div class="flex justify-center fade-in my-3"><a href="${msg.url}" target="_blank" class="bg-blue-900/40 border border-blue-500/50 p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-blue-900/60 w-[80%]"><div class="bg-blue-600 rounded-full p-3"><i class="ph-fill ph-navigation-arrow text-white text-xl"></i></div><div class="flex-1"><p class="text-blue-200 text-xs font-bold mb-1">開始導航</p><p class="text-white font-bold text-lg truncate">${escapeHtml(msg.text.replace('前往：', ''))}</p></div><i class="ph-bold ph-arrow-right text-blue-400"></i></a></div>`;
-                    return `<div class="flex justify-center fade-in my-2"><div class="bg-slate-800/80 border border-slate-700 text-slate-300 text-xs py-1.5 px-4 rounded-full flex items-center space-x-2"><i class="ph-fill ph-info"></i><span>${escapeHtml(msg.text)}</span></div></div>`;
-                }
-                const isUser = msg.sender === 'user'; const modelInfo = isUser ? null : MODEL_CONFIG[msg.model];
-                let sourcesHTML = ''; if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`;
-                return `<div class="flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in">${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo.bg}"><i class="ph-fill ${modelInfo.icon} text-white text-sm"></i></div>` : ''}<div class="max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo.color} opacity-80">${modelInfo.name}</span>` : ''}<div class="msg-content text-sm leading-relaxed">${escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>${sourcesHTML}<p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p></div></div>`;
-            }).join(''); document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
-        }
+        function renderMessages() { document.getElementById('chat-container').innerHTML = appState.messages.map(msg => { if (msg.sender === 'system') { if (msg.type === 'nav') return `<div class="flex justify-center fade-in my-3"><a href="${msg.url}" target="_blank" class="bg-blue-900/40 border border-blue-500/50 p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-blue-900/60 w-[80%]"><div class="bg-blue-600 rounded-full p-3"><i class="ph-fill ph-navigation-arrow text-white text-xl"></i></div><div class="flex-1"><p class="text-blue-200 text-xs font-bold mb-1">開始導航</p><p class="text-white font-bold text-lg truncate">${escapeHtml(msg.text.replace('前往：', ''))}</p></div><i class="ph-bold ph-arrow-right text-blue-400"></i></a></div>`; return `<div class="flex justify-center fade-in my-2"><div class="bg-slate-800/80 border border-slate-700 text-slate-300 text-xs py-1.5 px-4 rounded-full flex items-center space-x-2"><i class="ph-fill ph-info"></i><span>${escapeHtml(msg.text)}</span></div></div>`; } const isUser = msg.sender === 'user'; const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; let sourcesHTML = ''; if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`; return `<div class="flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in">${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo.bg}"><i class="ph-fill ${modelInfo.icon} text-white text-sm"></i></div>` : ''}<div class="max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo.color} opacity-80">${modelInfo.name}</span>` : ''}<div class="msg-content text-sm leading-relaxed">${escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>${sourcesHTML}<p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p></div></div>`; }).join(''); document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight; }
         function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); renderMessages(); }
         function renderThinkingState(show) { const el = document.getElementById('thinking-indicator'); if(show && !el) document.getElementById('chat-container').insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); else if(!show && el) el.remove(); }
         
@@ -407,9 +346,9 @@
         function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
         function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
         function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); appState.detectedGeminiModel=null; closeSettings(); addMessage("設定已儲存", 'system'); }
+        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); appState.detectedGeminiModel=null; closeSettings(); addMessage("設定已儲存", 'system'); }
         function setModel(m){ appState.currentModel=m; updateModelUI(); }
-        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; document.getElementById('status-name').innerText=conf.name; document.getElementById('status-icon').className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-2 py-1 rounded text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'}`; }); document.getElementById('input-wrapper').className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='gpt'?'emerald':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(appState.isSearchEnabled){searchBtn.classList.add('text-blue-400','bg-blue-900/30');searchBtn.classList.remove('text-slate-500');if(badge)badge.classList.remove('hidden');if(hint)hint.classList.remove('hidden');}else{searchBtn.classList.remove('text-blue-400','bg-blue-900/30');searchBtn.classList.add('text-slate-500');if(badge)badge.classList.add('hidden');if(hint)hint.classList.add('hidden');} if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} }
+        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; document.getElementById('status-name').innerText=conf.name; document.getElementById('status-icon').className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); document.getElementById('input-wrapper').className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(appState.isSearchEnabled){searchBtn.classList.add('text-blue-400','bg-blue-900/30');searchBtn.classList.remove('text-slate-500');if(badge)badge.classList.remove('hidden');if(hint)hint.classList.remove('hidden');}else{searchBtn.classList.remove('text-blue-400','bg-blue-900/30');searchBtn.classList.add('text-slate-500');if(badge)badge.classList.add('hidden');if(hint)hint.classList.add('hidden');} if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} }
         function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
         function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
     </script>
