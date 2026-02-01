@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.3 - Docs Monitor</title>
+    <title>Nova 12.4 - 永久記憶版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -49,7 +49,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Smart Core 12.3</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Storage Core 12.4</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -207,8 +207,10 @@
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.3 智慧助理就緒！\n新增「Google Docs 監控」功能。\n請至設定中貼上您的 Apps Script URL 即可啟用。', sender: 'ai', model: 'gemini', time: getTime() }],
-            todos: [], notes: [],
+            messages: [{ id: 1, text: 'Nova 12.4 就緒！\n已啟用資料持久化，您的行程與筆記現在會儲存在瀏覽器中，重新整理頁面也不會遺失。', sender: 'ai', model: 'gemini', time: getTime() }],
+            // Load from localStorage or default to empty
+            todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
+            notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
             keys: { 
                 gemini: localStorage.getItem('nova_key_gemini')||'', 
@@ -242,6 +244,12 @@
             updateModelUI();
             if(appState.docMonitorUrl) startDocMonitor();
         };
+
+        // --- PERSISTENCE HELPER ---
+        function saveData() {
+            localStorage.setItem('nova_todos', JSON.stringify(appState.todos));
+            localStorage.setItem('nova_notes', JSON.stringify(appState.notes));
+        }
 
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
@@ -358,6 +366,7 @@
                     const content = todoMatch[1].trim();
                     if(content) {
                         appState.todos.push({id:Date.now(), text:content, done:false, time:'剛剛'});
+                        saveData(); // Save immediately
                         renderTodos();
                         addMessage(`👌 已將『${content}』加入行程清單`, 'system');
                         systemPromptAddon = `(系統: 使用者要求新增待辦事項 "${content}"，已成功加入清單)`;
@@ -368,6 +377,7 @@
                     if(content) {
                         const title = content.length > 15 ? content.substring(0,15)+'...' : content;
                         appState.notes.push({id:Date.now(), title: title, content: content, date:new Date().toLocaleDateString()});
+                        saveData(); // Save immediately
                         renderNotes();
                         addMessage(`📝 已儲存筆記：${title}`, 'system');
                         systemPromptAddon = `(系統: 使用者要求新增筆記 "${content}"，已成功儲存)`;
@@ -485,11 +495,11 @@
         function renderTodos() { document.getElementById('full-todo-list').innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; document.getElementById('mini-todo-list').innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; }
         function renderNotes() { document.getElementById('full-note-list').innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; document.getElementById('mini-note-list').innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; }
         function renderWeather() { const {temp,condition,humidity,wind,loc}=appState.weather; let icon='ph-cloud',color='text-slate-400',desc='多雲'; if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} document.getElementById('location-name').innerText=loc; document.getElementById('weather-temp').innerText=`${temp}°`; document.getElementById('weather-desc').innerText=desc; document.getElementById('weather-icon').className=`ph-fill ${icon} text-4xl ${color}`; document.getElementById('weather-humidity').innerText=`濕度 ${humidity}%`; document.getElementById('weather-wind').innerText=`風速 ${wind}km/h`; document.getElementById('mobile-weather-temp').innerText=loc==='未定位'?'定位':`${temp}°`; document.getElementById('mobile-weather-icon').className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; }
-        function toggleTodo(id){ const t=appState.todos.find(x=>x.id===id); if(t){t.done=!t.done;renderTodos();} }
-        function deleteTodo(id){ appState.todos=appState.todos.filter(x=>x.id!==id); renderTodos(); }
-        function deleteNote(id){ appState.notes=appState.notes.filter(x=>x.id!==id); renderNotes(); }
-        function addTodoManually(){ const t=prompt("任務"); if(t){appState.todos.push({id:Date.now(),text:t,done:false,time:'手動'});renderTodos();} }
-        function addNoteManually(){ const t=prompt("標題"),c=prompt("內容"); if(t&&c){appState.notes.push({id:Date.now(),title:t,content:c,date:new Date().toLocaleDateString()});renderNotes();} }
+        function toggleTodo(id){ const t=appState.todos.find(x=>x.id===id); if(t){t.done=!t.done;saveData();renderTodos();} }
+        function deleteTodo(id){ appState.todos=appState.todos.filter(x=>x.id!==id); saveData(); renderTodos(); }
+        function deleteNote(id){ appState.notes=appState.notes.filter(x=>x.id!==id); saveData(); renderNotes(); }
+        function addTodoManually(){ const t=prompt("任務"); if(t){appState.todos.push({id:Date.now(),text:t,done:false,time:'手動'});saveData();renderTodos();} }
+        function addNoteManually(){ const t=prompt("標題"),c=prompt("內容"); if(t&&c){appState.notes.push({id:Date.now(),title:t,content:c,date:new Date().toLocaleDateString()});saveData();renderNotes();} }
         function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
         function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
         function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
@@ -502,5 +512,4 @@
     </script>
 </body>
 </html>
-
 
