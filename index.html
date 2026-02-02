@@ -112,20 +112,20 @@ function doGet(e) {
   var body = DocumentApp.getActiveDocument().getBody();
   var text = "";
   var paragraphs = body.getParagraphs();
-  for (var i = 0; i < paragraphs.length; i++) {
+  for (var i = 0; i &lt; paragraphs.length; i++) {
     var p = paragraphs[i];
     var numChildren = p.getNumChildren();
     if (numChildren == 0) {
-      text += p.getText() + "<br>";
+      text += p.getText() + "&lt;br&gt;";
     } else {
-      for (var j = 0; j < numChildren; j++) {
+      for (var j = 0; j &lt; numChildren; j++) {
         var child = p.getChild(j);
         if (child.getType() == DocumentApp.ElementType.TEXT) {
           var t = child.asText();
           var content = t.getText();
           var url = t.getLinkUrl();
           if (url) {
-            text += '<a href="' + url + '" target="_blank" style="color: #60a5fa; text-decoration: underline;">' + content + '</a>';
+            text += '&lt;a href="' + url + '" target="_blank" style="color: #60a5fa; text-decoration: underline;"&gt;' + content + '&lt;/a&gt;';
           } else {
             text += content;
           }
@@ -133,7 +133,7 @@ function doGet(e) {
            text += " [圖片] ";
         }
       }
-      text += "<br>";
+      text += "&lt;br&gt;";
     }
   }
   return ContentService.createTextOutput(text);
