@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.14.2 - Stability Fix</title>
+    <title>Nova 12.14.4 - Cerebras Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,7 +57,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate 12.14.2</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate 12.14.4</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -194,6 +194,7 @@ function doPost(e) {
                             <button onclick="setModel('gemini')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-blue-600 text-white transition-all whitespace-nowrap" data-model="gemini">Gemini</button>
                             <button onclick="setModel('openrouter')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="openrouter">OpenRouter</button>
                             <button onclick="setModel('zeabur')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="zeabur">Zeabur</button>
+                            <button onclick="setModel('cerebras')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="cerebras">Cerebras</button>
                             <button onclick="setModel('gpt')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="gpt">GPT</button>
                          </div>
                     </div>
@@ -335,20 +336,39 @@ function doPost(e) {
             let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
             if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
             if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
-            const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; 
-            const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
-            const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
-            const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
-            const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
-            const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
-            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
-            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
+            
+            const locEl = document.getElementById('location-name'); 
+            if(locEl) locEl.innerText=loc; 
+            
+            const tempEl = document.getElementById('weather-temp'); 
+            if(tempEl) tempEl.innerText=`${temp}°`; 
+            
+            const descEl = document.getElementById('weather-desc'); 
+            if(descEl) descEl.innerText=desc; 
+            
+            const iconEl = document.getElementById('weather-icon'); 
+            if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
+            
+            const humEl = document.getElementById('weather-humidity'); 
+            if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
+            
+            const windEl = document.getElementById('weather-wind'); 
+            if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
+            
+            const mTemp = document.getElementById('mobile-weather-temp'); 
+            if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
+            
+            const mIcon = document.getElementById('mobile-weather-icon'); 
+            if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
         }
 
         function updateModelUI(){ 
             const conf=MODEL_CONFIG[appState.currentModel]; 
-            const nameEl = document.getElementById('status-name'); if(nameEl) nameEl.innerText=conf.name;
-            const iconEl = document.getElementById('status-icon'); if(iconEl) iconEl.className=`ph-fill ${conf.icon} text-lg ${conf.color}`;
+            const statusName = document.getElementById('status-name');
+            if(statusName) statusName.innerText=conf.name; 
+            
+            const statusIcon = document.getElementById('status-icon');
+            if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; 
             
             document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); 
             const wrap = document.getElementById('input-wrapper');
@@ -371,6 +391,7 @@ function doPost(e) {
                     if(hint)hint.classList.add('hidden');
                 } 
             }
+            
             if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} 
             
             const orBadge=document.getElementById('openrouter-badge');
@@ -384,7 +405,7 @@ function doPost(e) {
                     orBadge.classList.add('hidden'); 
                     orBadge.classList.remove('flex'); 
                 } 
-            }
+            } 
         }
 
         // --- ACTIONS ---
@@ -505,7 +526,7 @@ function doPost(e) {
                         const content = await fetchUrlViaGas(url); // Use GAS 5.0 Scraper
                         if (content) {
                             injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`;
-                            if (appState.keys.gemini) modelToUse = 'gemini'; 
+                            // Model switch to Gemini is no longer forced
                         } else {
                             systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`;
                             if (appState.keys.gemini) { modelToUse = 'gemini'; enableSearchTool = true; }
@@ -616,17 +637,14 @@ function doPost(e) {
         function startDocMonitor() {
             if(appState.docMonitorInterval) clearInterval(appState.docMonitorInterval);
             if(!appState.docMonitorUrl) return;
-            const badge = document.getElementById('doc-monitor-badge');
-            if (badge) {
-                badge.classList.remove('hidden');
-                badge.classList.add('flex');
-            }
+            document.getElementById('doc-monitor-badge').classList.remove('hidden');
+            document.getElementById('doc-monitor-badge').classList.add('flex');
         }
 
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.14.2 就緒！\n我已升級為「超級代理」模式。\n1. 搜尋關鍵字 -> 自動聯網回答\n2. 貼上網址 -> 自動清空文件、抓取內容並摘要\n3. 對話紀錄已永久保存，可隨時刪除。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.14.3 就緒！\n我已升級為「超級代理」模式。\n1. 搜尋關鍵字 -> 自動聯網回答\n2. 貼上網址 -> 自動清空文件、抓取內容並摘要\n3. 對話紀錄已永久保存，可隨時刪除。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
