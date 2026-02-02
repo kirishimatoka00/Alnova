@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.9 - Docs Pro</title>
+    <title>Nova 12.10 - Web Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -52,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Pro 12.9</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Web Reader 12.10</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -251,7 +251,7 @@ function doPost(e) {
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
                             <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
                             <button id="voice-btn" onclick="toggleVoice()" class="p-3 mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95 flex-shrink-0"><i id="voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
-                            <input type="text" id="user-input" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
+                            <input type="text" id="user-input" placeholder="試試：「貼上網址幫我摘要」或「doc: 買牛奶」..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
                             <button onclick="handleSendMessage()" id="send-btn" class="ml-2 p-3 rounded-lg text-white bg-blue-600 hover:opacity-90 flex-shrink-0 transition-all"><i id="send-icon" class="ph-bold ph-paper-plane-right"></i></button>
                         </div>
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
@@ -351,7 +351,7 @@ function doPost(e) {
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.9 就緒！\n新增「完整圖片與連結顯示」支援。\n請務必至設定更新 Apps Script 程式碼，才能在瀏覽器中看到文件中的圖片。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.10 就緒！\n新增「網頁連結讀取」功能。\n貼上任何文章或影片網址，我將嘗試為您分析摘要。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -407,6 +407,37 @@ function doPost(e) {
 
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
+        // --- WEB SCRAPER (The New Feature) ---
+        async function extractContentFromUrl(url) {
+            try {
+                // Ignore complex SPAs that need headless browser, defer to Gemini's knowledge/search
+                if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('facebook.com') || url.includes('twitter.com') || url.includes('x.com')) {
+                    return null;
+                }
+
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                
+                if (!data.contents) return null;
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data.contents, 'text/html');
+                
+                // Cleanup
+                const scripts = doc.querySelectorAll('script, style, nav, footer, header, aside, iframe, noscript');
+                scripts.forEach(node => node.remove());
+                
+                let text = doc.body.innerText || "";
+                text = text.replace(/\s+/g, ' ').trim();
+                
+                return text.substring(0, 15000); // Limit context
+            } catch (e) {
+                console.error("Link fetch failed", e);
+                return null;
+            }
+        }
+
         // --- PASTE HANDLER ---
         function handlePaste(e) {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
@@ -417,24 +448,19 @@ function doPost(e) {
                     const reader = new FileReader();
                     reader.onload = function(event) {
                         appState.pastedImageBase64 = event.target.result;
-                        // Show visual indicator
                         document.getElementById('paste-indicator').classList.remove('hidden');
                         document.getElementById('doc-input-main').value = "[已貼上圖片，請點擊發送]";
                     };
                     reader.readAsDataURL(blob);
-                    e.preventDefault(); // Stop default paste
+                    e.preventDefault(); 
                 }
             }
         }
 
-        // --- FORMATTER (UPDATED: Trust System HTML) ---
+        // --- FORMATTER ---
         function formatMessage(text, isTrustedHtml = false) {
             if (!text) return '';
-            if (isTrustedHtml) {
-                // Return trusted HTML directly (for Doc content with links/images)
-                return text; 
-            }
-            // Standard user message formatting
+            if (isTrustedHtml) return text; 
             let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
             safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-400 underline break-all">$1</a>');
@@ -451,11 +477,9 @@ function doPost(e) {
             });
             const mainInput = document.getElementById('doc-input-main');
             const subInput = document.getElementById('doc-input-sub');
-            const indicator = document.getElementById('paste-indicator');
             
-            // Reset paste state on switch
             appState.pastedImageBase64 = null;
-            indicator.classList.add('hidden');
+            document.getElementById('paste-indicator').classList.add('hidden');
 
             if(mode === 'text') {
                 mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片...";
@@ -478,11 +502,10 @@ function doPost(e) {
             
             let payload = {};
 
-            // Handle Pasted Image First
             if (appState.pastedImageBase64) {
                 payload = { type: 'image_base64', content: appState.pastedImageBase64 };
             } else {
-                if(!mainVal && appState.writeMode !== 'image_base64') return; // Empty check
+                if(!mainVal && appState.writeMode !== 'image_base64') return; 
 
                 if(appState.writeMode === 'text') {
                     payload = { type: 'text', content: mainVal };
@@ -502,8 +525,6 @@ function doPost(e) {
                     body: JSON.stringify(payload)
                 });
                 addMessage(`📝 指令發送成功`, 'system');
-                
-                // Cleanup
                 document.getElementById('doc-input-main').value = '';
                 document.getElementById('doc-input-sub').value = '';
                 appState.pastedImageBase64 = null;
@@ -523,7 +544,6 @@ function doPost(e) {
             try {
                 const res = await fetch(appState.docMonitorUrl);
                 const text = await res.text();
-                // If trusted, directly inject. The GAS guarantees safe HTML structure.
                 area.innerHTML = text || '<div class="text-center text-slate-400">文件是空的</div>';
             } catch(e) { area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>'; }
         }
@@ -548,7 +568,6 @@ function doPost(e) {
                     appState.messages.push(sysMsg);
                     renderMessages();
                     if(appState.keys.gemini || appState.keys.openrouter || appState.zeaburUrl) {
-                         // Strip tags for AI context
                          const strippedText = text.replace(/<[^>]*>?/gm, '');
                          handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容。內容：${strippedText})`, true);
                     }
@@ -605,7 +624,28 @@ function doPost(e) {
 
             try {
                 let systemPromptAddon = "", actionTriggered = false;
+                let injectedContext = ""; // For web scraping
                 
+                // 1. Detect URL for Web Scraping
+                const urlMatch = text.match(/https?:\/\/[^\s]+/);
+                if (urlMatch) {
+                    const url = urlMatch[0];
+                    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                        // YouTube Special Handling
+                        systemPromptAddon += `(系統: 使用者提供了一個 YouTube 連結 ${url}。請務必使用您的「Google Search」工具或內部知識來搜尋該影片的標題、內容摘要或相關評論，並回答使用者的問題。)`;
+                    } else {
+                        // General Web Scraping
+                        addMessage("🔍 正在讀取網頁內容...", "system");
+                        const scrapedText = await extractContentFromUrl(url);
+                        if (scrapedText) {
+                            injectedContext = `\n\n[系統自動讀取的網頁內容 (${url})]:\n${scrapedText}\n\n[指令]: 請根據上述內容回答使用者的問題。`;
+                        } else {
+                            systemPromptAddon += `(系統: 嘗試讀取網頁失敗，請嘗試使用 Search 工具)`;
+                        }
+                    }
+                }
+
+                // 2. Intent Parsing (Doc, Todo, etc.)
                 const navMatch = text.match(/(?:導航|帶我去|怎麼去|路線|前往)\s*(.+)/i);
                 const todoMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:排程|行程|任務|待辦|提醒|todo|task)(?:我|一下)?\s*[:：]?\s*(.+)/i);
                 const noteMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:筆記|記事|紀錄|記錄|note|memo)(?:一下)?\s*[:：]?\s*(.+)/i);
@@ -656,12 +696,11 @@ function doPost(e) {
 
                 let docContext = "";
                 if (appState.lastDocContent) {
-                    // Strip HTML for context window
                     const plain = appState.lastDocContent.replace(/<[^>]*>?/gm, '');
                     docContext = `\n[參考資料: Google Doc 摘要]: ${plain.substring(0, 500)}...`;
                 }
 
-                const prompt = actionTriggered ? `${text}\n${systemPromptAddon}\n(請針對系統動作做極簡短確認)` : `${text}${docContext}`;
+                const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}\n${docContext}`;
                 const res = await fetchAIResponse(prompt, appState.currentModel);
                 
                 if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel);
