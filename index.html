@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.10 - Web Reader</title>
+    <title>Nova 12.11 - Video Accuracy</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -52,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Web Reader 12.10</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Web Reader 12.11</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -351,7 +351,7 @@ function doPost(e) {
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.10 就緒！\n新增「網頁連結讀取」功能。\n貼上任何文章或影片網址，我將嘗試為您分析摘要。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.11 就緒！\n新增「YouTube 準確分析」模式。\n貼上 YouTube 連結時，我會先鎖定影片標題與作者，再進行精確搜尋，大幅減少幻覺。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -434,6 +434,23 @@ function doPost(e) {
                 return text.substring(0, 15000); // Limit context
             } catch (e) {
                 console.error("Link fetch failed", e);
+                return null;
+            }
+        }
+
+        // --- YOUTUBE HELPER ---
+        async function getYouTubeMetadata(url) {
+            try {
+                // Official oEmbed endpoint
+                const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+                // Use proxy to bypass potential CORS
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oembedUrl)}`;
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                if (!data.contents) return null;
+                return JSON.parse(data.contents);
+            } catch (e) {
+                console.error("YouTube oEmbed failed", e);
                 return null;
             }
         }
@@ -632,7 +649,13 @@ function doPost(e) {
                     const url = urlMatch[0];
                     if (url.includes('youtube.com') || url.includes('youtu.be')) {
                         // YouTube Special Handling
-                        systemPromptAddon += `(系統: 使用者提供了一個 YouTube 連結 ${url}。請務必使用您的「Google Search」工具或內部知識來搜尋該影片的標題、內容摘要或相關評論，並回答使用者的問題。)`;
+                        addMessage("🔍 正在取得影片資訊...", "system");
+                        const meta = await getYouTubeMetadata(url);
+                        if (meta) {
+                            systemPromptAddon += `(系統資料: 使用者提供的影片是 YouTube 影片，標題為「${meta.title}」，作者為「${meta.author_name}」。\n重要指令: 請務必使用 Google Search 搜尋此精確標題，尋找該影片的文字記錄、字幕摘要或評論內容。請基於搜尋到的真實資訊進行摘要，若找不到具體內容，請明確告知無法讀取影片內容，切勿自行編造。)`;
+                        } else {
+                            systemPromptAddon += `(系統資料: 使用者提供了一個 YouTube 連結 ${url}。請使用 Google Search 搜尋該網址或影片 ID 以獲取內容。)`;
+                        }
                     } else {
                         // General Web Scraping
                         addMessage("🔍 正在讀取網頁內容...", "system");
