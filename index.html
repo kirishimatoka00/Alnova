@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.8 - Docs Ultimate</title>
+    <title>Nova 12.9 - Docs Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +33,10 @@
         .dot-flashing::before { left: -10px; animation-delay: 0s; }
         .dot-flashing::after { left: 10px; animation-delay: 1s; }
         @keyframes dot-flashing { 0% { background-color: #9880ff; } 50%, 100% { background-color: rgba(152, 128, 255, 0.2); } }
-        .msg-content a { color: #60a5fa; text-decoration: underline; word-break: break-all; }
+        /* Enhanced content styling for Docs content */
+        .msg-content a, #doc-content-area a { color: #60a5fa; text-decoration: underline; word-break: break-all; cursor: pointer; }
+        .msg-content img, #doc-content-area img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.1); }
+        .msg-content p, #doc-content-area div { margin-bottom: 0.5em; line-height: 1.6; }
         .slide-in { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -49,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Ultimate 12.8</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Pro 12.9</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -104,39 +107,61 @@
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼以支援圖片貼上與連結顯示</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼以支援圖片與超連結 (必讀)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">請複製下方所有程式碼，取代您 Google Apps Script 內的內容，並執行 <b>「部署」>「管理部署」>「編輯」>「新版本」>「部署」</b>。</p>
+                                    <p class="mb-2">此版本腳本可將圖片轉為 Base64 顯示，並保留超連結。請全選複製並覆蓋 Apps Script：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
-  var body = DocumentApp.getActiveDocument().getBody();
-  var text = "";
-  var paragraphs = body.getParagraphs();
-  for (var i = 0; i &lt; paragraphs.length; i++) {
-    var p = paragraphs[i];
-    var numChildren = p.getNumChildren();
-    if (numChildren == 0) {
-      text += p.getText() + "&lt;br&gt;";
-    } else {
-      for (var j = 0; j &lt; numChildren; j++) {
-        var child = p.getChild(j);
-        if (child.getType() == DocumentApp.ElementType.TEXT) {
-          var t = child.asText();
-          var content = t.getText();
-          var url = t.getLinkUrl();
-          if (url) {
-            text += '&lt;a href="' + url + '" target="_blank" style="color: #60a5fa; text-decoration: underline;"&gt;' + content + '&lt;/a&gt;';
-          } else {
-            text += content;
-          }
-        } else if (child.getType() == DocumentApp.ElementType.INLINE_IMAGE) {
-           text += " [圖片] ";
+  try {
+    var body = DocumentApp.getActiveDocument().getBody();
+    var numChildren = body.getNumChildren();
+    var output = "";
+    
+    for (var i = 0; i &lt; numChildren; i++) {
+      var child = body.getChild(i);
+      
+      // 處理段落與列表
+      if (child.getType() == DocumentApp.ElementType.PARAGRAPH || child.getType() == DocumentApp.ElementType.LIST_ITEM) {
+        var p = (child.getType() == DocumentApp.ElementType.LIST_ITEM) ? child.asListItem() : child.asParagraph();
+        var numSub = p.getNumChildren();
+        
+        if (numSub == 0) { 
+          output += "&lt;div style='min-height:1em'&gt;&lt;/div&gt;"; 
+          continue; 
         }
+        
+        output += "&lt;div&gt;";
+        for (var j = 0; j &lt; numSub; j++) {
+          var el = p.getChild(j);
+          
+          if (el.getType() == DocumentApp.ElementType.TEXT) {
+            var t = el.asText();
+            var content = t.getText();
+            var url = t.getLinkUrl();
+            if (url) {
+              output += "&lt;a href='" + url + "' target='_blank'&gt;" + content + "&lt;/a&gt;";
+            } else {
+              output += content;
+            }
+          } 
+          else if (el.getType() == DocumentApp.ElementType.INLINE_IMAGE) {
+            try {
+              var img = el.asInlineImage();
+              var blob = img.getBlob();
+              var b64 = Utilities.base64Encode(blob.getBytes());
+              output += "&lt;img src='data:" + blob.getContentType() + ";base64," + b64 + "' /&gt;";
+            } catch(err) {
+              output += "[圖片無法顯示]";
+            }
+          }
+        }
+        output += "&lt;/div&gt;";
       }
-      text += "&lt;br&gt;";
     }
+    return ContentService.createTextOutput(output).setMimeType(ContentService.MimeType.TEXT);
+  } catch(e) {
+    return ContentService.createTextOutput("Error: " + e.toString());
   }
-  return ContentService.createTextOutput(text);
 }
 
 function doPost(e) {
@@ -226,7 +251,7 @@ function doPost(e) {
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
                             <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
                             <button id="voice-btn" onclick="toggleVoice()" class="p-3 mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95 flex-shrink-0"><i id="voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
-                            <input type="text" id="user-input" placeholder="試試：「doc: 買牛奶」或「提醒我 3點開會」..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
+                            <input type="text" id="user-input" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
                             <button onclick="handleSendMessage()" id="send-btn" class="ml-2 p-3 rounded-lg text-white bg-blue-600 hover:opacity-90 flex-shrink-0 transition-all"><i id="send-icon" class="ph-bold ph-paper-plane-right"></i></button>
                         </div>
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
@@ -326,7 +351,7 @@ function doPost(e) {
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.8 就緒！\n新增「超連結支援」與「直接貼上圖片」功能。\n請務必至設定更新 Apps Script 程式碼以啟用新功能。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.9 就緒！\n新增「完整圖片與連結顯示」支援。\n請務必至設定更新 Apps Script 程式碼，才能在瀏覽器中看到文件中的圖片。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -406,9 +431,7 @@ function doPost(e) {
         function formatMessage(text, isTrustedHtml = false) {
             if (!text) return '';
             if (isTrustedHtml) {
-                // If trusted (from our own GAS), we assume the HTML structure is safe-ish
-                // We only do minimal processing or return as is.
-                // NOTE: The GAS returns <a href...>...</a>. We should return it.
+                // Return trusted HTML directly (for Doc content with links/images)
                 return text; 
             }
             // Standard user message formatting
