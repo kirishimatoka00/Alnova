@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.11 - Video Accuracy</title>
+    <title>Nova 12.12 - Smart Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -52,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Web Reader 12.11</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Smart Search 12.12</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -251,7 +251,7 @@ function doPost(e) {
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
                             <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
                             <button id="voice-btn" onclick="toggleVoice()" class="p-3 mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95 flex-shrink-0"><i id="voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
-                            <input type="text" id="user-input" placeholder="試試：「貼上網址幫我摘要」或「doc: 買牛奶」..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
+                            <input type="text" id="user-input" placeholder="試試：「搜尋：今日新聞」或貼上 YouTube 連結..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
                             <button onclick="handleSendMessage()" id="send-btn" class="ml-2 p-3 rounded-lg text-white bg-blue-600 hover:opacity-90 flex-shrink-0 transition-all"><i id="send-icon" class="ph-bold ph-paper-plane-right"></i></button>
                         </div>
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
@@ -351,7 +351,7 @@ function doPost(e) {
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.11 就緒！\n新增「YouTube 準確分析」模式。\n貼上 YouTube 連結時，我會先鎖定影片標題與作者，再進行精確搜尋，大幅減少幻覺。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.12 就緒！\n新增「智慧聯網搜尋」與「連結深度分析」。\n試試看輸入「搜尋：台北美食」或貼上影片連結，我會利用 Gemini 幫您深入查找。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -407,31 +407,23 @@ function doPost(e) {
 
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
-        // --- WEB SCRAPER (The New Feature) ---
+        // --- WEB SCRAPER ---
         async function extractContentFromUrl(url) {
             try {
-                // Ignore complex SPAs that need headless browser, defer to Gemini's knowledge/search
                 if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('facebook.com') || url.includes('twitter.com') || url.includes('x.com')) {
                     return null;
                 }
-
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
                 const res = await fetch(proxyUrl);
                 const data = await res.json();
-                
                 if (!data.contents) return null;
-
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data.contents, 'text/html');
-                
-                // Cleanup
                 const scripts = doc.querySelectorAll('script, style, nav, footer, header, aside, iframe, noscript');
                 scripts.forEach(node => node.remove());
-                
                 let text = doc.body.innerText || "";
                 text = text.replace(/\s+/g, ' ').trim();
-                
-                return text.substring(0, 15000); // Limit context
+                return text.substring(0, 15000); 
             } catch (e) {
                 console.error("Link fetch failed", e);
                 return null;
@@ -441,9 +433,7 @@ function doPost(e) {
         // --- YOUTUBE HELPER ---
         async function getYouTubeMetadata(url) {
             try {
-                // Official oEmbed endpoint
                 const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-                // Use proxy to bypass potential CORS
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oembedUrl)}`;
                 const res = await fetch(proxyUrl);
                 const data = await res.json();
@@ -494,10 +484,8 @@ function doPost(e) {
             });
             const mainInput = document.getElementById('doc-input-main');
             const subInput = document.getElementById('doc-input-sub');
-            
             appState.pastedImageBase64 = null;
             document.getElementById('paste-indicator').classList.add('hidden');
-
             if(mode === 'text') {
                 mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片...";
                 subInput.classList.add('hidden');
@@ -513,42 +501,28 @@ function doPost(e) {
 
         async function handleDocWriteBtn() {
             if(!appState.docMonitorUrl) return alert("請先至設定輸入 Google Docs Apps Script URL");
-            
             const mainVal = document.getElementById('doc-input-main').value.trim();
             const subVal = document.getElementById('doc-input-sub').value.trim();
-            
             let payload = {};
-
             if (appState.pastedImageBase64) {
                 payload = { type: 'image_base64', content: appState.pastedImageBase64 };
             } else {
                 if(!mainVal && appState.writeMode !== 'image_base64') return; 
-
-                if(appState.writeMode === 'text') {
-                    payload = { type: 'text', content: mainVal };
-                } else if (appState.writeMode === 'image') {
-                    payload = { type: 'image', content: mainVal };
-                } else if (appState.writeMode === 'link') {
+                if(appState.writeMode === 'text') payload = { type: 'text', content: mainVal };
+                else if (appState.writeMode === 'image') payload = { type: 'image', content: mainVal };
+                else if (appState.writeMode === 'link') {
                     if(!subVal) return alert("請輸入連結網址");
                     payload = { type: 'link', text: mainVal, content: subVal };
                 }
             }
-
             try {
-                await fetch(appState.docMonitorUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload)
-                });
+                await fetch(appState.docMonitorUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
                 addMessage(`📝 指令發送成功`, 'system');
                 document.getElementById('doc-input-main').value = '';
                 document.getElementById('doc-input-sub').value = '';
                 appState.pastedImageBase64 = null;
                 document.getElementById('paste-indicator').classList.add('hidden');
-            } catch(e) {
-                alert("寫入失敗，請檢查網路或 URL");
-            }
+            } catch(e) { alert("寫入失敗，請檢查網路或 URL"); }
         }
 
         // --- DOC VIEWER ---
@@ -606,10 +580,7 @@ function doPost(e) {
                 const text = await res.text();
                 alert("連線成功！");
                 document.getElementById('doc-monitor-status').innerText = "測試成功";
-            } catch(e) {
-                alert("連線失敗：" + e.message);
-                document.getElementById('doc-monitor-status').innerText = "測試失敗";
-            }
+            } catch(e) { alert("連線失敗：" + e.message); document.getElementById('doc-monitor-status').innerText = "測試失敗"; }
         }
 
         function updateDocStatus(msg) { const el = document.getElementById('doc-monitor-status'); if(el) el.innerText = msg; }
@@ -619,9 +590,7 @@ function doPost(e) {
              fetchAIResponse(text, appState.currentModel).then(res => {
                  if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel);
                  else addMessage(res.text, 'ai', appState.currentModel, res.sources);
-             }).catch(e => {
-                 addMessage("無法分析文件更新：" + e.message, 'system');
-             });
+             }).catch(e => { addMessage("無法分析文件更新：" + e.message, 'system'); });
         }
 
         // --- CORE HANDLER ---
@@ -641,34 +610,41 @@ function doPost(e) {
 
             try {
                 let systemPromptAddon = "", actionTriggered = false;
-                let injectedContext = ""; // For web scraping
+                let injectedContext = ""; 
                 
-                // 1. Detect URL for Web Scraping
+                // --- 1. Detect Search Intent ---
+                const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
                 const urlMatch = text.match(/https?:\/\/[^\s]+/);
+                
+                // Smart Switch Logic: Use Gemini if available for search/url tasks
+                let useGeminiForSearch = false;
+                if ((urlMatch || searchMatch) && appState.keys.gemini) {
+                    useGeminiForSearch = true;
+                }
+
+                // --- 2. URL Processing ---
                 if (urlMatch) {
                     const url = urlMatch[0];
                     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                        // YouTube Special Handling
                         addMessage("🔍 正在取得影片資訊...", "system");
                         const meta = await getYouTubeMetadata(url);
                         if (meta) {
-                            systemPromptAddon += `(系統資料: 使用者提供的影片是 YouTube 影片，標題為「${meta.title}」，作者為「${meta.author_name}」。\n重要指令: 請務必使用 Google Search 搜尋此精確標題，尋找該影片的文字記錄、字幕摘要或評論內容。請基於搜尋到的真實資訊進行摘要，若找不到具體內容，請明確告知無法讀取影片內容，切勿自行編造。)`;
+                            systemPromptAddon += `(系統資料: 使用者提供的影片是 YouTube 影片，標題為「${meta.title}」，作者為「${meta.author_name}」。\n重要指令: 請務必使用 Google Search 搜尋此精確標題，尋找該影片的文字記錄、字幕摘要或評論內容。請基於搜尋到的真實資訊進行摘要，若找不到具體內容，請明確告知無法讀取影片內容。)`;
                         } else {
                             systemPromptAddon += `(系統資料: 使用者提供了一個 YouTube 連結 ${url}。請使用 Google Search 搜尋該網址或影片 ID 以獲取內容。)`;
                         }
                     } else {
-                        // General Web Scraping
                         addMessage("🔍 正在讀取網頁內容...", "system");
                         const scrapedText = await extractContentFromUrl(url);
                         if (scrapedText) {
-                            injectedContext = `\n\n[系統自動讀取的網頁內容 (${url})]:\n${scrapedText}\n\n[指令]: 請根據上述內容回答使用者的問題。`;
+                            injectedContext = `\n\n[系統自動讀取的網頁內容 (${url})]:\n${scrapedText}\n\n[指令]: 請先參考上述內容。若資訊不足，請使用 Google Search 搜尋相關資訊補充回答。`;
                         } else {
-                            systemPromptAddon += `(系統: 嘗試讀取網頁失敗，請嘗試使用 Search 工具)`;
+                            systemPromptAddon += `(系統: 嘗試讀取網頁失敗，請務必使用 Google Search 工具搜尋該網址內容)`;
                         }
                     }
                 }
 
-                // 2. Intent Parsing (Doc, Todo, etc.)
+                // --- 3. Intent Parsing (Doc, Todo, etc.) ---
                 const navMatch = text.match(/(?:導航|帶我去|怎麼去|路線|前往)\s*(.+)/i);
                 const todoMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:排程|行程|任務|待辦|提醒|todo|task)(?:我|一下)?\s*[:：]?\s*(.+)/i);
                 const noteMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:筆記|記事|紀錄|記錄|note|memo)(?:一下)?\s*[:：]?\s*(.+)/i);
@@ -686,12 +662,7 @@ function doPost(e) {
                     actionTriggered = true; 
                 } else if (docWriteMatch) {
                     const content = docWriteMatch[1].trim();
-                    await fetch(appState.docMonitorUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({ type: 'text', content: content })
-                    });
+                    await fetch(appState.docMonitorUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'text', content: content }) });
                     systemPromptAddon = `(系統: 使用者要求寫入Google Doc，內容為"${content}"，已執行寫入動作)`;
                     actionTriggered = true;
                 } else if (todoMatch) {
@@ -724,10 +695,24 @@ function doPost(e) {
                 }
 
                 const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}\n${docContext}`;
-                const res = await fetchAIResponse(prompt, appState.currentModel);
                 
-                if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel);
-                else addMessage(res.text, 'ai', appState.currentModel, res.sources);
+                // Determine model and options
+                let modelToUse = appState.currentModel;
+                let options = {};
+                
+                if (useGeminiForSearch) {
+                    // Force enable search tool
+                    options.enableSearch = true;
+                    if (modelToUse !== 'gemini') {
+                        modelToUse = 'gemini'; // Switch to Gemini for grounding
+                        if(!actionTriggered) addMessage("🔍 切換至 Gemini 進行深度搜尋...", "system");
+                    }
+                }
+
+                const res = await fetchAIResponse(prompt, modelToUse, options);
+                
+                if(typeof res === 'string') addMessage(res, 'ai', modelToUse);
+                else addMessage(res.text, 'ai', modelToUse, res.sources);
 
             } catch (error) {
                 console.error("Handler Error:", error);
@@ -740,7 +725,7 @@ function doPost(e) {
         }
 
         // --- AI API ---
-        async function fetchAIResponse(userText, model) {
+        async function fetchAIResponse(userText, model, options = {}) {
             const fetchWithTimeout = async (url, options, timeout = 25000) => {
                 const controller = new AbortController();
                 const id = setTimeout(() => controller.abort(), timeout);
@@ -764,19 +749,30 @@ function doPost(e) {
                 if(model === 'gemini') {
                     if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key);
                     const name = appState.detectedGeminiModel.replace('models/', '');
+                    
+                    // Build payload with tools if needed
                     const payload = { contents:[{parts:[{text:userText}]}] };
-                    if (appState.isSearchEnabled) payload.tools = [{google_search:{}}];
+                    if (appState.isSearchEnabled || options.enableSearch) {
+                        payload.tools = [{google_search:{}}];
+                    }
+
                     const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
                     const data = await res.json();
                     if(data.error) {
-                        if (appState.isSearchEnabled) { // Fallback
-                            const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contents:[{parts:[{text:userText}]}] }) });
-                            const d = await retry.json(); return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容";
+                        // Retry without tools if tool-use failed
+                        if (options.enableSearch || appState.isSearchEnabled) {
+                             const retryPayload = { contents:[{parts:[{text:userText}]}] };
+                             const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(retryPayload) });
+                             const d = await retry.json();
+                             return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (重試)";
                         }
                         throw new Error(data.error.message);
                     }
                     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無內容";
-                    let sources = []; data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); });
+                    let sources = []; 
+                    data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { 
+                        if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); 
+                    });
                     return {text, sources};
                 } else if (model === 'openrouter') {
                     const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/nova-ai', 'X-Title': 'Nova AI' }, body: JSON.stringify({ model: appState.openRouterModel, messages: [{ role: 'user', content: userText }] }) });
@@ -800,9 +796,11 @@ function doPost(e) {
             const data = await res.json();
             if(data.error) throw new Error(data.error.message);
             const models = data.models.filter(m => m.supportedGenerationMethods?.includes("generateContent"));
-            return (models.find(m=>m.name.includes("gemini-1.5-flash")) || models.find(m=>m.name.includes("gemini-1.5-pro")) || models[0]).name;
+            // Prefer Pro for better reasoning/search
+            return (models.find(m=>m.name.includes("gemini-1.5-pro")) || models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name;
         }
 
+        // ... existing UI helpers ...
         function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
         function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
         function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
