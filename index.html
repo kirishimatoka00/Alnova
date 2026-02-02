@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.13 - Google Bridge</title>
+    <title>Nova 12.13.2 - Error Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -52,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Google Bridge 12.13.1</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Google Bridge 12.13.2</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -350,7 +350,7 @@ function doPost(e) {
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.13 就緒！\n新增「Google 雲端爬蟲」與「智慧聯網搜尋」。\n貼上網址時，我會利用 Google Doc 的能力進行強力抓取。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.13.2 就緒！\n已優化錯誤處理與網頁抓取功能。\n遇到無法讀取的情況時，現在會顯示更詳細的錯誤原因。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -785,7 +785,12 @@ function doPost(e) {
                              const retryPayload = { contents:[{parts:[{text:userText}]}] };
                              const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(retryPayload) });
                              const d = await retry.json();
-                             return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (重試)";
+                             
+                             if (d.error) return `⚠️ API 重試失敗: ${d.error.message}`;
+                             if (d.promptFeedback && d.promptFeedback.blockReason) return `⚠️ 內容被阻擋: ${d.promptFeedback.blockReason}`;
+                             if (!d.candidates || !d.candidates[0] || !d.candidates[0].content) return "⚠️ 無法生成內容 (可能觸發安全過濾或無回應)";
+                             
+                             return d.candidates[0].content.parts[0].text;
                         }
                         throw new Error(data.error.message);
                     }
