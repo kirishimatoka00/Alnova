@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.5 - Zeabur 擴充版</title>
+    <title>Nova 12.6 - Google Docs 讀寫版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -49,7 +49,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Zeabur Ready 12.5</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Writer 12.6</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -98,17 +98,35 @@
                             <label class="block text-xs text-pink-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-plant"></i> Zeabur / 自訂 API</label>
                             <input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-2" placeholder="API URL (例如: https://.../v1/chat/completions)">
                             <input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-1" placeholder="API Key (選填)">
-                            <p class="text-[10px] text-slate-500 mt-1">適用於 Zeabur 上部署的 Ollama, vLLM 或任何相容 OpenAI 格式的服務。</p>
                         </div>
 
                         <!-- Docs Monitor Section -->
                         <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 監控 (Apps Script URL)</label>
+                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 監控/寫入 (Apps Script)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="https://script.google.com/macros/s/...">
                             <div class="flex items-center justify-between">
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
+                            <!-- Updated Instructions -->
+                            <details class="mt-2">
+                                <summary class="text-[10px] text-slate-400 cursor-pointer hover:text-white">如何設定支援「寫入」功能？(點擊查看)</summary>
+                                <div class="text-[10px] text-slate-500 mt-2 p-2 bg-slate-900 rounded border border-slate-700">
+                                    <p class="mb-2">請將 Google Apps Script 的程式碼替換為以下內容，並「重新部署」為「新版本」：</p>
+                                    <pre class="bg-slate-950 p-2 rounded text-blue-300 overflow-x-auto text-[9px]">
+function doGet(e) {
+  return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText());
+}
+function doPost(e) {
+  var p = JSON.parse(e.postData.contents);
+  var body = DocumentApp.getActiveDocument().getBody();
+  var date = new Date().toLocaleString();
+  body.appendParagraph("📝 [" + date + "] " + p.text);
+  return ContentService.createTextOutput("OK");
+}</pre>
+                                    <p class="mt-2 text-orange-400">注意：每次修改程式碼後，必須選擇「部署」->「管理部署」->「編輯」->「新版本」->「部署」才會生效。</p>
+                                </div>
+                            </details>
                         </div>
 
                         <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none" placeholder="AIzaSy..."></div>
@@ -156,7 +174,7 @@
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
                             <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
                             <button id="voice-btn" onclick="toggleVoice()" class="p-3 mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95 flex-shrink-0"><i id="voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
-                            <input type="text" id="user-input" placeholder="試試：「幫我記事 買牛奶」或「提醒我 3點開會」..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
+                            <input type="text" id="user-input" placeholder="試試：「doc: 買牛奶」或「提醒我 3點開會」..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
                             <button onclick="handleSendMessage()" id="send-btn" class="ml-2 p-3 rounded-lg text-white bg-blue-600 hover:opacity-90 flex-shrink-0 transition-all"><i id="send-icon" class="ph-bold ph-paper-plane-right"></i></button>
                         </div>
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
@@ -196,7 +214,30 @@
 
             <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
-            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記中心</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
+            
+            <!-- Notes View with Write Feature -->
+            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto">
+                <div class="max-w-5xl mx-auto w-full">
+                    
+                    <!-- Google Docs Writer Widget -->
+                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                        <div class="relative z-10">
+                            <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2"><i class="ph-fill ph-file-doc text-blue-400"></i> 快速寫入 Google Doc</h3>
+                            <div class="flex gap-2">
+                                <input type="text" id="note-to-doc-input" placeholder="輸入內容，將會附加到您的 Google 文件末尾..." class="flex-1 bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
+                                <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap">
+                                    <i class="ph-bold ph-paper-plane-right"></i> 寫入
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 需先至設定設定 Apps Script URL 並更新程式碼為支援 `doPost` 的版本。</p>
+                        </div>
+                    </div>
+
+                    <header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">本地筆記中心</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header>
+                    <div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -205,14 +246,12 @@
             currentModel: 'gemini', detectedGeminiModel: null,
             openRouterModel: localStorage.getItem('nova_or_model') || 'deepseek/deepseek-r1:free',
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
-            // Zeabur Custom Config
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.5 就緒！\n新增「Zeabur / 自訂 API」支援。\n請至設定輸入您的 API Endpoint 與金鑰即可連接自架模型。', sender: 'ai', model: 'gemini', time: getTime() }],
-            // Load from localStorage or default to empty
+            messages: [{ id: 1, text: 'Nova 12.6 就緒！\n新增「Google Docs 寫入」功能。\n輸入「doc: 內容」或至筆記分頁即可快速寫入文件。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -252,7 +291,6 @@
             if(appState.docMonitorUrl) startDocMonitor();
         };
 
-        // --- PERSISTENCE HELPER ---
         function saveData() {
             localStorage.setItem('nova_todos', JSON.stringify(appState.todos));
             localStorage.setItem('nova_notes', JSON.stringify(appState.notes));
@@ -260,44 +298,65 @@
 
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
+        // --- GOOGLE DOCS WRITER ---
+        async function writeToDoc(text) {
+            if(!appState.docMonitorUrl) {
+                alert("請先至設定輸入 Google Docs Apps Script URL");
+                return false;
+            }
+            try {
+                // Use fetch with no-cors to avoid preflight issues. 
+                // We send JSON string as text/plain to avoid OPTIONS request.
+                await fetch(appState.docMonitorUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ text: text })
+                });
+                // Since mode is no-cors, we can't read response, assume success if no network error
+                addMessage(`📝 已發送寫入指令：${text}`, 'system');
+                return true;
+            } catch(e) {
+                console.error(e);
+                alert("寫入失敗，請檢查網路或 URL");
+                return false;
+            }
+        }
+
+        function handleDocWriteBtn() {
+            const input = document.getElementById('note-to-doc-input');
+            const text = input.value.trim();
+            if(text) {
+                writeToDoc(text);
+                input.value = '';
+            }
+        }
+
         // --- GOOGLE DOCS MONITOR ---
         function startDocMonitor() {
             if(appState.docMonitorInterval) clearInterval(appState.docMonitorInterval);
             if(!appState.docMonitorUrl) return;
-            
             updateDocStatus("監控中 (每 60s)");
             document.getElementById('doc-monitor-badge').classList.remove('hidden');
             document.getElementById('doc-monitor-badge').classList.add('flex');
-
-            // Initial check
             checkDocUpdate(true);
-
-            // Poll every 60 seconds
-            appState.docMonitorInterval = setInterval(() => {
-                checkDocUpdate(false);
-            }, 60000);
+            appState.docMonitorInterval = setInterval(() => { checkDocUpdate(false); }, 60000);
         }
 
         async function checkDocUpdate(isSilent) {
             try {
                 const res = await fetch(appState.docMonitorUrl);
                 const text = await res.text();
-                
                 if (appState.lastDocContent && text !== appState.lastDocContent && !isSilent) {
-                    // Content changed!
                     const snippet = text.length > 100 ? text.substring(0, 100) + '...' : text;
-                    addMessage(`📑 **Google Doc 已更新！**\n\n最新內容預覽：\n${snippet}\n\n(我已自動讀取最新內容，您可以叫我幫忙摘要)`, 'system');
-                    
-                    // Optional: Trigger AI analysis automatically
+                    addMessage(`📑 **Google Doc 已更新！**\n\n最新內容預覽：\n${snippet}`, 'system');
                     if(appState.keys.gemini || appState.keys.openrouter || appState.zeaburUrl) {
-                         handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容，若無明顯變更請簡短說明。文件內容：${text})`, true);
+                         handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容。內容：${text})`, true);
                     }
                 }
-                
                 appState.lastDocContent = text;
                 updateDocStatus("連線正常 - " + getTime());
             } catch (e) {
-                console.error("Doc Monitor Error:", e);
                 updateDocStatus("連線失敗");
                 if(!isSilent) addMessage("⚠️ Google Docs 監控連線失敗，請檢查 URL。", 'system');
             }
@@ -313,7 +372,7 @@
                 alert(`連線成功！\n文件字數：${text.length}\n開頭：${text.substring(0, 50)}...`);
                 document.getElementById('doc-monitor-status').innerText = "測試成功";
             } catch(e) {
-                alert("連線失敗：" + e.message + "\n請確認 Apps Script 已部署為「網頁應用程式」且權限為「任何人」。");
+                alert("連線失敗：" + e.message);
                 document.getElementById('doc-monitor-status').innerText = "測試失敗";
             }
         }
@@ -351,10 +410,11 @@
             try {
                 let systemPromptAddon = "", actionTriggered = false;
                 
-                // Smart Intent Parsing
                 const navMatch = text.match(/(?:導航|帶我去|怎麼去|路線|前往)\s*(.+)/i);
                 const todoMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:排程|行程|任務|待辦|提醒|todo|task)(?:我|一下)?\s*[:：]?\s*(.+)/i);
                 const noteMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:筆記|記事|紀錄|記錄|note|memo)(?:一下)?\s*[:：]?\s*(.+)/i);
+                // New: Doc Write Intent
+                const docWriteMatch = text.match(/^(?:doc|寫入|文件|docwrite)[:：\s]\s*(.+)/i);
 
                 if (navMatch) {
                     const dest = navMatch[1].replace(/到|去/g, '').trim();
@@ -366,11 +426,16 @@
                     tryGetLocation(false); 
                     systemPromptAddon = `(系統: 使用者查詢天氣，已自動更新UI)`; 
                     actionTriggered = true; 
+                } else if (docWriteMatch) {
+                    const content = docWriteMatch[1].trim();
+                    writeToDoc(content);
+                    systemPromptAddon = `(系統: 使用者要求寫入Google Doc，內容為"${content}"，已執行寫入動作)`;
+                    actionTriggered = true;
                 } else if (todoMatch) {
                     const content = todoMatch[1].trim();
                     if(content) {
                         appState.todos.push({id:Date.now(), text:content, done:false, time:'剛剛'});
-                        saveData(); // Save immediately
+                        saveData(); 
                         renderTodos();
                         addMessage(`👌 已將『${content}』加入行程清單`, 'system');
                         systemPromptAddon = `(系統: 使用者要求新增待辦事項 "${content}"，已成功加入清單)`;
@@ -381,7 +446,7 @@
                     if(content) {
                         const title = content.length > 15 ? content.substring(0,15)+'...' : content;
                         appState.notes.push({id:Date.now(), title: title, content: content, date:new Date().toLocaleDateString()});
-                        saveData(); // Save immediately
+                        saveData(); 
                         renderNotes();
                         addMessage(`📝 已儲存筆記：${title}`, 'system');
                         systemPromptAddon = `(系統: 使用者要求新增筆記 "${content}"，已成功儲存)`;
@@ -389,11 +454,8 @@
                     }
                 }
 
-                // Inject current Doc content context if available
                 let docContext = "";
-                if (appState.lastDocContent) {
-                    docContext = `\n[參考資料: 使用者目前監控的 Google Doc 內容摘要]: ${appState.lastDocContent.substring(0, 500)}...`;
-                }
+                if (appState.lastDocContent) docContext = `\n[參考資料: 使用者目前監控的 Google Doc 內容摘要]: ${appState.lastDocContent.substring(0, 500)}...`;
 
                 const prompt = actionTriggered ? `${text}\n${systemPromptAddon}\n(請針對系統動作做極簡短確認)` : `${text}${docContext}`;
                 const res = await fetchAIResponse(prompt, appState.currentModel);
@@ -423,26 +485,13 @@
             try {
                 if(model === 'zeabur') {
                     if(!appState.zeaburUrl) throw new Error("請先至設定輸入 Zeabur / 自訂 API URL");
-                    
                     const headers = { 'Content-Type': 'application/json' };
                     if(appState.zeaburKey) headers['Authorization'] = `Bearer ${appState.zeaburKey}`;
-                    
-                    // Assume OpenAI compatible format
-                    const res = await fetchWithTimeout(appState.zeaburUrl, {
-                        method: 'POST',
-                        headers: headers,
-                        body: JSON.stringify({
-                            model: 'user-model', // Some endpoints need a model field, generic works for most
-                            messages: [{ role: 'user', content: userText }]
-                        })
-                    });
-                    
+                    const res = await fetchWithTimeout(appState.zeaburUrl, { method: 'POST', headers: headers, body: JSON.stringify({ model: 'user-model', messages: [{ role: 'user', content: userText }] }) });
                     if(!res.ok) throw new Error(`API 請求失敗: ${res.status}`);
                     const data = await res.json();
                     return data.choices?.[0]?.message?.content || "無回應";
                 }
-                
-                // ... Existing models ...
                 const key = appState.keys[model];
                 if(!key && model !== 'zeabur') throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
 
@@ -464,19 +513,7 @@
                     let sources = []; data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); });
                     return {text, sources};
                 } else if (model === 'openrouter') {
-                    const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${key}`,
-                            'Content-Type': 'application/json',
-                            'HTTP-Referer': 'https://github.com/nova-ai',
-                            'X-Title': 'Nova AI'
-                        },
-                        body: JSON.stringify({
-                            model: appState.openRouterModel,
-                            messages: [{ role: 'user', content: userText }]
-                        })
-                    });
+                    const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/nova-ai', 'X-Title': 'Nova AI' }, body: JSON.stringify({ model: appState.openRouterModel, messages: [{ role: 'user', content: userText }] }) });
                     const data = await res.json();
                     if(data.error) throw new Error(data.error.message);
                     return data.choices?.[0]?.message?.content || "無回應";
@@ -500,7 +537,6 @@
             return (models.find(m=>m.name.includes("gemini-1.5-flash")) || models.find(m=>m.name.includes("gemini-1.5-pro")) || models[0]).name;
         }
 
-        // --- UI & Location Utils ---
         function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
         function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
         function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
