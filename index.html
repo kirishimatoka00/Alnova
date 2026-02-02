@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.4 - 永久記憶版</title>
+    <title>Nova 12.5 - Zeabur 擴充版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -49,7 +49,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Storage Core 12.4</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Zeabur Ready 12.5</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -58,7 +58,7 @@
                 <button onclick="switchTab('notes')" id="nav-notes" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-notebook text-xl"></i><span class="font-medium">筆記中心</span></button>
             </nav>
             <div class="mt-auto space-y-3">
-                <button onclick="openSettings()" class="flex items-center space-x-2 text-xs text-slate-500 hover:text-slate-300 w-full px-2"><i class="ph ph-gear"></i><span>設定 & Docs 監控</span></button>
+                <button onclick="openSettings()" class="flex items-center space-x-2 text-xs text-slate-500 hover:text-slate-300 w-full px-2"><i class="ph ph-gear"></i><span>設定 & API</span></button>
                 <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
                     <div class="flex items-center space-x-2"><i id="status-icon" class="ph-fill ph-globe text-blue-400 text-lg"></i><span id="status-name" class="font-bold text-sm">Gemini</span></div>
                     <p id="model-version-display" class="text-[10px] text-slate-500 mt-1">Ready</p>
@@ -93,6 +93,14 @@
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                     <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">設定</h3><button onclick="closeSettings()"><i class="ph ph-x text-2xl text-slate-400"></i></button></div>
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
+                        <!-- Zeabur / Custom Section -->
+                        <div class="bg-pink-900/20 p-4 rounded-xl border border-pink-500/30">
+                            <label class="block text-xs text-pink-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-plant"></i> Zeabur / 自訂 API</label>
+                            <input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-2" placeholder="API URL (例如: https://.../v1/chat/completions)">
+                            <input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-1" placeholder="API Key (選填)">
+                            <p class="text-[10px] text-slate-500 mt-1">適用於 Zeabur 上部署的 Ollama, vLLM 或任何相容 OpenAI 格式的服務。</p>
+                        </div>
+
                         <!-- Docs Monitor Section -->
                         <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
                             <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 監控 (Apps Script URL)</label>
@@ -101,15 +109,6 @@
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
-                            <details class="mt-2">
-                                <summary class="text-[10px] text-slate-400 cursor-pointer hover:text-white">如何取得 URL？(點擊查看)</summary>
-                                <p class="text-[10px] text-slate-500 mt-1 leading-relaxed">
-                                    1. 開啟 Google Doc -> 擴充功能 -> Apps Script。<br>
-                                    2. 貼上代碼：<code class="bg-slate-800 px-1 text-blue-300">function doGet(){return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText());}</code><br>
-                                    3. 部署 -> 新增部署作業 -> 類型選「網頁應用程式」 -> 存取權限選「任何人」 -> 部署。<br>
-                                    4. 複製「網頁應用程式網址」貼上至上方。
-                                </p>
-                            </details>
                         </div>
 
                         <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none" placeholder="AIzaSy..."></div>
@@ -144,6 +143,7 @@
                          <div class="flex space-x-1">
                             <button onclick="setModel('gemini')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-blue-600 text-white transition-all whitespace-nowrap" data-model="gemini">Gemini</button>
                             <button onclick="setModel('openrouter')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="openrouter">OpenRouter</button>
+                            <button onclick="setModel('zeabur')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="zeabur">Zeabur</button>
                             <button onclick="setModel('cerebras')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="cerebras">Cerebras</button>
                             <button onclick="setModel('gpt')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="gpt">GPT</button>
                          </div>
@@ -205,9 +205,13 @@
             currentModel: 'gemini', detectedGeminiModel: null,
             openRouterModel: localStorage.getItem('nova_or_model') || 'deepseek/deepseek-r1:free',
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
+            // Zeabur Custom Config
+            zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
+            zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
+            
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.4 就緒！\n已啟用資料持久化，您的行程與筆記現在會儲存在瀏覽器中，重新整理頁面也不會遺失。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.5 就緒！\n新增「Zeabur / 自訂 API」支援。\n請至設定輸入您的 API Endpoint 與金鑰即可連接自架模型。', sender: 'ai', model: 'gemini', time: getTime() }],
             // Load from localStorage or default to empty
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
@@ -228,7 +232,8 @@
             openrouter: { name: 'OpenRouter', color: 'text-purple-400', bg: 'bg-purple-600', icon: 'ph-infinity' },
             cerebras: { name: 'Cerebras', color: 'text-orange-400', bg: 'bg-orange-600', icon: 'ph-rocket-launch' },
             gpt: { name: 'ChatGPT', color: 'text-emerald-400', bg: 'bg-emerald-600', icon: 'ph-cpu' },
-            grok: { name: 'Grok', color: 'text-slate-100', bg: 'bg-slate-600', icon: 'ph-lightning' }
+            grok: { name: 'Grok', color: 'text-slate-100', bg: 'bg-slate-600', icon: 'ph-lightning' },
+            zeabur: { name: 'Zeabur', color: 'text-pink-400', bg: 'bg-pink-600', icon: 'ph-plant' }
         };
 
         window.onload = () => {
@@ -239,6 +244,8 @@
             document.getElementById('key-openai').value = appState.keys.openai;
             document.getElementById('key-grok').value = appState.keys.grok;
             document.getElementById('key-doc-url').value = appState.docMonitorUrl;
+            document.getElementById('key-zeabur-url').value = appState.zeaburUrl;
+            document.getElementById('key-zeabur-key').value = appState.zeaburKey;
             document.getElementById('model-openrouter-select').value = appState.openRouterModel;
             tryGetLocation(true);
             updateModelUI();
@@ -281,9 +288,8 @@
                     const snippet = text.length > 100 ? text.substring(0, 100) + '...' : text;
                     addMessage(`📑 **Google Doc 已更新！**\n\n最新內容預覽：\n${snippet}\n\n(我已自動讀取最新內容，您可以叫我幫忙摘要)`, 'system');
                     
-                    // Optional: Trigger AI analysis automatically if keys are present
-                    if(appState.keys.gemini || appState.keys.openrouter) {
-                         // Send hidden request to AI to summarize changes
+                    // Optional: Trigger AI analysis automatically
+                    if(appState.keys.gemini || appState.keys.openrouter || appState.zeaburUrl) {
                          handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容，若無明顯變更請簡短說明。文件內容：${text})`, true);
                     }
                 }
@@ -319,8 +325,6 @@
 
         function handleSendMessageInternal(text, isHidden=false) {
              if(!isHidden) addMessage(text, 'user');
-             // Bypass UI input clearing and thinking state for internal triggers if needed, 
-             // but here we reuse the main logic for simplicity
              fetchAIResponse(text, appState.currentModel).then(res => {
                  if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel);
                  else addMessage(res.text, 'ai', appState.currentModel, res.sources);
@@ -409,8 +413,6 @@
 
         // --- AI API ---
         async function fetchAIResponse(userText, model) {
-            const key = appState.keys[model];
-            if(!key) throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
             const fetchWithTimeout = async (url, options, timeout = 25000) => {
                 const controller = new AbortController();
                 const id = setTimeout(() => controller.abort(), timeout);
@@ -419,6 +421,31 @@
             };
 
             try {
+                if(model === 'zeabur') {
+                    if(!appState.zeaburUrl) throw new Error("請先至設定輸入 Zeabur / 自訂 API URL");
+                    
+                    const headers = { 'Content-Type': 'application/json' };
+                    if(appState.zeaburKey) headers['Authorization'] = `Bearer ${appState.zeaburKey}`;
+                    
+                    // Assume OpenAI compatible format
+                    const res = await fetchWithTimeout(appState.zeaburUrl, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({
+                            model: 'user-model', // Some endpoints need a model field, generic works for most
+                            messages: [{ role: 'user', content: userText }]
+                        })
+                    });
+                    
+                    if(!res.ok) throw new Error(`API 請求失敗: ${res.status}`);
+                    const data = await res.json();
+                    return data.choices?.[0]?.message?.content || "無回應";
+                }
+                
+                // ... Existing models ...
+                const key = appState.keys[model];
+                if(!key && model !== 'zeabur') throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
+
                 if(model === 'gemini') {
                     if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key);
                     const name = appState.detectedGeminiModel.replace('models/', '');
@@ -503,13 +530,12 @@
         function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
         function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
         function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
+        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
         function setModel(m){ appState.currentModel=m; updateModelUI(); }
-        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; document.getElementById('status-name').innerText=conf.name; document.getElementById('status-icon').className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); document.getElementById('input-wrapper').className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const orBadge=document.getElementById('openrouter-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(appState.isSearchEnabled){searchBtn.classList.add('text-blue-400','bg-blue-900/30');searchBtn.classList.remove('text-slate-500');if(badge)badge.classList.remove('hidden');if(hint)hint.classList.remove('hidden');}else{searchBtn.classList.remove('text-blue-400','bg-blue-900/30');searchBtn.classList.add('text-slate-500');if(badge)badge.classList.add('hidden');if(hint)hint.classList.add('hidden');} if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); document.getElementById('or-model-name').innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } }
+        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; document.getElementById('status-name').innerText=conf.name; document.getElementById('status-icon').className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); document.getElementById('input-wrapper').className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const orBadge=document.getElementById('openrouter-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(appState.isSearchEnabled){searchBtn.classList.add('text-blue-400','bg-blue-900/30');searchBtn.classList.remove('text-slate-500');if(badge)badge.classList.remove('hidden');if(hint)hint.classList.remove('hidden');}else{searchBtn.classList.remove('text-blue-400','bg-blue-900/30');searchBtn.classList.add('text-slate-500');if(badge)badge.classList.add('hidden');if(hint)hint.classList.add('hidden');} if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); document.getElementById('or-model-name').innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } }
         function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
         function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
         function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
     </script>
 </body>
 </html>
-
