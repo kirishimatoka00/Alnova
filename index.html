@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.6 - Google Docs 讀寫版</title>
+    <title>Nova 12.7 - Docs Master</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -49,13 +49,13 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Writer 12.6</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Master 12.7</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
                 <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all"><i class="ph ph-chats-circle text-xl"></i><span class="font-medium">助理對話</span></button>
                 <button onclick="switchTab('schedule')" id="nav-schedule" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-calendar-check text-xl"></i><span class="font-medium">行程管理</span></button>
-                <button onclick="switchTab('notes')" id="nav-notes" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-notebook text-xl"></i><span class="font-medium">筆記中心</span></button>
+                <button onclick="switchTab('notes')" id="nav-notes" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-notebook text-xl"></i><span class="font-medium">筆記/文件</span></button>
             </nav>
             <div class="mt-auto space-y-3">
                 <button onclick="openSettings()" class="flex items-center space-x-2 text-xs text-slate-500 hover:text-slate-300 w-full px-2"><i class="ph ph-gear"></i><span>設定 & API</span></button>
@@ -84,7 +84,7 @@
                 <nav class="space-y-4">
                     <button onclick="switchTab('dashboard'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl bg-slate-800 text-white"><i class="ph ph-chats-circle text-xl"></i><span>助理對話</span></button>
                     <button onclick="switchTab('schedule'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-calendar-check text-xl"></i><span>行程管理</span></button>
-                    <button onclick="switchTab('notes'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-notebook text-xl"></i><span>筆記中心</span></button>
+                    <button onclick="switchTab('notes'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-notebook text-xl"></i><span>筆記/文件</span></button>
                 </nav>
             </div>
 
@@ -96,35 +96,47 @@
                         <!-- Zeabur / Custom Section -->
                         <div class="bg-pink-900/20 p-4 rounded-xl border border-pink-500/30">
                             <label class="block text-xs text-pink-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-plant"></i> Zeabur / 自訂 API</label>
-                            <input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-2" placeholder="API URL (例如: https://.../v1/chat/completions)">
+                            <input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-2" placeholder="API URL">
                             <input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-1" placeholder="API Key (選填)">
                         </div>
 
                         <!-- Docs Monitor Section -->
                         <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 監控/寫入 (Apps Script)</label>
+                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 進階功能 (Apps Script)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="https://script.google.com/macros/s/...">
                             <div class="flex items-center justify-between">
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
-                            <!-- Updated Instructions -->
+                            <!-- Updated Instructions for Image/Link Support -->
                             <details class="mt-2">
-                                <summary class="text-[10px] text-slate-400 cursor-pointer hover:text-white">如何設定支援「寫入」功能？(點擊查看)</summary>
+                                <summary class="text-[10px] text-slate-400 cursor-pointer hover:text-white">如何設定支援圖片與連結？(點擊查看程式碼)</summary>
                                 <div class="text-[10px] text-slate-500 mt-2 p-2 bg-slate-900 rounded border border-slate-700">
-                                    <p class="mb-2">請將 Google Apps Script 的程式碼替換為以下內容，並「重新部署」為「新版本」：</p>
-                                    <pre class="bg-slate-950 p-2 rounded text-blue-300 overflow-x-auto text-[9px]">
+                                    <p class="mb-2">請將 Apps Script 替換為以下程式碼，以支援文字、圖片與超連結寫入：</p>
+                                    <pre class="bg-slate-950 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all">
 function doGet(e) {
   return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText());
 }
+
 function doPost(e) {
-  var p = JSON.parse(e.postData.contents);
+  var d = JSON.parse(e.postData.contents);
   var body = DocumentApp.getActiveDocument().getBody();
-  var date = new Date().toLocaleString();
-  body.appendParagraph("📝 [" + date + "] " + p.text);
+  
+  if (d.type === 'image') {
+    try {
+      var resp = UrlFetchApp.fetch(d.content);
+      body.appendImage(resp.getBlob());
+    } catch(err) { body.appendParagraph("[圖片插入失敗: " + err + "]"); }
+  } else if (d.type === 'link') {
+    var p = body.appendParagraph(d.text || d.content);
+    p.setLinkUrl(d.content);
+  } else {
+    // Default Text
+    body.appendParagraph(d.content);
+  }
   return ContentService.createTextOutput("OK");
 }</pre>
-                                    <p class="mt-2 text-orange-400">注意：每次修改程式碼後，必須選擇「部署」->「管理部署」->「編輯」->「新版本」->「部署」才會生效。</p>
+                                    <p class="mt-2 text-orange-400">注意：更新程式碼後，必須選擇「部署」->「管理部署」->「編輯」->「新版本」->「部署」才會生效。</p>
                                 </div>
                             </details>
                         </div>
@@ -145,6 +157,20 @@ function doPost(e) {
                         <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-slate-500 outline-none" placeholder="xai-..."></div>
                     </div>
                     <div class="mt-6 flex justify-end space-x-3"><button onclick="closeSettings()" class="px-4 py-2 text-slate-400 text-sm">取消</button><button onclick="saveKeys()" class="px-6 py-2 bg-blue-600 text-white rounded-lg">儲存</button></div>
+                </div>
+            </div>
+
+            <!-- Full Doc Viewer Modal -->
+            <div id="doc-viewer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-fill ph-read-cv-logo text-blue-400"></i> 文件瀏覽器</h3>
+                    <div class="flex gap-2">
+                        <button onclick="refreshDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
+                        <button onclick="closeDocViewer()" class="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
+                    </div>
+                </div>
+                <div class="flex-1 bg-white text-slate-900 rounded-xl p-6 overflow-y-auto shadow-2xl font-serif leading-relaxed text-lg" id="doc-content-area">
+                    <div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 載入中...</div>
                 </div>
             </div>
 
@@ -220,17 +246,33 @@ function doPost(e) {
                 <div class="max-w-5xl mx-auto w-full">
                     
                     <!-- Google Docs Writer Widget -->
-                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden shadow-lg">
                         <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
                         <div class="relative z-10">
-                            <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2"><i class="ph-fill ph-file-doc text-blue-400"></i> 快速寫入 Google Doc</h3>
-                            <div class="flex gap-2">
-                                <input type="text" id="note-to-doc-input" placeholder="輸入內容，將會附加到您的 Google 文件末尾..." class="flex-1 bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
-                                <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap">
-                                    <i class="ph-bold ph-paper-plane-right"></i> 寫入
-                                </button>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-file-doc text-blue-400"></i> Google Doc 寫入工具</h3>
+                                <button onclick="openDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-eye"></i> 查看完整內容</button>
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 需先至設定設定 Apps Script URL 並更新程式碼為支援 `doPost` 的版本。</p>
+                            
+                            <!-- Tabs -->
+                            <div class="flex space-x-2 mb-3">
+                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字</button>
+                                <button onclick="setWriteMode('image')" id="btn-mode-image" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">圖片網址</button>
+                                <button onclick="setWriteMode('link')" id="btn-mode-link" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">超連結</button>
+                            </div>
+
+                            <div class="flex flex-col gap-3">
+                                <!-- Inputs -->
+                                <input type="text" id="doc-input-main" placeholder="輸入文字內容..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
+                                <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
+                                
+                                <div class="flex justify-end">
+                                    <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                        <i class="ph-bold ph-paper-plane-right"></i> 發送寫入
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 需至設定更新 Apps Script 程式碼以支援圖片與連結。</p>
                         </div>
                     </div>
 
@@ -248,10 +290,11 @@ function doPost(e) {
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
+            writeMode: 'text', // text, image, link
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.6 就緒！\n新增「Google Docs 寫入」功能。\n輸入「doc: 內容」或至筆記分頁即可快速寫入文件。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.7 就緒！\n新增「Google Docs 多元寫入」與「全螢幕閱讀」功能。\n現在您可以插入圖片與連結，並查看完整文件內容。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -298,37 +341,103 @@ function doPost(e) {
 
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
-        // --- GOOGLE DOCS WRITER ---
-        async function writeToDoc(text) {
-            if(!appState.docMonitorUrl) {
-                alert("請先至設定輸入 Google Docs Apps Script URL");
-                return false;
+        // --- FORMATTER ---
+        function formatMessage(text) {
+            if (!text) return '';
+            let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
+            safe = safe.replace(
+                /(https?:\/\/[^\s<]+)/g, 
+                '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline break-all">$1</a>'
+            );
+            return safe.replace(/\n/g, '<br>');
+        }
+
+        // --- DOC WRITER UI LOGIC ---
+        function setWriteMode(mode) {
+            appState.writeMode = mode;
+            ['text', 'image', 'link'].forEach(m => {
+                const btn = document.getElementById(`btn-mode-${m}`);
+                if(m === mode) {
+                    btn.className = 'text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all';
+                } else {
+                    btn.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all';
+                }
+            });
+
+            const mainInput = document.getElementById('doc-input-main');
+            const subInput = document.getElementById('doc-input-sub');
+
+            if(mode === 'text') {
+                mainInput.placeholder = "輸入文字內容...";
+                subInput.classList.add('hidden');
+            } else if (mode === 'image') {
+                mainInput.placeholder = "輸入圖片網址 (https://...)";
+                subInput.classList.add('hidden');
+            } else if (mode === 'link') {
+                mainInput.placeholder = "輸入連結顯示文字";
+                subInput.placeholder = "輸入連結網址 (https://...)";
+                subInput.classList.remove('hidden');
             }
+        }
+
+        async function handleDocWriteBtn() {
+            if(!appState.docMonitorUrl) return alert("請先至設定輸入 Google Docs Apps Script URL");
+            
+            const mainVal = document.getElementById('doc-input-main').value.trim();
+            const subVal = document.getElementById('doc-input-sub').value.trim();
+            
+            if(!mainVal) return;
+
+            let payload = {};
+            if(appState.writeMode === 'text') {
+                payload = { type: 'text', content: mainVal };
+            } else if (appState.writeMode === 'image') {
+                payload = { type: 'image', content: mainVal };
+            } else if (appState.writeMode === 'link') {
+                if(!subVal) return alert("請輸入連結網址");
+                payload = { type: 'link', text: mainVal, content: subVal };
+            }
+
             try {
-                // Use fetch with no-cors to avoid preflight issues. 
-                // We send JSON string as text/plain to avoid OPTIONS request.
                 await fetch(appState.docMonitorUrl, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify({ text: text })
+                    body: JSON.stringify(payload)
                 });
-                // Since mode is no-cors, we can't read response, assume success if no network error
-                addMessage(`📝 已發送寫入指令：${text}`, 'system');
-                return true;
+                addMessage(`📝 已發送寫入指令 (${appState.writeMode})`, 'system');
+                document.getElementById('doc-input-main').value = '';
+                document.getElementById('doc-input-sub').value = '';
             } catch(e) {
-                console.error(e);
                 alert("寫入失敗，請檢查網路或 URL");
-                return false;
             }
         }
 
-        function handleDocWriteBtn() {
-            const input = document.getElementById('note-to-doc-input');
-            const text = input.value.trim();
-            if(text) {
-                writeToDoc(text);
-                input.value = '';
+        // --- DOC VIEWER ---
+        function openDocViewer() {
+            document.getElementById('doc-viewer-modal').classList.remove('hidden');
+            refreshDocView();
+        }
+        function closeDocViewer() {
+            document.getElementById('doc-viewer-modal').classList.add('hidden');
+        }
+        async function refreshDocView() {
+            const area = document.getElementById('doc-content-area');
+            if(!appState.docMonitorUrl) {
+                area.innerHTML = '<div class="text-center text-red-500">未設定 Docs URL</div>';
+                return;
+            }
+            area.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 讀取中...</div>';
+            try {
+                const res = await fetch(appState.docMonitorUrl);
+                const text = await res.text();
+                // Format text for better reading
+                let html = text.replace(/\n/g, '<br><br>'); // Double spacing for paragraphs
+                html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-600 underline">$1</a>');
+                area.innerHTML = html || '<div class="text-center text-slate-400">文件是空的</div>';
+            } catch(e) {
+                area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>';
             }
         }
 
@@ -348,8 +457,10 @@ function doPost(e) {
                 const res = await fetch(appState.docMonitorUrl);
                 const text = await res.text();
                 if (appState.lastDocContent && text !== appState.lastDocContent && !isSilent) {
-                    const snippet = text.length > 100 ? text.substring(0, 100) + '...' : text;
-                    addMessage(`📑 **Google Doc 已更新！**\n\n最新內容預覽：\n${snippet}`, 'system');
+                    const snippet = text;
+                    const sysMsg = { id:Date.now(), sender:'system', text:`📑 **Google Doc 已更新！**\n\n${snippet}`, time:getTime() };
+                    appState.messages.push(sysMsg);
+                    renderMessages();
                     if(appState.keys.gemini || appState.keys.openrouter || appState.zeaburUrl) {
                          handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容。內容：${text})`, true);
                     }
@@ -413,7 +524,6 @@ function doPost(e) {
                 const navMatch = text.match(/(?:導航|帶我去|怎麼去|路線|前往)\s*(.+)/i);
                 const todoMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:排程|行程|任務|待辦|提醒|todo|task)(?:我|一下)?\s*[:：]?\s*(.+)/i);
                 const noteMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:筆記|記事|紀錄|記錄|note|memo)(?:一下)?\s*[:：]?\s*(.+)/i);
-                // New: Doc Write Intent
                 const docWriteMatch = text.match(/^(?:doc|寫入|文件|docwrite)[:：\s]\s*(.+)/i);
 
                 if (navMatch) {
@@ -428,7 +538,13 @@ function doPost(e) {
                     actionTriggered = true; 
                 } else if (docWriteMatch) {
                     const content = docWriteMatch[1].trim();
-                    writeToDoc(content);
+                    // Default to text write via chat
+                    await fetch(appState.docMonitorUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({ type: 'text', content: content })
+                    });
                     systemPromptAddon = `(系統: 使用者要求寫入Google Doc，內容為"${content}"，已執行寫入動作)`;
                     actionTriggered = true;
                 } else if (todoMatch) {
@@ -551,7 +667,20 @@ function doPost(e) {
         function updateVoiceUI() { const btn=document.getElementById('voice-btn'),icon=document.getElementById('voice-icon'); if(appState.isListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} }
 
         function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
-        function renderMessages() { document.getElementById('chat-container').innerHTML = appState.messages.map(msg => { if (msg.sender === 'system') { if (msg.type === 'nav') return `<div class="flex justify-center fade-in my-3"><a href="${msg.url}" target="_blank" class="bg-blue-900/40 border border-blue-500/50 p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-blue-900/60 w-[80%]"><div class="bg-blue-600 rounded-full p-3"><i class="ph-fill ph-navigation-arrow text-white text-xl"></i></div><div class="flex-1"><p class="text-blue-200 text-xs font-bold mb-1">開始導航</p><p class="text-white font-bold text-lg truncate">${escapeHtml(msg.text.replace('前往：', ''))}</p></div><i class="ph-bold ph-arrow-right text-blue-400"></i></a></div>`; return `<div class="flex justify-center fade-in my-2"><div class="bg-slate-800/80 border border-slate-700 text-slate-300 text-xs py-1.5 px-4 rounded-full flex items-center space-x-2"><i class="ph-fill ph-info"></i><span>${escapeHtml(msg.text)}</span></div></div>`; } const isUser = msg.sender === 'user'; const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; let sourcesHTML = ''; if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`; return `<div class="flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in">${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo.bg}"><i class="ph-fill ${modelInfo.icon} text-white text-sm"></i></div>` : ''}<div class="max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo.color} opacity-80">${modelInfo.name}${msg.model==='openrouter'?` (${getShortName(appState.openRouterModel)})`:''}</span>` : ''}<div class="msg-content text-sm leading-relaxed">${escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>${sourcesHTML}<p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p></div></div>`; }).join(''); document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight; }
+        function renderMessages() { 
+            document.getElementById('chat-container').innerHTML = appState.messages.map(msg => { 
+                if (msg.sender === 'system') { 
+                    if (msg.type === 'nav') return `<div class="flex justify-center fade-in my-3"><a href="${msg.url}" target="_blank" class="bg-blue-900/40 border border-blue-500/50 p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-blue-900/60 w-[80%]"><div class="bg-blue-600 rounded-full p-3"><i class="ph-fill ph-navigation-arrow text-white text-xl"></i></div><div class="flex-1"><p class="text-blue-200 text-xs font-bold mb-1">開始導航</p><p class="text-white font-bold text-lg truncate">${escapeHtml(msg.text.replace('前往：', ''))}</p></div><i class="ph-bold ph-arrow-right text-blue-400"></i></a></div>`; 
+                    return `<div class="flex justify-center fade-in my-2 w-full"><div class="bg-slate-800/90 border border-slate-700 text-slate-300 text-xs py-2 px-4 rounded-2xl flex flex-col items-start space-y-1 max-w-[90%] shadow-lg"><div class="flex items-center space-x-2 font-bold text-blue-400"><i class="ph-fill ph-info"></i><span>系統通知</span></div><div class="leading-relaxed text-slate-300 w-full overflow-hidden text-ellipsis">${formatMessage(msg.text)}</div></div></div>`; 
+                } 
+                const isUser = msg.sender === 'user'; 
+                const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; 
+                let sourcesHTML = ''; 
+                if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`; 
+                return `<div class="flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in">${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo.bg}"><i class="ph-fill ${modelInfo.icon} text-white text-sm"></i></div>` : ''}<div class="max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo.color} opacity-80">${modelInfo.name}${msg.model==='openrouter'?` (${getShortName(appState.openRouterModel)})`:''}</span>` : ''}<div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div>${sourcesHTML}<p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p></div></div>`; 
+            }).join(''); 
+            document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight; 
+        }
         function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); renderMessages(); }
         function renderThinkingState(show) { const el = document.getElementById('thinking-indicator'); if(show && !el) document.getElementById('chat-container').insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); else if(!show && el) el.remove(); }
         
