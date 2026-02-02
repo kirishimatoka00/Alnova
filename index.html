@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.13.2 - Error Fix</title>
+    <title>Nova 12.14.2 - Stability Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -38,6 +38,11 @@
         .msg-content img, #doc-content-area img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.1); }
         .msg-content p, #doc-content-area div { margin-bottom: 0.5em; line-height: 1.6; }
         .slide-in { animation: slideIn 0.3s ease-out; }
+        
+        /* Message Actions Group */
+        .msg-group:hover .msg-actions { opacity: 1; }
+        .msg-actions { opacity: 0; transition: opacity 0.2s; }
+        
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -52,7 +57,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Google Bridge 12.13.2</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate 12.14.2</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -107,85 +112,52 @@
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 4.0 - 雲端爬蟲版)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 5.0 - 清除重寫版)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">請複製下方所有程式碼，取代您 Google Apps Script 內的內容，並執行 <b>「部署」>「管理部署」>「編輯」>「新版本」>「部署」</b>。</p>
+                                    <p class="mb-2">此版本支援 `scrape_and_log`，會自動清空文件並寫入新的網頁內容：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
   try {
-    var body = DocumentApp.getActiveDocument().getBody();
-    var numChildren = body.getNumChildren();
-    var output = "";
-    
-    for (var i = 0; i &lt; numChildren; i++) {
-      var child = body.getChild(i);
-      if (child.getType() == DocumentApp.ElementType.PARAGRAPH || child.getType() == DocumentApp.ElementType.LIST_ITEM) {
-        var p = (child.getType() == DocumentApp.ElementType.LIST_ITEM) ? child.asListItem() : child.asParagraph();
-        var numSub = p.getNumChildren();
-        if (numSub == 0) { output += "&lt;div style='min-height:1em'&gt;&lt;/div&gt;"; continue; }
-        output += "&lt;div&gt;";
-        for (var j = 0; j &lt; numSub; j++) {
-          var el = p.getChild(j);
-          if (el.getType() == DocumentApp.ElementType.TEXT) {
-            var t = el.asText();
-            var content = t.getText();
-            var url = t.getLinkUrl();
-            if (url) output += "&lt;a href='" + url + "' target='_blank'&gt;" + content + "&lt;/a&gt;";
-            else output += content;
-          } else if (el.getType() == DocumentApp.ElementType.INLINE_IMAGE) {
-            try {
-              var img = el.asInlineImage();
-              var blob = img.getBlob();
-              var b64 = Utilities.base64Encode(blob.getBytes());
-              output += "&lt;img src='data:" + blob.getContentType() + ";base64," + b64 + "' /&gt;";
-            } catch(err) { output += "[圖片]"; }
-          }
-        }
-        output += "&lt;/div&gt;";
-      }
-    }
-    return ContentService.createTextOutput(output).setMimeType(ContentService.MimeType.TEXT);
-  } catch(e) { return ContentService.createTextOutput("Error: " + e.toString()); }
+    return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText());
+  } catch(e) { return ContentService.createTextOutput("Error"); }
 }
 
 function doPost(e) {
   var d = JSON.parse(e.postData.contents);
   var body = DocumentApp.getActiveDocument().getBody();
   
-  // NEW: Cloud Scraper
-  if (d.type === 'scrape') {
+  if (d.type === 'clear') {
+    body.clear();
+    return ContentService.createTextOutput("Cleared");
+  }
+
+  if (d.type === 'scrape_and_log') {
     try {
+      body.clear(); // 1. 清除舊內容
       var html = UrlFetchApp.fetch(d.url).getContentText();
-      // Simple text cleanup
+      // 簡單過濾
       var text = html.replace(/&lt;script[^&gt;]*&gt;([\s\S]*?)&lt;\/script&gt;/gmi, "")
                      .replace(/&lt;style[^&gt;]*&gt;([\s\S]*?)&lt;\/style&gt;/gmi, "")
                      .replace(/&lt;[^&gt;]*&gt;/g, " ")
                      .replace(/\s+/g, " ")
-                     .trim();
-      return ContentService.createTextOutput(text.substring(0, 50000));
+                     .trim().substring(0, 50000);
+      
+      // 2. 寫入新內容
+      body.appendParagraph("🌐 來源: " + d.url);
+      body.appendParagraph("📅 時間: " + new Date().toLocaleString());
+      body.appendParagraph("------------------------------------------------");
+      body.appendParagraph(text);
+      
+      // 3. 回傳內容
+      return ContentService.createTextOutput(text);
     } catch (err) {
       return ContentService.createTextOutput("Error: " + err.toString());
     }
   }
-
-  if (d.type === 'image') {
-    try {
-      var resp = UrlFetchApp.fetch(d.content);
-      body.appendImage(resp.getBlob());
-    } catch(err) { body.appendParagraph("[圖片插入失敗]"); }
-  } else if (d.type === 'image_base64') {
-    try {
-      var parts = d.content.split(',');
-      var mimeType = parts[0].match(/:(.*?);/)[1];
-      var blob = Utilities.newBlob(Utilities.base64Decode(parts[1]), mimeType, "pasted");
-      body.appendImage(blob);
-    } catch(err) { body.appendParagraph("[圖片上傳失敗]"); }
-  } else if (d.type === 'link') {
-    var p = body.appendParagraph(d.text || d.content);
-    p.setLinkUrl(d.content);
-  } else {
-    body.appendParagraph(d.content);
-  }
+  
+  // 一般寫入
+  if (d.type === 'text') body.appendParagraph(d.content);
+  
   return ContentService.createTextOutput("OK");
 }</pre>
                                 </div>
@@ -197,8 +169,6 @@ function doPost(e) {
                             <div class="p-3 rounded-lg border border-pink-900/30 bg-pink-900/10"><label class="block text-xs text-pink-400 mb-1">Zeabur / Custom API</label><input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none mb-1" placeholder="URL"><input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none" placeholder="Key (Optional)"></div>
                             <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-blue-500 outline-none"></div>
                             <div><label class="block text-xs text-purple-400 mb-1">OpenRouter Key</label><input type="password" id="key-openrouter" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-purple-500 outline-none"></div>
-                            
-                            <!-- Restored Input Fields -->
                             <div><label class="block text-xs text-orange-400 mb-1">Cerebras API Key</label><input type="password" id="key-cerebras" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
                             <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-slate-500 outline-none"></div>
@@ -210,20 +180,6 @@ function doPost(e) {
                 </div>
             </div>
 
-            <!-- Full Doc Viewer Modal -->
-            <div id="doc-viewer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                    <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-fill ph-read-cv-logo text-blue-400"></i> 文件瀏覽器</h3>
-                    <div class="flex gap-2">
-                        <button onclick="refreshDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
-                        <button onclick="closeDocViewer()" class="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
-                    </div>
-                </div>
-                <div class="flex-1 bg-white text-slate-900 rounded-xl p-6 overflow-y-auto shadow-2xl font-serif leading-relaxed text-lg" id="doc-content-area">
-                    <div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 載入中...</div>
-                </div>
-            </div>
-
             <!-- Main Dashboard -->
             <div id="view-dashboard" class="flex flex-col lg:flex-row h-full w-full relative min-h-0">
                 <div class="flex-1 flex flex-col h-full min-w-0 relative">
@@ -232,13 +188,12 @@ function doPost(e) {
                          <div class="flex items-center space-x-2 mr-4">
                             <span id="web-search-badge" class="hidden md:flex items-center space-x-1 text-[10px] bg-blue-900/30 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full"><i class="ph-bold ph-globe"></i><span>連網搜尋</span></span>
                             <span id="doc-monitor-badge" class="hidden items-center space-x-1 text-[10px] bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full animate-pulse"><i class="ph-bold ph-arrows-clockwise"></i><span>Docs 監控中</span></span>
-                            <span id="openrouter-badge" class="hidden items-center space-x-1 text-[10px] bg-purple-900/30 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full"><i class="ph-bold ph-lightning"></i><span id="or-model-name">DeepSeek R1</span></span>
+                            <button onclick="clearChatHistory()" class="text-[10px] text-slate-500 hover:text-red-400 flex items-center space-x-1 border border-slate-700 px-2 py-0.5 rounded-lg transition-colors"><i class="ph-bold ph-trash"></i><span>清空對話</span></button>
                          </div>
                          <div class="flex space-x-1">
                             <button onclick="setModel('gemini')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-blue-600 text-white transition-all whitespace-nowrap" data-model="gemini">Gemini</button>
                             <button onclick="setModel('openrouter')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="openrouter">OpenRouter</button>
                             <button onclick="setModel('zeabur')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="zeabur">Zeabur</button>
-                            <button onclick="setModel('cerebras')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="cerebras">Cerebras</button>
                             <button onclick="setModel('gpt')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="gpt">GPT</button>
                          </div>
                     </div>
@@ -250,31 +205,22 @@ function doPost(e) {
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
                             <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
                             <button id="voice-btn" onclick="toggleVoice()" class="p-3 mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95 flex-shrink-0"><i id="voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
-                            <input type="text" id="user-input" placeholder="試試：「搜尋：今日新聞」或貼上 YouTube 連結..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
+                            <input type="text" id="user-input" placeholder="貼上網址自動分析，或輸入「搜尋：關鍵字」..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
                             <button onclick="handleSendMessage()" id="send-btn" class="ml-2 p-3 rounded-lg text-white bg-blue-600 hover:opacity-90 flex-shrink-0 transition-all"><i id="send-icon" class="ph-bold ph-paper-plane-right"></i></button>
                         </div>
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
                     </div>
                 </div>
                 
-                <!-- Right Sidebar (Widgets) -->
+                <!-- Right Sidebar -->
                 <div class="hidden lg:flex w-80 bg-slate-900 flex-col p-6 space-y-6 border-l border-slate-800 overflow-y-auto shrink-0">
                     <div class="bg-gradient-to-br from-indigo-900 to-slate-800 rounded-3xl p-6 text-white shadow-lg border border-slate-700 relative overflow-hidden group">
                         <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
                         <div class="relative z-10">
                             <div class="flex justify-between items-start">
-                                <div>
-                                    <h3 class="text-slate-300 text-xs font-bold uppercase mb-1">目前天氣</h3>
-                                    <div class="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity" onclick="cycleManualLocation()">
-                                        <i class="ph-fill ph-map-pin text-blue-400"></i>
-                                        <span id="location-name" class="text-lg font-bold text-white border-b border-dashed border-slate-500">未定位</span>
-                                    </div>
-                                    <p id="location-status" class="text-[10px] text-slate-400 mt-1">點擊地點可手動切換</p>
-                                </div>
-                                <i id="weather-icon" class="ph-fill ph-cloud-sun text-4xl text-yellow-400"></i>
+                                <div><h3 class="text-slate-300 text-xs font-bold uppercase mb-1">目前天氣</h3><div class="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity" onclick="cycleManualLocation()"><i class="ph-fill ph-map-pin text-blue-400"></i><span id="location-name" class="text-lg font-bold text-white border-b border-dashed border-slate-500">未定位</span></div></div><i id="weather-icon" class="ph-fill ph-cloud-sun text-4xl text-yellow-400"></i>
                             </div>
                             <div class="mt-4 flex items-end space-x-2"><span id="weather-temp" class="text-5xl font-bold">--°</span><span id="weather-desc" class="text-slate-300 text-sm mb-2">--</span></div>
-                            <div class="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-300"><span id="weather-humidity">濕度 --%</span><span id="weather-wind">風速 --km/h</span></div>
                         </div>
                     </div>
                     <div class="bg-slate-950 rounded-2xl p-5 border border-slate-800">
@@ -290,51 +236,7 @@ function doPost(e) {
 
             <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
-            
-            <!-- Notes View with Write Feature -->
-            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto">
-                <div class="max-w-5xl mx-auto w-full">
-                    
-                    <!-- Google Docs Writer Widget -->
-                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden shadow-lg">
-                        <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-                        <div class="relative z-10">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-file-doc text-blue-400"></i> Google Doc 寫入工具</h3>
-                                <button onclick="openDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-eye"></i> 查看完整內容</button>
-                            </div>
-                            
-                            <!-- Tabs -->
-                            <div class="flex space-x-2 mb-3">
-                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字 / 貼上圖片 (Ctrl+V)</button>
-                                <button onclick="setWriteMode('image')" id="btn-mode-image" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">圖片網址</button>
-                                <button onclick="setWriteMode('link')" id="btn-mode-link" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">超連結</button>
-                            </div>
-
-                            <div class="flex flex-col gap-3">
-                                <!-- Inputs -->
-                                <div class="relative">
-                                    <input type="text" id="doc-input-main" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24">
-                                    <div id="paste-indicator" class="hidden absolute right-3 top-3 text-[10px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded border border-emerald-500/50 animate-pulse">
-                                        <i class="ph-bold ph-image"></i> 圖片已就緒
-                                    </div>
-                                </div>
-                                <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
-                                
-                                <div class="flex justify-end">
-                                    <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
-                                        <i class="ph-bold ph-paper-plane-right"></i> 發送寫入
-                                    </button>
-                                </div>
-                            </div>
-                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 貼上圖片後請點擊「發送寫入」上傳至文件。</p>
-                        </div>
-                    </div>
-
-                    <header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">本地筆記中心</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header>
-                    <div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-                </div>
-            </div>
+            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
         </main>
     </div>
 
@@ -345,12 +247,10 @@ function doPost(e) {
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
-            writeMode: 'text',
-            pastedImageBase64: null, // Store pasted image temporarily
             
-            lastDocContent: '', 
-            docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.13.2 就緒！\n已優化錯誤處理與網頁抓取功能。\n遇到無法讀取的情況時，現在會顯示更詳細的錯誤原因。', sender: 'ai', model: 'gemini', time: getTime() }],
+            // Persistent Messages
+            messages: JSON.parse(localStorage.getItem('nova_messages') || '[]'),
+            
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -374,66 +274,176 @@ function doPost(e) {
             zeabur: { name: 'Zeabur', color: 'text-pink-400', bg: 'bg-pink-600', icon: 'ph-plant' }
         };
 
-        window.onload = () => {
-            renderAll();
-            
-            // Safe initialization of values
-            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-            
-            safeSet('key-gemini', appState.keys.gemini);
-            safeSet('key-cerebras', appState.keys.cerebras);
-            safeSet('key-openrouter', appState.keys.openrouter);
-            safeSet('key-openai', appState.keys.openai);
-            safeSet('key-grok', appState.keys.grok);
-            safeSet('key-doc-url', appState.docMonitorUrl);
-            safeSet('key-zeabur-url', appState.zeaburUrl);
-            safeSet('key-zeabur-key', appState.zeaburKey);
-            safeSet('model-openrouter-select', appState.openRouterModel);
-            
-            // Paste Listener
-            const inputMain = document.getElementById('doc-input-main');
-            if(inputMain) inputMain.addEventListener('paste', handlePaste);
+        // --- UTILS ---
+        function saveMessages() { localStorage.setItem('nova_messages', JSON.stringify(appState.messages)); }
+        function saveData() { localStorage.setItem('nova_todos', JSON.stringify(appState.todos)); localStorage.setItem('nova_notes', JSON.stringify(appState.notes)); }
+        function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+        function formatMessage(text) { if (!text) return ''; let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>'); safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-400 underline break-all">$1</a>'); return safe.replace(/\n/g, '<br>'); }
+        function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
+        function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
 
-            tryGetLocation(true);
-            updateModelUI();
-            if(appState.docMonitorUrl) startDocMonitor();
-        };
-
-        function saveData() {
-            localStorage.setItem('nova_todos', JSON.stringify(appState.todos));
-            localStorage.setItem('nova_notes', JSON.stringify(appState.notes));
+        // --- RENDERERS ---
+        function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
+        
+        function renderMessages() { 
+            const container = document.getElementById('chat-container');
+            if(!container) return;
+            container.innerHTML = appState.messages.map(msg => { 
+                const isUser = msg.sender === 'user'; 
+                const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; 
+                let sourcesHTML = ''; 
+                if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`; 
+                return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in relative mb-4">
+                    ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'}"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
+                    <div class="msg-group relative max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">
+                        ${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo?.color||'text-slate-400'} opacity-80">${modelInfo?.name||'System'}${msg.model==='openrouter'?` (${getShortName(appState.openRouterModel)})`:''}</span>` : ''}
+                        <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div>
+                        ${sourcesHTML}
+                        <p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p>
+                        <button onclick="deleteMessage(${msg.id})" class="msg-actions absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/50 rounded-full"><i class="ph-bold ph-trash text-xs"></i></button>
+                    </div>
+                </div>`; 
+            }).join(''); 
+            container.scrollTop = container.scrollHeight; 
         }
 
-        function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+        function renderThinkingState(show) { 
+            const el = document.getElementById('thinking-indicator'); 
+            const container = document.getElementById('chat-container');
+            if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); 
+            else if(!show && el) el.remove(); 
+        }
 
-        // --- WEB SCRAPER (UPDATED: Use Google Apps Script as Proxy) ---
-        async function extractContentFromUrl(url) {
-            // 1. Try Google Apps Script Proxy first (Super robust)
-            if (appState.docMonitorUrl) {
-                try {
-                    // Use 'text/plain' to avoid CORS preflight (OPTIONS) which GAS doesn't handle natively
-                    const res = await fetch(appState.docMonitorUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' }, 
-                        body: JSON.stringify({ type: 'scrape', url: url })
-                    });
-                    const text = await res.text();
-                    
-                    if (text === "OK") {
-                        console.warn("GAS script outdated (returned OK for scrape), falling back...");
-                    } else if (text && !text.startsWith("Error")) {
-                        return text;
-                    }
-                } catch (e) {
-                    console.warn("GAS Proxy failed, falling back...", e);
-                }
+        function renderTodos() { 
+            const el = document.getElementById('full-todo-list');
+            if(!el) return;
+            el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
+            const mini = document.getElementById('mini-todo-list');
+            if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; 
+        }
+
+        function renderNotes() { 
+            const el = document.getElementById('full-note-list');
+            if(!el) return;
+            el.innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; 
+            const mini = document.getElementById('mini-note-list');
+            if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; 
+        }
+
+        function renderWeather() { 
+            const {temp,condition,humidity,wind,loc}=appState.weather; 
+            let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
+            if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
+            if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
+            const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; 
+            const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
+            const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
+            const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
+            const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
+            const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
+            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
+            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
+        }
+
+        function updateModelUI(){ 
+            const conf=MODEL_CONFIG[appState.currentModel]; 
+            const nameEl = document.getElementById('status-name'); if(nameEl) nameEl.innerText=conf.name;
+            const iconEl = document.getElementById('status-icon'); if(iconEl) iconEl.className=`ph-fill ${conf.icon} text-lg ${conf.color}`;
+            
+            document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); 
+            const wrap = document.getElementById('input-wrapper');
+            if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; 
+            
+            const badge=document.getElementById('web-search-badge'); 
+            const searchBtn=document.getElementById('search-toggle-btn'); 
+            const hint=document.getElementById('search-hint'); 
+            
+            if (searchBtn) {
+                if(appState.isSearchEnabled){
+                    searchBtn.classList.add('text-blue-400','bg-blue-900/30');
+                    searchBtn.classList.remove('text-slate-500');
+                    if(badge)badge.classList.remove('hidden');
+                    if(hint)hint.classList.remove('hidden');
+                }else{
+                    searchBtn.classList.remove('text-blue-400','bg-blue-900/30');
+                    searchBtn.classList.add('text-slate-500');
+                    if(badge)badge.classList.add('hidden');
+                    if(hint)hint.classList.add('hidden');
+                } 
             }
+            if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} 
+            
+            const orBadge=document.getElementById('openrouter-badge');
+            if (orBadge) {
+                if(appState.currentModel === 'openrouter'){ 
+                    orBadge.classList.remove('hidden'); 
+                    orBadge.classList.add('flex'); 
+                    const orName = document.getElementById('or-model-name');
+                    if(orName) orName.innerText = getShortName(appState.openRouterModel); 
+                } else { 
+                    orBadge.classList.add('hidden'); 
+                    orBadge.classList.remove('flex'); 
+                } 
+            }
+        }
 
-            // 2. Fallback to AllOrigins (Less robust)
+        // --- ACTIONS ---
+        function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); saveMessages(); renderMessages(); }
+        function deleteMessage(id) { appState.messages = appState.messages.filter(m => m.id !== id); saveMessages(); renderMessages(); }
+        function clearChatHistory() { if(confirm("確定要清空所有對話紀錄嗎？")) { appState.messages = []; saveMessages(); renderMessages(); } }
+        function toggleTodo(id){ const t=appState.todos.find(x=>x.id===id); if(t){t.done=!t.done;saveData();renderTodos();} }
+        function deleteTodo(id){ appState.todos=appState.todos.filter(x=>x.id!==id); saveData(); renderTodos(); }
+        function deleteNote(id){ appState.notes=appState.notes.filter(x=>x.id!==id); saveData(); renderNotes(); }
+        function addTodoManually(){ const t=prompt("任務"); if(t){appState.todos.push({id:Date.now(),text:t,done:false,time:'手動'});saveData();renderTodos();} }
+        function addNoteManually(){ const t=prompt("標題"),c=prompt("內容"); if(t&&c){appState.notes.push({id:Date.now(),title:t,content:c,date:new Date().toLocaleDateString()});saveData();renderNotes();} }
+        function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
+        function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
+        function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
+        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
+        function setModel(m){ appState.currentModel=m; updateModelUI(); }
+        function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
+        function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
+        function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
+        function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
+        async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
+        async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
+        async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
+        function updateLocStatus(msg) { 
+            const el = document.getElementById('location-status'); 
+            if(el) el.innerText = msg; 
+            if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { 
+                const {loc, temp} = appState.weather; 
+                const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; 
+                const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; 
+            } 
+        }
+        function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
+
+        // --- WEB SCRAPER ---
+        async function fetchUrlViaGas(url) {
+            if (!appState.docMonitorUrl) return null;
             try {
-                if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('facebook.com') || url.includes('twitter.com') || url.includes('x.com')) {
-                    return null;
-                }
+                const res = await fetch(appState.docMonitorUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ type: 'scrape_and_log', url: url })
+                });
+                const text = await res.text();
+                if (text && !text.startsWith("Error")) return text;
+                return null;
+            } catch (e) {
+                console.error("GAS Scrape Error:", e);
+                return null;
+            }
+        }
+
+        async function extractContentFromUrl(url) {
+            if (appState.docMonitorUrl) {
+                const gasContent = await fetchUrlViaGas(url);
+                if (gasContent) return gasContent;
+            }
+            try {
+                if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('facebook.com') || url.includes('twitter.com') || url.includes('x.com')) return null;
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
                 const res = await fetch(proxyUrl);
                 const data = await res.json();
@@ -445,13 +455,9 @@ function doPost(e) {
                 let text = doc.body.innerText || "";
                 text = text.replace(/\s+/g, ' ').trim();
                 return text.substring(0, 15000); 
-            } catch (e) {
-                console.error("Link fetch failed", e);
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
-        // --- YOUTUBE HELPER ---
         async function getYouTubeMetadata(url) {
             try {
                 const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
@@ -460,161 +466,10 @@ function doPost(e) {
                 const data = await res.json();
                 if (!data.contents) return null;
                 return JSON.parse(data.contents);
-            } catch (e) {
-                console.error("YouTube oEmbed failed", e);
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
-        // --- PASTE HANDLER ---
-        function handlePaste(e) {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let index in items) {
-                const item = items[index];
-                if (item.kind === 'file' && item.type.includes('image/')) {
-                    const blob = item.getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        appState.pastedImageBase64 = event.target.result;
-                        document.getElementById('paste-indicator').classList.remove('hidden');
-                        document.getElementById('doc-input-main').value = "[已貼上圖片，請點擊發送]";
-                    };
-                    reader.readAsDataURL(blob);
-                    e.preventDefault(); 
-                }
-            }
-        }
-
-        // --- FORMATTER ---
-        function formatMessage(text, isTrustedHtml = false) {
-            if (!text) return '';
-            if (isTrustedHtml) return text; 
-            let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
-            safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-400 underline break-all">$1</a>');
-            return safe.replace(/\n/g, '<br>');
-        }
-
-        // --- DOC WRITER UI LOGIC ---
-        function setWriteMode(mode) {
-            appState.writeMode = mode;
-            ['text', 'image', 'link'].forEach(m => {
-                const btn = document.getElementById(`btn-mode-${m}`);
-                if(m === mode) btn.className = 'text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all';
-                else btn.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all';
-            });
-            const mainInput = document.getElementById('doc-input-main');
-            const subInput = document.getElementById('doc-input-sub');
-            appState.pastedImageBase64 = null;
-            document.getElementById('paste-indicator').classList.add('hidden');
-            if(mode === 'text') {
-                mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片...";
-                subInput.classList.add('hidden');
-            } else if (mode === 'image') {
-                mainInput.placeholder = "輸入圖片網址 (https://...)";
-                subInput.classList.add('hidden');
-            } else if (mode === 'link') {
-                mainInput.placeholder = "輸入連結顯示文字";
-                subInput.placeholder = "輸入連結網址 (https://...)";
-                subInput.classList.remove('hidden');
-            }
-        }
-
-        async function handleDocWriteBtn() {
-            if(!appState.docMonitorUrl) return alert("請先至設定輸入 Google Docs Apps Script URL");
-            const mainVal = document.getElementById('doc-input-main').value.trim();
-            const subVal = document.getElementById('doc-input-sub').value.trim();
-            let payload = {};
-            if (appState.pastedImageBase64) {
-                payload = { type: 'image_base64', content: appState.pastedImageBase64 };
-            } else {
-                if(!mainVal && appState.writeMode !== 'image_base64') return; 
-                if(appState.writeMode === 'text') payload = { type: 'text', content: mainVal };
-                else if (appState.writeMode === 'image') payload = { type: 'image', content: mainVal };
-                else if (appState.writeMode === 'link') {
-                    if(!subVal) return alert("請輸入連結網址");
-                    payload = { type: 'link', text: mainVal, content: subVal };
-                }
-            }
-            try {
-                await fetch(appState.docMonitorUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
-                addMessage(`📝 指令發送成功`, 'system');
-                document.getElementById('doc-input-main').value = '';
-                document.getElementById('doc-input-sub').value = '';
-                appState.pastedImageBase64 = null;
-                document.getElementById('paste-indicator').classList.add('hidden');
-            } catch(e) { alert("寫入失敗，請檢查網路或 URL"); }
-        }
-
-        // --- DOC VIEWER ---
-        function openDocViewer() { document.getElementById('doc-viewer-modal').classList.remove('hidden'); refreshDocView(); }
-        function closeDocViewer() { document.getElementById('doc-viewer-modal').classList.add('hidden'); }
-        async function refreshDocView() {
-            const area = document.getElementById('doc-content-area');
-            if(!appState.docMonitorUrl) { area.innerHTML = '<div class="text-center text-red-500">未設定 Docs URL</div>'; return; }
-            area.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 讀取中...</div>';
-            try {
-                const res = await fetch(appState.docMonitorUrl);
-                const text = await res.text();
-                area.innerHTML = text || '<div class="text-center text-slate-400">文件是空的</div>';
-            } catch(e) { area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>'; }
-        }
-
-        // --- GOOGLE DOCS MONITOR ---
-        function startDocMonitor() {
-            if(appState.docMonitorInterval) clearInterval(appState.docMonitorInterval);
-            if(!appState.docMonitorUrl) return;
-            updateDocStatus("監控中 (每 60s)");
-            document.getElementById('doc-monitor-badge').classList.remove('hidden');
-            document.getElementById('doc-monitor-badge').classList.add('flex');
-            checkDocUpdate(true);
-            appState.docMonitorInterval = setInterval(() => { checkDocUpdate(false); }, 60000);
-        }
-
-        async function checkDocUpdate(isSilent) {
-            try {
-                const res = await fetch(appState.docMonitorUrl);
-                const text = await res.text();
-                if (appState.lastDocContent && text !== appState.lastDocContent && !isSilent) {
-                    const sysMsg = { id:Date.now(), sender:'system', text:`📑 **Google Doc 已更新！**<br><br>${text}`, time:getTime(), isHtml: true };
-                    appState.messages.push(sysMsg);
-                    renderMessages();
-                    if(appState.keys.gemini || appState.keys.openrouter || appState.zeaburUrl) {
-                         const strippedText = text.replace(/<[^>]*>?/gm, '');
-                         handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容。內容：${strippedText})`, true);
-                    }
-                }
-                appState.lastDocContent = text;
-                updateDocStatus("連線正常 - " + getTime());
-            } catch (e) {
-                updateDocStatus("連線失敗");
-                if(!isSilent) addMessage("⚠️ Google Docs 監控連線失敗，請檢查 URL。", 'system');
-            }
-        }
-
-        async function testDocConnection() {
-            const url = document.getElementById('key-doc-url').value.trim();
-            if(!url) return alert("請輸入 URL");
-            try {
-                document.getElementById('doc-monitor-status').innerText = "測試中...";
-                const res = await fetch(url);
-                const text = await res.text();
-                alert("連線成功！");
-                document.getElementById('doc-monitor-status').innerText = "測試成功";
-            } catch(e) { alert("連線失敗：" + e.message); document.getElementById('doc-monitor-status').innerText = "測試失敗"; }
-        }
-
-        function updateDocStatus(msg) { const el = document.getElementById('doc-monitor-status'); if(el) el.innerText = msg; }
-
-        function handleSendMessageInternal(text, isHidden=false) {
-             if(!isHidden) addMessage(text, 'user');
-             fetchAIResponse(text, appState.currentModel).then(res => {
-                 if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel);
-                 else addMessage(res.text, 'ai', appState.currentModel, res.sources);
-             }).catch(e => { addMessage("無法分析文件更新：" + e.message, 'system'); });
-        }
-
-        // --- CORE HANDLER ---
+        // --- HANDLERS ---
         function handleEnter(e) { if(e.key==='Enter') handleSendMessage(); }
         
         async function handleSendMessage() {
@@ -630,107 +485,42 @@ function doPost(e) {
             renderThinkingState(true);
 
             try {
-                let systemPromptAddon = "", actionTriggered = false;
-                let injectedContext = ""; 
-                
-                // --- 1. Detect Search Intent ---
+                let systemPromptAddon = "";
+                let injectedContext = "";
+                let modelToUse = appState.currentModel;
+                let enableSearchTool = false;
+
                 const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
-                const urlMatch = text.match(/https?:\/\/[^\s]+/);
-                
-                // Smart Switch Logic: Use Gemini if available for search/url tasks
-                let useGeminiForSearch = false;
-                if ((urlMatch || searchMatch) && appState.keys.gemini) {
-                    useGeminiForSearch = true;
+                if (searchMatch && appState.keys.gemini) {
+                    modelToUse = 'gemini';
+                    enableSearchTool = true;
+                    systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。若您無法使用工具，請誠實告知。)`;
                 }
 
-                // --- 2. URL Processing ---
+                const urlMatch = text.match(/https?:\/\/[^\s]+/);
                 if (urlMatch) {
                     const url = urlMatch[0];
-                    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                        addMessage("🔍 正在取得影片資訊...", "system");
-                        const meta = await getYouTubeMetadata(url);
-                        if (meta) {
-                            systemPromptAddon += `(系統資料: 使用者提供的影片是 YouTube 影片，標題為「${meta.title}」，作者為「${meta.author_name}」。\n重要指令: 請務必使用 Google Search 搜尋此精確標題，尋找該影片的文字記錄、字幕摘要或評論內容。請基於搜尋到的真實資訊進行摘要，若找不到具體內容，請明確告知無法讀取影片內容。)`;
+                    if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('twitter.com') && !url.includes('facebook.com')) {
+                        addMessage(`🔍 正在透過 Google Doc 代理抓取網頁...`, 'system');
+                        const content = await fetchUrlViaGas(url); // Use GAS 5.0 Scraper
+                        if (content) {
+                            injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`;
+                            if (appState.keys.gemini) modelToUse = 'gemini'; 
                         } else {
-                            systemPromptAddon += `(系統資料: 使用者提供了一個 YouTube 連結 ${url}。請使用 Google Search 搜尋該網址或影片 ID 以獲取內容。)`;
+                            systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`;
+                            if (appState.keys.gemini) { modelToUse = 'gemini'; enableSearchTool = true; }
                         }
-                    } else {
-                        addMessage("🔍 正在讀取網頁內容...", "system");
-                        const scrapedText = await extractContentFromUrl(url);
-                        if (scrapedText) {
-                            injectedContext = `\n\n[系統自動讀取的網頁內容 (${url})]:\n${scrapedText}\n\n[指令]: 請先參考上述內容。若資訊不足，請使用 Google Search 搜尋相關資訊補充回答。`;
-                        } else {
-                            systemPromptAddon += `(系統: 嘗試讀取網頁失敗，請務必使用 Google Search 工具搜尋該網址內容)`;
-                        }
+                    } else if (url.includes('youtube') || url.includes('youtu.be')) {
+                         if (appState.keys.gemini) {
+                            modelToUse = 'gemini';
+                            enableSearchTool = true; 
+                            systemPromptAddon += `(系統: 這是一個 YouTube 連結。請使用 Search 工具搜尋該影片的標題、摘要或評論內容來回答。)`;
+                         }
                     }
                 }
 
-                // --- 3. Intent Parsing (Doc, Todo, etc.) ---
-                const navMatch = text.match(/(?:導航|帶我去|怎麼去|路線|前往)\s*(.+)/i);
-                const todoMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:排程|行程|任務|待辦|提醒|todo|task)(?:我|一下)?\s*[:：]?\s*(.+)/i);
-                const noteMatch = text.match(/(?:幫我|新增|建立|添加|記下)?\s*(?:筆記|記事|紀錄|記錄|note|memo)(?:一下)?\s*[:：]?\s*(.+)/i);
-                const docWriteMatch = text.match(/^(?:doc|寫入|文件|docwrite)[:：\s]\s*(.+)/i);
-
-                if (navMatch) {
-                    const dest = navMatch[1].replace(/到|去/g, '').trim();
-                    appState.messages.push({ id:Date.now(), sender:'system', type:'nav', text:`前往：${dest}`, url:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`, time:getTime() });
-                    renderMessages(); 
-                    systemPromptAddon = `(系統: 使用者要求導航，已產生導航卡片)`; 
-                    actionTriggered = true;
-                } else if(text.includes('天氣')) { 
-                    tryGetLocation(false); 
-                    systemPromptAddon = `(系統: 使用者查詢天氣，已自動更新UI)`; 
-                    actionTriggered = true; 
-                } else if (docWriteMatch) {
-                    const content = docWriteMatch[1].trim();
-                    await fetch(appState.docMonitorUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'text', content: content }) });
-                    systemPromptAddon = `(系統: 使用者要求寫入Google Doc，內容為"${content}"，已執行寫入動作)`;
-                    actionTriggered = true;
-                } else if (todoMatch) {
-                    const content = todoMatch[1].trim();
-                    if(content) {
-                        appState.todos.push({id:Date.now(), text:content, done:false, time:'剛剛'});
-                        saveData(); 
-                        renderTodos();
-                        addMessage(`👌 已將『${content}』加入行程清單`, 'system');
-                        systemPromptAddon = `(系統: 使用者要求新增待辦事項 "${content}"，已成功加入清單)`;
-                        actionTriggered = true;
-                    }
-                } else if (noteMatch) {
-                    const content = noteMatch[1].trim();
-                    if(content) {
-                        const title = content.length > 15 ? content.substring(0,15)+'...' : content;
-                        appState.notes.push({id:Date.now(), title: title, content: content, date:new Date().toLocaleDateString()});
-                        saveData(); 
-                        renderNotes();
-                        addMessage(`📝 已儲存筆記：${title}`, 'system');
-                        systemPromptAddon = `(系統: 使用者要求新增筆記 "${content}"，已成功儲存)`;
-                        actionTriggered = true;
-                    }
-                }
-
-                let docContext = "";
-                if (appState.lastDocContent) {
-                    const plain = appState.lastDocContent.replace(/<[^>]*>?/gm, '');
-                    docContext = `\n[參考資料: Google Doc 摘要]: ${plain.substring(0, 500)}...`;
-                }
-
-                const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}\n${docContext}`;
-                
-                // Determine model and options
-                let modelToUse = appState.currentModel;
-                let options = {};
-                
-                if (useGeminiForSearch) {
-                    // Force enable search tool
-                    options.enableSearch = true;
-                    if (modelToUse !== 'gemini') {
-                        modelToUse = 'gemini'; // Switch to Gemini for grounding
-                        if(!actionTriggered) addMessage("🔍 切換至 Gemini 進行深度搜尋...", "system");
-                    }
-                }
-
-                const res = await fetchAIResponse(prompt, modelToUse, options);
+                const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}`;
+                const res = await fetchAIResponse(prompt, modelToUse, { enableSearch: enableSearchTool });
                 
                 if(typeof res === 'string') addMessage(res, 'ai', modelToUse);
                 else addMessage(res.text, 'ai', modelToUse, res.sources);
@@ -745,135 +535,113 @@ function doPost(e) {
             }
         }
 
-        // --- AI API ---
         async function fetchAIResponse(userText, model, options = {}) {
-            const fetchWithTimeout = async (url, options, timeout = 25000) => {
+            const fetchWithTimeout = async (url, options, timeout = 30000) => {
                 const controller = new AbortController();
                 const id = setTimeout(() => controller.abort(), timeout);
                 try { const response = await fetch(url, { ...options, signal: controller.signal }); clearTimeout(id); return response; } 
-                catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時 (25s)' : error.message); }
+                catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時 (30s)' : error.message); }
             };
 
             try {
                 if(model === 'zeabur') {
-                    if(!appState.zeaburUrl) throw new Error("請先至設定輸入 Zeabur / 自訂 API URL");
-                    const headers = { 'Content-Type': 'application/json' };
-                    if(appState.zeaburKey) headers['Authorization'] = `Bearer ${appState.zeaburKey}`;
-                    const res = await fetchWithTimeout(appState.zeaburUrl, { method: 'POST', headers: headers, body: JSON.stringify({ model: 'user-model', messages: [{ role: 'user', content: userText }] }) });
-                    if(!res.ok) throw new Error(`API 請求失敗: ${res.status}`);
-                    const data = await res.json();
-                    return data.choices?.[0]?.message?.content || "無回應";
+                    if(!appState.zeaburUrl) throw new Error("請設定 Zeabur API URL");
+                    const res = await fetchWithTimeout(appState.zeaburUrl, { method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${appState.zeaburKey}`}, body: JSON.stringify({ model: 'user-model', messages: [{ role: 'user', content: userText }] }) });
+                    const data = await res.json(); return data.choices?.[0]?.message?.content || "無回應";
                 }
                 const key = appState.keys[model];
-                if(!key && model !== 'zeabur') throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
+                if(!key) throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
 
                 if(model === 'gemini') {
                     if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key);
-                    const name = appState.detectedGeminiModel.replace('models/', '');
-                    
-                    // Build payload with tools if needed
+                    let modelName = appState.detectedGeminiModel;
+                    if (options.enableSearch && !modelName.includes('pro')) {
+                         const pro = appState.detectedGeminiModel.replace('flash', 'pro');
+                         modelName = pro; 
+                    }
+                    modelName = modelName.replace('models/', '');
+
                     const payload = { contents:[{parts:[{text:userText}]}] };
                     if (appState.isSearchEnabled || options.enableSearch) {
                         payload.tools = [{google_search:{}}];
                     }
 
-                    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
                     const data = await res.json();
+                    
                     if(data.error) {
-                        // Retry without tools if tool-use failed
-                        if (options.enableSearch || appState.isSearchEnabled) {
-                             const retryPayload = { contents:[{parts:[{text:userText}]}] };
-                             const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(retryPayload) });
-                             const d = await retry.json();
-                             
-                             if (d.error) return `⚠️ API 重試失敗: ${d.error.message}`;
-                             if (d.promptFeedback && d.promptFeedback.blockReason) return `⚠️ 內容被阻擋: ${d.promptFeedback.blockReason}`;
-                             if (!d.candidates || !d.candidates[0] || !d.candidates[0].content) return "⚠️ 無法生成內容 (可能觸發安全過濾或無回應)";
-                             
-                             return d.candidates[0].content.parts[0].text;
+                        if (payload.tools) {
+                            delete payload.tools;
+                            const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                            const d = await retry.json();
+                            return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (搜尋失敗後重試)";
                         }
                         throw new Error(data.error.message);
                     }
                     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無內容";
                     let sources = []; 
-                    data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { 
-                        if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); 
-                    });
+                    data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); });
                     return {text, sources};
                 } else if (model === 'openrouter') {
                     const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/nova-ai', 'X-Title': 'Nova AI' }, body: JSON.stringify({ model: appState.openRouterModel, messages: [{ role: 'user', content: userText }] }) });
                     const data = await res.json();
-                    if(data.error) throw new Error(data.error.message);
                     return data.choices?.[0]?.message?.content || "無回應";
-                } else if(model === 'cerebras') {
-                    const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
-                    const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices[0].message.content;
-                } else {
-                    const ep = model==='gpt'?'https://api.openai.com/v1/chat/completions':'https://api.x.ai/v1/chat/completions';
-                    const mName = model==='gpt'?'gpt-4o-mini':'grok-beta';
-                    const res = await fetchWithTimeout(ep, { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:mName, messages:[{role:"user", content:userText}]}) });
-                    const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices[0].message.content;
-                }
+                } 
+                return "API Error"; 
             } catch(e) { throw e; }
         }
 
         async function detectAvailableGeminiModel(apiKey) {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-            const data = await res.json();
-            if(data.error) throw new Error(data.error.message);
-            const models = data.models.filter(m => m.supportedGenerationMethods?.includes("generateContent"));
-            // Prefer Pro for better reasoning/search
-            return (models.find(m=>m.name.includes("gemini-1.5-pro")) || models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name;
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                const data = await res.json();
+                const models = data.models.filter(m => m.supportedGenerationMethods?.includes("generateContent"));
+                return (models.find(m=>m.name.includes("gemini-1.5-pro")) || models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name;
+            } catch(e) { return 'gemini-1.5-pro'; }
         }
 
-        function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
-        function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
-        function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
-        async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
-        async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
-        async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
-        function updateLocStatus(msg) { document.getElementById('location-status').innerText = msg; if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { const {loc, temp} = appState.weather; document.getElementById('location-name').innerText = loc; document.getElementById('mobile-weather-temp').innerText = `${temp}°`; } }
-        function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
-        
-        let recognition = null; if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) { const SR = window.SpeechRecognition || window.webkitSpeechRecognition; recognition = new SR(); recognition.lang = 'zh-TW'; recognition.onstart = () => {appState.isListening=true;updateVoiceUI();}; recognition.onend = () => {appState.isListening=false;updateVoiceUI();}; recognition.onresult = (e) => {document.getElementById('user-input').value = e.results[0][0].transcript; setTimeout(()=>handleSendMessage(),500);}; }
-        function toggleVoice() { if(!recognition){alert("瀏覽器不支援");return;} if(appState.isListening)recognition.stop(); else recognition.start(); }
-        function updateVoiceUI() { const btn=document.getElementById('voice-btn'),icon=document.getElementById('voice-icon'); if(appState.isListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} }
-
-        function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
-        function renderMessages() { 
-            document.getElementById('chat-container').innerHTML = appState.messages.map(msg => { 
-                if (msg.sender === 'system') { 
-                    if (msg.type === 'nav') return `<div class="flex justify-center fade-in my-3"><a href="${msg.url}" target="_blank" class="bg-blue-900/40 border border-blue-500/50 p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-blue-900/60 w-[80%]"><div class="bg-blue-600 rounded-full p-3"><i class="ph-fill ph-navigation-arrow text-white text-xl"></i></div><div class="flex-1"><p class="text-blue-200 text-xs font-bold mb-1">開始導航</p><p class="text-white font-bold text-lg truncate">${escapeHtml(msg.text.replace('前往：', ''))}</p></div><i class="ph-bold ph-arrow-right text-blue-400"></i></a></div>`; 
-                    return `<div class="flex justify-center fade-in my-2 w-full"><div class="bg-slate-800/90 border border-slate-700 text-slate-300 text-xs py-2 px-4 rounded-2xl flex flex-col items-start space-y-1 max-w-[90%] shadow-lg"><div class="flex items-center space-x-2 font-bold text-blue-400"><i class="ph-fill ph-info"></i><span>系統通知</span></div><div class="leading-relaxed text-slate-300 w-full overflow-hidden text-ellipsis">${formatMessage(msg.text, msg.isHtml)}</div></div></div>`; 
-                } 
-                const isUser = msg.sender === 'user'; 
-                const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; 
-                let sourcesHTML = ''; 
-                if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`; 
-                return `<div class="flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in">${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo.bg}"><i class="ph-fill ${modelInfo.icon} text-white text-sm"></i></div>` : ''}<div class="max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo.color} opacity-80">${modelInfo.name}${msg.model==='openrouter'?` (${getShortName(appState.openRouterModel)})`:''}</span>` : ''}<div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div>${sourcesHTML}<p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p></div></div>`; 
-            }).join(''); 
-            document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight; 
+        function testDocConnection() {
+            const url = document.getElementById('key-doc-url').value.trim();
+            if(!url) return alert("請輸入 URL");
+            document.getElementById('doc-monitor-status').innerText = "測試中...";
+            fetch(url).then(r=>r.text()).then(t=>{
+                alert("連線成功！");
+                document.getElementById('doc-monitor-status').innerText = "測試成功";
+            }).catch(e=>{
+                alert("連線失敗：" + e.message);
+                document.getElementById('doc-monitor-status').innerText = "測試失敗";
+            });
         }
-        function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); renderMessages(); }
-        function renderThinkingState(show) { const el = document.getElementById('thinking-indicator'); if(show && !el) document.getElementById('chat-container').insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); else if(!show && el) el.remove(); }
-        
-        function renderTodos() { document.getElementById('full-todo-list').innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; document.getElementById('mini-todo-list').innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; }
-        function renderNotes() { document.getElementById('full-note-list').innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; document.getElementById('mini-note-list').innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; }
-        function renderWeather() { const {temp,condition,humidity,wind,loc}=appState.weather; let icon='ph-cloud',color='text-slate-400',desc='多雲'; if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} document.getElementById('location-name').innerText=loc; document.getElementById('weather-temp').innerText=`${temp}°`; document.getElementById('weather-desc').innerText=desc; document.getElementById('weather-icon').className=`ph-fill ${icon} text-4xl ${color}`; document.getElementById('weather-humidity').innerText=`濕度 ${humidity}%`; document.getElementById('weather-wind').innerText=`風速 ${wind}km/h`; document.getElementById('mobile-weather-temp').innerText=loc==='未定位'?'定位':`${temp}°`; document.getElementById('mobile-weather-icon').className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; }
-        function toggleTodo(id){ const t=appState.todos.find(x=>x.id===id); if(t){t.done=!t.done;saveData();renderTodos();} }
-        function deleteTodo(id){ appState.todos=appState.todos.filter(x=>x.id!==id); saveData(); renderTodos(); }
-        function deleteNote(id){ appState.notes=appState.notes.filter(x=>x.id!==id); saveData(); renderNotes(); }
-        function addTodoManually(){ const t=prompt("任務"); if(t){appState.todos.push({id:Date.now(),text:t,done:false,time:'手動'});saveData();renderTodos();} }
-        function addNoteManually(){ const t=prompt("標題"),c=prompt("內容"); if(t&&c){appState.notes.push({id:Date.now(),title:t,content:c,date:new Date().toLocaleDateString()});saveData();renderNotes();} }
-        function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
-        function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
-        function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
-        function setModel(m){ appState.currentModel=m; updateModelUI(); }
-        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; document.getElementById('status-name').innerText=conf.name; document.getElementById('status-icon').className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); document.getElementById('input-wrapper').className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const orBadge=document.getElementById('openrouter-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(appState.isSearchEnabled){searchBtn.classList.add('text-blue-400','bg-blue-900/30');searchBtn.classList.remove('text-slate-500');if(badge)badge.classList.remove('hidden');if(hint)hint.classList.remove('hidden');}else{searchBtn.classList.remove('text-blue-400','bg-blue-900/30');searchBtn.classList.add('text-slate-500');if(badge)badge.classList.add('hidden');if(hint)hint.classList.add('hidden');} if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); document.getElementById('or-model-name').innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } }
-        function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
-        function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
-        function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
+
+        function startDocMonitor() {
+            if(appState.docMonitorInterval) clearInterval(appState.docMonitorInterval);
+            if(!appState.docMonitorUrl) return;
+            const badge = document.getElementById('doc-monitor-badge');
+            if (badge) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+            }
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            if(appState.messages.length === 0) {
+                appState.messages.push({ id: 1, text: 'Nova 12.14.2 就緒！\n我已升級為「超級代理」模式。\n1. 搜尋關鍵字 -> 自動聯網回答\n2. 貼上網址 -> 自動清空文件、抓取內容並摘要\n3. 對話紀錄已永久保存，可隨時刪除。', sender: 'ai', model: 'gemini', time: getTime() });
+            }
+            renderAll();
+            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+            safeSet('key-gemini', appState.keys.gemini);
+            safeSet('key-cerebras', appState.keys.cerebras);
+            safeSet('key-openrouter', appState.keys.openrouter);
+            safeSet('key-openai', appState.keys.openai);
+            safeSet('key-grok', appState.keys.grok);
+            safeSet('key-doc-url', appState.docMonitorUrl);
+            safeSet('key-zeabur-url', appState.zeaburUrl);
+            safeSet('key-zeabur-key', appState.zeaburKey);
+            safeSet('model-openrouter-select', appState.openRouterModel);
+            tryGetLocation(true);
+            updateModelUI();
+        };
     </script>
 </body>
 </html>
