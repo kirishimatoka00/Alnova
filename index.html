@@ -52,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Google Bridge 12.13</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Google Bridge 12.13.1</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -411,14 +411,19 @@ function doPost(e) {
             // 1. Try Google Apps Script Proxy first (Super robust)
             if (appState.docMonitorUrl) {
                 try {
-                    // We use 'no-cors' for writing, but for reading scraping result we need CORS.
-                    // Google Apps Script Web App returns correct CORS headers if set to "Anyone".
+                    // Use 'text/plain' to avoid CORS preflight (OPTIONS) which GAS doesn't handle natively
                     const res = await fetch(appState.docMonitorUrl, {
                         method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' }, 
                         body: JSON.stringify({ type: 'scrape', url: url })
                     });
                     const text = await res.text();
-                    if (text && !text.startsWith("Error")) return text;
+                    
+                    if (text === "OK") {
+                        console.warn("GAS script outdated (returned OK for scrape), falling back...");
+                    } else if (text && !text.startsWith("Error")) {
+                        return text;
+                    }
                 } catch (e) {
                     console.warn("GAS Proxy failed, falling back...", e);
                 }
@@ -816,7 +821,6 @@ function doPost(e) {
             return (models.find(m=>m.name.includes("gemini-1.5-pro")) || models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name;
         }
 
-        // ... existing UI helpers ...
         function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
         function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
         function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
