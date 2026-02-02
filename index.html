@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.14.4 - Cerebras Fix</title>
+    <title>Nova 12.14.8 - Syntax Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,7 +57,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate 12.14.4</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate 12.14.8</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -249,9 +249,7 @@ function doPost(e) {
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
             
-            // Persistent Messages
             messages: JSON.parse(localStorage.getItem('nova_messages') || '[]'),
-            
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -607,8 +605,18 @@ function doPost(e) {
                     const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/nova-ai', 'X-Title': 'Nova AI' }, body: JSON.stringify({ model: appState.openRouterModel, messages: [{ role: 'user', content: userText }] }) });
                     const data = await res.json();
                     return data.choices?.[0]?.message?.content || "無回應";
-                } 
-                return "API Error"; 
+                } else if(model === 'cerebras') {
+                    // Update model to llama-3.3-70b
+                    const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
+                    const data = await res.json(); 
+                    if(data.error) throw new Error(data.error.message); 
+                    return data.choices?.[0]?.message?.content || "無回應";
+                } else {
+                    const ep = model==='gpt'?'https://api.openai.com/v1/chat/completions':'https://api.x.ai/v1/chat/completions';
+                    const mName = model==='gpt'?'gpt-4o-mini':'grok-beta';
+                    const res = await fetchWithTimeout(ep, { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:mName, messages:[{role:"user", content:userText}]}) });
+                    const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices[0].message.content;
+                }
             } catch(e) { throw e; }
         }
 
@@ -644,10 +652,13 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.14.3 就緒！\n我已升級為「超級代理」模式。\n1. 搜尋關鍵字 -> 自動聯網回答\n2. 貼上網址 -> 自動清空文件、抓取內容並摘要\n3. 對話紀錄已永久保存，可隨時刪除。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.14.8 就緒！\n我已升級為「超級代理」模式。\n1. 搜尋關鍵字 -> 自動聯網回答\n2. 貼上網址 -> 自動清空文件、抓取內容並摘要\n3. 對話紀錄已永久保存，可隨時刪除。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
+            
+            // Safe initialization of values
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+            
             safeSet('key-gemini', appState.keys.gemini);
             safeSet('key-cerebras', appState.keys.cerebras);
             safeSet('key-openrouter', appState.keys.openrouter);
@@ -657,6 +668,7 @@ function doPost(e) {
             safeSet('key-zeabur-url', appState.zeaburUrl);
             safeSet('key-zeabur-key', appState.zeaburKey);
             safeSet('model-openrouter-select', appState.openRouterModel);
+            
             tryGetLocation(true);
             updateModelUI();
         };
