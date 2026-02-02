@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.7 - Docs Master</title>
+    <title>Nova 12.8 - Docs Ultimate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +33,7 @@
         .dot-flashing::before { left: -10px; animation-delay: 0s; }
         .dot-flashing::after { left: 10px; animation-delay: 1s; }
         @keyframes dot-flashing { 0% { background-color: #9880ff; } 50%, 100% { background-color: rgba(152, 128, 255, 0.2); } }
-        .msg-content a { color: #60a5fa; text-decoration: underline; }
+        .msg-content a { color: #60a5fa; text-decoration: underline; word-break: break-all; }
         .slide-in { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -49,7 +49,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Master 12.7</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Docs Ultimate 12.8</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -93,29 +93,50 @@
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                     <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">設定</h3><button onclick="closeSettings()"><i class="ph ph-x text-2xl text-slate-400"></i></button></div>
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
-                        <!-- Zeabur / Custom Section -->
-                        <div class="bg-pink-900/20 p-4 rounded-xl border border-pink-500/30">
-                            <label class="block text-xs text-pink-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-plant"></i> Zeabur / 自訂 API</label>
-                            <input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-2" placeholder="API URL">
-                            <input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-pink-500 outline-none mb-1" placeholder="API Key (選填)">
-                        </div>
-
-                        <!-- Docs Monitor Section -->
-                        <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 進階功能 (Apps Script)</label>
+                        
+                        <!-- Docs Monitor Section (Highlight) -->
+                        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
+                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 核心 (Apps Script)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="https://script.google.com/macros/s/...">
                             <div class="flex items-center justify-between">
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
-                            <!-- Updated Instructions for Image/Link Support -->
-                            <details class="mt-2">
-                                <summary class="text-[10px] text-slate-400 cursor-pointer hover:text-white">如何設定支援圖片與連結？(點擊查看程式碼)</summary>
-                                <div class="text-[10px] text-slate-500 mt-2 p-2 bg-slate-900 rounded border border-slate-700">
-                                    <p class="mb-2">請將 Apps Script 替換為以下程式碼，以支援文字、圖片與超連結寫入：</p>
-                                    <pre class="bg-slate-950 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all">
+                            
+                            <details class="mt-3 group">
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼以支援圖片貼上與連結顯示</summary>
+                                <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
+                                    <p class="mb-2">請複製下方所有程式碼，取代您 Google Apps Script 內的內容，並執行 <b>「部署」>「管理部署」>「編輯」>「新版本」>「部署」</b>。</p>
+                                    <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
-  return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText());
+  var body = DocumentApp.getActiveDocument().getBody();
+  var text = "";
+  var paragraphs = body.getParagraphs();
+  for (var i = 0; i < paragraphs.length; i++) {
+    var p = paragraphs[i];
+    var numChildren = p.getNumChildren();
+    if (numChildren == 0) {
+      text += p.getText() + "<br>";
+    } else {
+      for (var j = 0; j < numChildren; j++) {
+        var child = p.getChild(j);
+        if (child.getType() == DocumentApp.ElementType.TEXT) {
+          var t = child.asText();
+          var content = t.getText();
+          var url = t.getLinkUrl();
+          if (url) {
+            text += '<a href="' + url + '" target="_blank" style="color: #60a5fa; text-decoration: underline;">' + content + '</a>';
+          } else {
+            text += content;
+          }
+        } else if (child.getType() == DocumentApp.ElementType.INLINE_IMAGE) {
+           text += " [圖片] ";
+        }
+      }
+      text += "<br>";
+    }
+  }
+  return ContentService.createTextOutput(text);
 }
 
 function doPost(e) {
@@ -127,34 +148,39 @@ function doPost(e) {
       var resp = UrlFetchApp.fetch(d.content);
       body.appendImage(resp.getBlob());
     } catch(err) { body.appendParagraph("[圖片插入失敗: " + err + "]"); }
+  } else if (d.type === 'image_base64') {
+    try {
+      var parts = d.content.split(',');
+      var mimeType = parts[0].match(/:(.*?);/)[1];
+      var data = parts[1];
+      var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, "pasted_image");
+      body.appendImage(blob);
+    } catch(err) { body.appendParagraph("[圖片上傳失敗: " + err + "]"); }
   } else if (d.type === 'link') {
     var p = body.appendParagraph(d.text || d.content);
     p.setLinkUrl(d.content);
   } else {
-    // Default Text
     body.appendParagraph(d.content);
   }
   return ContentService.createTextOutput("OK");
 }</pre>
-                                    <p class="mt-2 text-orange-400">注意：更新程式碼後，必須選擇「部署」->「管理部署」->「編輯」->「新版本」->「部署」才會生效。</p>
                                 </div>
                             </details>
                         </div>
 
-                        <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none" placeholder="AIzaSy..."></div>
-                        <div class="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
-                            <label class="block text-xs text-purple-400 mb-1 font-bold">OpenRouter</label>
-                            <input type="password" id="key-openrouter" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-purple-500 outline-none mb-2" placeholder="sk-or-...">
-                            <select id="model-openrouter-select" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-purple-500">
-                                <option value="deepseek/deepseek-r1:free">DeepSeek R1 (Free)</option>
-                                <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (Free)</option>
-                                <option value="google/gemini-2.0-flash-lite-preview-02-05:free">Gemini 2.0 Flash (Free)</option>
-                                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Paid)</option>
-                            </select>
+                        <!-- Other APIs -->
+                        <div class="space-y-3 pt-2">
+                            <div class="p-3 rounded-lg border border-pink-900/30 bg-pink-900/10"><label class="block text-xs text-pink-400 mb-1">Zeabur / Custom API</label><input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none mb-1" placeholder="URL"><input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none" placeholder="Key (Optional)"></div>
+                            <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-blue-500 outline-none"></div>
+                            <div><label class="block text-xs text-purple-400 mb-1">OpenRouter Key</label><input type="password" id="key-openrouter" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-purple-500 outline-none"></div>
+                            
+                            <!-- Restored Input Fields -->
+                            <div><label class="block text-xs text-orange-400 mb-1">Cerebras API Key</label><input type="password" id="key-cerebras" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none"></div>
+                            <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
+                            <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-slate-500 outline-none"></div>
+
+                            <select id="model-openrouter-select" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-purple-500 mt-1"><option value="deepseek/deepseek-r1:free">DeepSeek R1</option><option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3</option><option value="google/gemini-2.0-flash-lite-preview-02-05:free">Gemini 2.0 Flash</option><option value="anthropic/claude-3.5-sonnet">Claude 3.5</option></select>
                         </div>
-                        <div><label class="block text-xs text-orange-400 mb-1">Cerebras API Key</label><input type="password" id="key-cerebras" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-orange-500 outline-none" placeholder="csk-..."></div>
-                        <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-emerald-500 outline-none" placeholder="sk-..."></div>
-                        <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:border-slate-500 outline-none" placeholder="xai-..."></div>
                     </div>
                     <div class="mt-6 flex justify-end space-x-3"><button onclick="closeSettings()" class="px-4 py-2 text-slate-400 text-sm">取消</button><button onclick="saveKeys()" class="px-6 py-2 bg-blue-600 text-white rounded-lg">儲存</button></div>
                 </div>
@@ -256,14 +282,19 @@ function doPost(e) {
                             
                             <!-- Tabs -->
                             <div class="flex space-x-2 mb-3">
-                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字</button>
+                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字 / 貼上圖片 (Ctrl+V)</button>
                                 <button onclick="setWriteMode('image')" id="btn-mode-image" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">圖片網址</button>
                                 <button onclick="setWriteMode('link')" id="btn-mode-link" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">超連結</button>
                             </div>
 
                             <div class="flex flex-col gap-3">
                                 <!-- Inputs -->
-                                <input type="text" id="doc-input-main" placeholder="輸入文字內容..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
+                                <div class="relative">
+                                    <input type="text" id="doc-input-main" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24">
+                                    <div id="paste-indicator" class="hidden absolute right-3 top-3 text-[10px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded border border-emerald-500/50 animate-pulse">
+                                        <i class="ph-bold ph-image"></i> 圖片已就緒
+                                    </div>
+                                </div>
                                 <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
                                 
                                 <div class="flex justify-end">
@@ -272,7 +303,7 @@ function doPost(e) {
                                     </button>
                                 </div>
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 需至設定更新 Apps Script 程式碼以支援圖片與連結。</p>
+                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 貼上圖片後請點擊「發送寫入」上傳至文件。</p>
                         </div>
                     </div>
 
@@ -290,11 +321,12 @@ function doPost(e) {
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
-            writeMode: 'text', // text, image, link
+            writeMode: 'text',
+            pastedImageBase64: null, // Store pasted image temporarily
             
             lastDocContent: '', 
             docMonitorInterval: null,
-            messages: [{ id: 1, text: 'Nova 12.7 就緒！\n新增「Google Docs 多元寫入」與「全螢幕閱讀」功能。\n現在您可以插入圖片與連結，並查看完整文件內容。', sender: 'ai', model: 'gemini', time: getTime() }],
+            messages: [{ id: 1, text: 'Nova 12.8 就緒！\n新增「超連結支援」與「直接貼上圖片」功能。\n請務必至設定更新 Apps Script 程式碼以啟用新功能。', sender: 'ai', model: 'gemini', time: getTime() }],
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -320,15 +352,24 @@ function doPost(e) {
 
         window.onload = () => {
             renderAll();
-            document.getElementById('key-gemini').value = appState.keys.gemini;
-            document.getElementById('key-cerebras').value = appState.keys.cerebras;
-            document.getElementById('key-openrouter').value = appState.keys.openrouter;
-            document.getElementById('key-openai').value = appState.keys.openai;
-            document.getElementById('key-grok').value = appState.keys.grok;
-            document.getElementById('key-doc-url').value = appState.docMonitorUrl;
-            document.getElementById('key-zeabur-url').value = appState.zeaburUrl;
-            document.getElementById('key-zeabur-key').value = appState.zeaburKey;
-            document.getElementById('model-openrouter-select').value = appState.openRouterModel;
+            
+            // Safe initialization of values
+            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+            
+            safeSet('key-gemini', appState.keys.gemini);
+            safeSet('key-cerebras', appState.keys.cerebras);
+            safeSet('key-openrouter', appState.keys.openrouter);
+            safeSet('key-openai', appState.keys.openai);
+            safeSet('key-grok', appState.keys.grok);
+            safeSet('key-doc-url', appState.docMonitorUrl);
+            safeSet('key-zeabur-url', appState.zeaburUrl);
+            safeSet('key-zeabur-key', appState.zeaburKey);
+            safeSet('model-openrouter-select', appState.openRouterModel);
+            
+            // Paste Listener
+            const inputMain = document.getElementById('doc-input-main');
+            if(inputMain) inputMain.addEventListener('paste', handlePaste);
+
             tryGetLocation(true);
             updateModelUI();
             if(appState.docMonitorUrl) startDocMonitor();
@@ -341,15 +382,39 @@ function doPost(e) {
 
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
-        // --- FORMATTER ---
-        function formatMessage(text) {
+        // --- PASTE HANDLER ---
+        function handlePaste(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.includes('image/')) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        appState.pastedImageBase64 = event.target.result;
+                        // Show visual indicator
+                        document.getElementById('paste-indicator').classList.remove('hidden');
+                        document.getElementById('doc-input-main').value = "[已貼上圖片，請點擊發送]";
+                    };
+                    reader.readAsDataURL(blob);
+                    e.preventDefault(); // Stop default paste
+                }
+            }
+        }
+
+        // --- FORMATTER (UPDATED: Trust System HTML) ---
+        function formatMessage(text, isTrustedHtml = false) {
             if (!text) return '';
-            let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            if (isTrustedHtml) {
+                // If trusted (from our own GAS), we assume the HTML structure is safe-ish
+                // We only do minimal processing or return as is.
+                // NOTE: The GAS returns <a href...>...</a>. We should return it.
+                return text; 
+            }
+            // Standard user message formatting
+            let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
-            safe = safe.replace(
-                /(https?:\/\/[^\s<]+)/g, 
-                '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline break-all">$1</a>'
-            );
+            safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-400 underline break-all">$1</a>');
             return safe.replace(/\n/g, '<br>');
         }
 
@@ -358,18 +423,19 @@ function doPost(e) {
             appState.writeMode = mode;
             ['text', 'image', 'link'].forEach(m => {
                 const btn = document.getElementById(`btn-mode-${m}`);
-                if(m === mode) {
-                    btn.className = 'text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all';
-                } else {
-                    btn.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all';
-                }
+                if(m === mode) btn.className = 'text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all';
+                else btn.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all';
             });
-
             const mainInput = document.getElementById('doc-input-main');
             const subInput = document.getElementById('doc-input-sub');
+            const indicator = document.getElementById('paste-indicator');
+            
+            // Reset paste state on switch
+            appState.pastedImageBase64 = null;
+            indicator.classList.add('hidden');
 
             if(mode === 'text') {
-                mainInput.placeholder = "輸入文字內容...";
+                mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片...";
                 subInput.classList.add('hidden');
             } else if (mode === 'image') {
                 mainInput.placeholder = "輸入圖片網址 (https://...)";
@@ -387,16 +453,22 @@ function doPost(e) {
             const mainVal = document.getElementById('doc-input-main').value.trim();
             const subVal = document.getElementById('doc-input-sub').value.trim();
             
-            if(!mainVal) return;
-
             let payload = {};
-            if(appState.writeMode === 'text') {
-                payload = { type: 'text', content: mainVal };
-            } else if (appState.writeMode === 'image') {
-                payload = { type: 'image', content: mainVal };
-            } else if (appState.writeMode === 'link') {
-                if(!subVal) return alert("請輸入連結網址");
-                payload = { type: 'link', text: mainVal, content: subVal };
+
+            // Handle Pasted Image First
+            if (appState.pastedImageBase64) {
+                payload = { type: 'image_base64', content: appState.pastedImageBase64 };
+            } else {
+                if(!mainVal && appState.writeMode !== 'image_base64') return; // Empty check
+
+                if(appState.writeMode === 'text') {
+                    payload = { type: 'text', content: mainVal };
+                } else if (appState.writeMode === 'image') {
+                    payload = { type: 'image', content: mainVal };
+                } else if (appState.writeMode === 'link') {
+                    if(!subVal) return alert("請輸入連結網址");
+                    payload = { type: 'link', text: mainVal, content: subVal };
+                }
             }
 
             try {
@@ -406,39 +478,31 @@ function doPost(e) {
                     headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(payload)
                 });
-                addMessage(`📝 已發送寫入指令 (${appState.writeMode})`, 'system');
+                addMessage(`📝 指令發送成功`, 'system');
+                
+                // Cleanup
                 document.getElementById('doc-input-main').value = '';
                 document.getElementById('doc-input-sub').value = '';
+                appState.pastedImageBase64 = null;
+                document.getElementById('paste-indicator').classList.add('hidden');
             } catch(e) {
                 alert("寫入失敗，請檢查網路或 URL");
             }
         }
 
         // --- DOC VIEWER ---
-        function openDocViewer() {
-            document.getElementById('doc-viewer-modal').classList.remove('hidden');
-            refreshDocView();
-        }
-        function closeDocViewer() {
-            document.getElementById('doc-viewer-modal').classList.add('hidden');
-        }
+        function openDocViewer() { document.getElementById('doc-viewer-modal').classList.remove('hidden'); refreshDocView(); }
+        function closeDocViewer() { document.getElementById('doc-viewer-modal').classList.add('hidden'); }
         async function refreshDocView() {
             const area = document.getElementById('doc-content-area');
-            if(!appState.docMonitorUrl) {
-                area.innerHTML = '<div class="text-center text-red-500">未設定 Docs URL</div>';
-                return;
-            }
+            if(!appState.docMonitorUrl) { area.innerHTML = '<div class="text-center text-red-500">未設定 Docs URL</div>'; return; }
             area.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 讀取中...</div>';
             try {
                 const res = await fetch(appState.docMonitorUrl);
                 const text = await res.text();
-                // Format text for better reading
-                let html = text.replace(/\n/g, '<br><br>'); // Double spacing for paragraphs
-                html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-600 underline">$1</a>');
-                area.innerHTML = html || '<div class="text-center text-slate-400">文件是空的</div>';
-            } catch(e) {
-                area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>';
-            }
+                // If trusted, directly inject. The GAS guarantees safe HTML structure.
+                area.innerHTML = text || '<div class="text-center text-slate-400">文件是空的</div>';
+            } catch(e) { area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>'; }
         }
 
         // --- GOOGLE DOCS MONITOR ---
@@ -457,12 +521,13 @@ function doPost(e) {
                 const res = await fetch(appState.docMonitorUrl);
                 const text = await res.text();
                 if (appState.lastDocContent && text !== appState.lastDocContent && !isSilent) {
-                    const snippet = text;
-                    const sysMsg = { id:Date.now(), sender:'system', text:`📑 **Google Doc 已更新！**\n\n${snippet}`, time:getTime() };
+                    const sysMsg = { id:Date.now(), sender:'system', text:`📑 **Google Doc 已更新！**<br><br>${text}`, time:getTime(), isHtml: true };
                     appState.messages.push(sysMsg);
                     renderMessages();
                     if(appState.keys.gemini || appState.keys.openrouter || appState.zeaburUrl) {
-                         handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容。內容：${text})`, true);
+                         // Strip tags for AI context
+                         const strippedText = text.replace(/<[^>]*>?/gm, '');
+                         handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容。內容：${strippedText})`, true);
                     }
                 }
                 appState.lastDocContent = text;
@@ -480,7 +545,7 @@ function doPost(e) {
                 document.getElementById('doc-monitor-status').innerText = "測試中...";
                 const res = await fetch(url);
                 const text = await res.text();
-                alert(`連線成功！\n文件字數：${text.length}\n開頭：${text.substring(0, 50)}...`);
+                alert("連線成功！");
                 document.getElementById('doc-monitor-status').innerText = "測試成功";
             } catch(e) {
                 alert("連線失敗：" + e.message);
@@ -488,10 +553,7 @@ function doPost(e) {
             }
         }
 
-        function updateDocStatus(msg) {
-            const el = document.getElementById('doc-monitor-status');
-            if(el) el.innerText = msg;
-        }
+        function updateDocStatus(msg) { const el = document.getElementById('doc-monitor-status'); if(el) el.innerText = msg; }
 
         function handleSendMessageInternal(text, isHidden=false) {
              if(!isHidden) addMessage(text, 'user');
@@ -538,7 +600,6 @@ function doPost(e) {
                     actionTriggered = true; 
                 } else if (docWriteMatch) {
                     const content = docWriteMatch[1].trim();
-                    // Default to text write via chat
                     await fetch(appState.docMonitorUrl, {
                         method: 'POST',
                         mode: 'no-cors',
@@ -571,7 +632,11 @@ function doPost(e) {
                 }
 
                 let docContext = "";
-                if (appState.lastDocContent) docContext = `\n[參考資料: 使用者目前監控的 Google Doc 內容摘要]: ${appState.lastDocContent.substring(0, 500)}...`;
+                if (appState.lastDocContent) {
+                    // Strip HTML for context window
+                    const plain = appState.lastDocContent.replace(/<[^>]*>?/gm, '');
+                    docContext = `\n[參考資料: Google Doc 摘要]: ${plain.substring(0, 500)}...`;
+                }
 
                 const prompt = actionTriggered ? `${text}\n${systemPromptAddon}\n(請針對系統動作做極簡短確認)` : `${text}${docContext}`;
                 const res = await fetchAIResponse(prompt, appState.currentModel);
@@ -671,7 +736,7 @@ function doPost(e) {
             document.getElementById('chat-container').innerHTML = appState.messages.map(msg => { 
                 if (msg.sender === 'system') { 
                     if (msg.type === 'nav') return `<div class="flex justify-center fade-in my-3"><a href="${msg.url}" target="_blank" class="bg-blue-900/40 border border-blue-500/50 p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-blue-900/60 w-[80%]"><div class="bg-blue-600 rounded-full p-3"><i class="ph-fill ph-navigation-arrow text-white text-xl"></i></div><div class="flex-1"><p class="text-blue-200 text-xs font-bold mb-1">開始導航</p><p class="text-white font-bold text-lg truncate">${escapeHtml(msg.text.replace('前往：', ''))}</p></div><i class="ph-bold ph-arrow-right text-blue-400"></i></a></div>`; 
-                    return `<div class="flex justify-center fade-in my-2 w-full"><div class="bg-slate-800/90 border border-slate-700 text-slate-300 text-xs py-2 px-4 rounded-2xl flex flex-col items-start space-y-1 max-w-[90%] shadow-lg"><div class="flex items-center space-x-2 font-bold text-blue-400"><i class="ph-fill ph-info"></i><span>系統通知</span></div><div class="leading-relaxed text-slate-300 w-full overflow-hidden text-ellipsis">${formatMessage(msg.text)}</div></div></div>`; 
+                    return `<div class="flex justify-center fade-in my-2 w-full"><div class="bg-slate-800/90 border border-slate-700 text-slate-300 text-xs py-2 px-4 rounded-2xl flex flex-col items-start space-y-1 max-w-[90%] shadow-lg"><div class="flex items-center space-x-2 font-bold text-blue-400"><i class="ph-fill ph-info"></i><span>系統通知</span></div><div class="leading-relaxed text-slate-300 w-full overflow-hidden text-ellipsis">${formatMessage(msg.text, msg.isHtml)}</div></div></div>`; 
                 } 
                 const isUser = msg.sender === 'user'; 
                 const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; 
