@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.15 - Scraper Enhanced</title>
+    <title>Nova 12.16.1 - Google Search Agent</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -33,6 +33,7 @@
         .dot-flashing::before { left: -10px; animation-delay: 0s; }
         .dot-flashing::after { left: 10px; animation-delay: 1s; }
         @keyframes dot-flashing { 0% { background-color: #9880ff; } 50%, 100% { background-color: rgba(152, 128, 255, 0.2); } }
+        /* Enhanced content styling for Docs content */
         .msg-content a, #doc-content-area a { color: #60a5fa; text-decoration: underline; word-break: break-all; cursor: pointer; }
         .msg-content img, #doc-content-area img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.1); }
         .msg-content p, #doc-content-area div { margin-bottom: 0.5em; line-height: 1.6; }
@@ -52,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Scraper 12.15</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Agent 12.16.1</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -107,9 +108,9 @@
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 5.2 - 智慧內容提取)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.0 - 搜尋引擎版)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">此版本會優先提取文章段落和標題，而非盲目刪除標籤，能大幅改善一般網頁的抓取效果。</p>
+                                    <p class="mb-2">請複製下方所有程式碼，取代您 Google Apps Script 內的內容，並執行 <b>「部署」>「管理部署」>「編輯」>「新版本」>「部署」</b>。</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
   try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
@@ -122,6 +123,49 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
+  // 1. Google 搜尋模式 (回傳連結)
+  if (d.type === 'search') {
+    try {
+      var q = encodeURIComponent(d.query);
+      var url = "https://www.google.com/search?q=" + q + "&num=10&hl=zh-TW";
+      var options = {
+        'muteHttpExceptions': true,
+        'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+      };
+      var html = UrlFetchApp.fetch(url, options).getContentText();
+      
+      // 簡易解析 Google 搜尋結果 (針對舊版/簡易版 HTML)
+      // 注意：Google HTML 結構常變，這裡使用較通用的 Regex 抓取 /url?q= 格式
+      var links = [];
+      var regex = /&lt;a href="\/url\?q=(https?:\/\/[^&"]+)[^&gt;]*&gt;([\s\S]*?)&lt;\/a&gt;/g;
+      var match;
+      var resultText = "🔍 **Google 搜尋結果：**\n\n";
+      var count = 0;
+      
+      // 輔助過濾無效連結
+      var ignoreList = ['google.com', 'youtube.com', 'preferences', 'policies', 'support'];
+      
+      while ((match = regex.exec(html)) !== null && count &lt; 10) {
+        var linkUrl = match[1];
+        var linkTitle = match[2].replace(/&lt;[^&gt;]*&gt;/g, "").trim(); // 去除標籤
+        
+        var isIgnored = false;
+        for(var k=0; k&lt;ignoreList.length; k++) { if(linkUrl.indexOf(ignoreList[k]) > -1) isIgnored = true; }
+        
+        if (linkTitle && !isIgnored && linkUrl.indexOf('http') === 0) {
+           resultText += (count+1) + ". [" + linkTitle + "](" + linkUrl + ")\n";
+           links.push({title: linkTitle, url: linkUrl});
+           count++;
+        }
+      }
+      
+      if(count === 0) return ContentService.createTextOutput("找不到相關結果，或 Google 阻擋了請求。");
+      
+      return ContentService.createTextOutput(resultText);
+    } catch (err) { return ContentService.createTextOutput("Search Error: " + err.toString()); }
+  }
+
+  // 2. 網頁抓取模式 (清空並寫入)
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
@@ -130,33 +174,18 @@ function doPost(e) {
         'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
       };
       var html = UrlFetchApp.fetch(d.url, options).getContentText();
-      
-      // 智慧提取策略：優先找 p, h1-h6, li, article
       var textContent = "";
       var meaningfulRegex = /&lt;(p|h[1-6]|li|article|div)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
-      var match;
-      var count = 0;
-      
-      while ((match = meaningfulRegex.exec(html)) !== null &amp;&amp; count &lt; 200) {
-        // 去除內部標籤但保留文字
+      var match; var count = 0;
+      while ((match = meaningfulRegex.exec(html)) !== null && count &lt; 200) {
         var dirtyText = match[2];
-        // 嘗試保留連結
         dirtyText = dirtyText.replace(/&lt;a[^&gt;]*href="([^"]*)"[^&gt;]*&gt;([\s\S]*?)&lt;\/a&gt;/gi, " [$2]($1) ");
         var cleanText = dirtyText.replace(/&lt;[^&gt;]*&gt;/g, "").replace(/\s+/g, " ").trim();
-        if (cleanText.length &gt; 20) { // 過濾太短的雜訊
-          textContent += cleanText + "\n\n";
-          count++;
-        }
+        if (cleanText.length &gt; 20) { textContent += cleanText + "\n\n"; count++; }
       }
-
-      // 如果智慧提取失敗(例如是純文字網頁)，回退到暴力提取
       if (textContent.length &lt; 100) {
-         textContent = html.replace(/&lt;script[^&gt;]*&gt;[\s\S]*?&lt;\/script&gt;/gmi, "")
-                           .replace(/&lt;style[^&gt;]*&gt;[\s\S]*?&lt;\/style&gt;/gmi, "")
-                           .replace(/&lt;[^&gt;]*&gt;/g, " ")
-                           .replace(/\s+/g, " ").trim();
+         textContent = html.replace(/&lt;script[^&gt;]*&gt;[\s\S]*?&lt;\/script&gt;/gmi, "").replace(/&lt;style[^&gt;]*&gt;[\s\S]*?&lt;\/style&gt;/gmi, "").replace(/&lt;[^&gt;]*&gt;/g, " ").replace(/\s+/g, " ").trim();
       }
-
       body.appendParagraph("🌐 來源: " + d.url);
       body.appendParagraph("📅 時間: " + new Date().toLocaleString());
       body.appendParagraph("------------------------------------------------");
@@ -212,6 +241,8 @@ function doPost(e) {
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
                     </div>
                 </div>
+                
+                <!-- Right Sidebar -->
                 <div class="hidden lg:flex w-80 bg-slate-900 flex-col p-6 space-y-6 border-l border-slate-800 overflow-y-auto shrink-0">
                     <div class="bg-gradient-to-br from-indigo-900 to-slate-800 rounded-3xl p-6 text-white shadow-lg border border-slate-700 relative overflow-hidden group">
                         <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
@@ -233,6 +264,7 @@ function doPost(e) {
                 </div>
             </div>
 
+            <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
             <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
         </main>
@@ -245,7 +277,10 @@ function doPost(e) {
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
+            
+            // Persistent Messages
             messages: JSON.parse(localStorage.getItem('nova_messages') || '[]'),
+            
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -269,6 +304,7 @@ function doPost(e) {
             zeabur: { name: 'Zeabur', color: 'text-pink-400', bg: 'bg-pink-600', icon: 'ph-plant' }
         };
 
+        // --- UTILS ---
         function saveMessages() { localStorage.setItem('nova_messages', JSON.stringify(appState.messages)); }
         function saveData() { localStorage.setItem('nova_todos', JSON.stringify(appState.todos)); localStorage.setItem('nova_notes', JSON.stringify(appState.notes)); }
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
@@ -276,7 +312,9 @@ function doPost(e) {
         function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
         function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
 
+        // --- RENDERERS ---
         function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
+        
         function renderMessages() { 
             const container = document.getElementById('chat-container');
             if(!container) return;
@@ -306,6 +344,7 @@ function doPost(e) {
             else if(!show && el) el.remove(); 
         }
 
+        // ... existing renders (todos, notes, weather, updateModelUI) ...
         function renderTodos() { 
             const el = document.getElementById('full-todo-list');
             if(!el) return;
@@ -402,6 +441,25 @@ function doPost(e) {
                 return null;
             }
         }
+        
+        // --- GOOGLE SEARCH AGENT ---
+        async function searchViaGas(query) {
+             if (!appState.docMonitorUrl) return null;
+             try {
+                addMessage(`🔍 正在透過 Google Doc 執行搜尋：${query}...`, 'system');
+                const res = await fetch(appState.docMonitorUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ type: 'search', query: query })
+                });
+                const text = await res.text();
+                if (text && !text.startsWith("Error")) return text;
+                return "搜尋失敗或無結果";
+            } catch (e) {
+                console.error("GAS Search Error:", e);
+                return "搜尋連線錯誤";
+            }
+        }
 
         async function extractContentFromUrl(url) {
             if (appState.docMonitorUrl) {
@@ -455,17 +513,32 @@ function doPost(e) {
                 let injectedContext = "";
                 let modelToUse = appState.currentModel;
                 let enableSearchTool = false; // Default: disable tool to prevent conflict
+                let directResponse = false;
                 
                 // If global search is ON, default to true unless overridden
                 if (appState.isSearchEnabled) enableSearchTool = true;
 
+                // --- 1. Search Intent (Google Agent) ---
                 const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
-                if (searchMatch && appState.keys.gemini) {
-                    modelToUse = 'gemini';
-                    enableSearchTool = true; // Force ON for explicit search
-                    systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。若您無法使用工具，請誠實告知。)`;
+                if (searchMatch) {
+                    // Priority 1: Use GAS Search if available
+                    if (appState.docMonitorUrl) {
+                        const searchResult = await searchViaGas(searchMatch[1]);
+                        addMessage(searchResult, 'system');
+                        // We stop here, no need to ask LLM again unless user wants to chat about it
+                        // But to keep consistency, we can feed this result to LLM to summarize
+                        injectedContext = `\n\n[系統搜尋結果]:\n${searchResult}\n\n[指令]: 請根據上述搜尋結果回答使用者的問題。`;
+                        enableSearchTool = false; // We already searched
+                    } 
+                    // Priority 2: Use Gemini Search if available
+                    else if (appState.keys.gemini) {
+                        modelToUse = 'gemini';
+                        enableSearchTool = true;
+                        systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。)`;
+                    }
                 }
 
+                // --- 2. URL Scraper via GAS (The requested feature) ---
                 const urlMatch = text.match(/https?:\/\/[^\s]+/);
                 if (urlMatch) {
                     const url = urlMatch[0];
@@ -475,10 +548,6 @@ function doPost(e) {
                         if (content) {
                             injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`;
                             // IMPORTANT: Disable search tool if context is provided to prevent "No Content" error
-                            // But allow user to override by checking "Global Search"
-                            // Wait, previous logic was strict disable. Let's make it flexible.
-                            // If we have content, we prefer NO search unless user explicit query suggests otherwise.
-                            // To be safe and fix "No Content" error:
                             enableSearchTool = false; 
                         } else {
                             systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`;
@@ -630,7 +699,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.15 就緒！\n穩定版更新：\n1. 修復網頁內容讀取時的「無內容」錯誤。\n2. 當成功抓取網頁時，自動關閉搜尋工具以避免衝突。\n3. 修復所有語法錯誤，請安心使用。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.16.1 就緒！\n穩定版更新：\n1. 新增「搜尋代理」功能：輸入「搜尋 XXX」可透過 Google Doc 取得 10 筆結果。\n2. 自動清理文件：抓取網頁時會自動清空舊文件。\n3. 請務必更新您的 Apps Script！', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
