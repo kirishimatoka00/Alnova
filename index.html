@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.16.6 - Search Rescue RSS</title>
+    <title>Nova 12.18 - Search Fix Ultimate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +33,6 @@
         .dot-flashing::before { left: -10px; animation-delay: 0s; }
         .dot-flashing::after { left: 10px; animation-delay: 1s; }
         @keyframes dot-flashing { 0% { background-color: #9880ff; } 50%, 100% { background-color: rgba(152, 128, 255, 0.2); } }
-        /* Enhanced content styling for Docs content */
         .msg-content a, #doc-content-area a { color: #60a5fa; text-decoration: underline; word-break: break-all; cursor: pointer; }
         .msg-content img, #doc-content-area img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.1); }
         .msg-content p, #doc-content-area div { margin-bottom: 0.5em; line-height: 1.6; }
@@ -53,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search RSS 12.16.6</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Ultimate 12.18</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -102,20 +101,21 @@
                         <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
                             <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 核心 (Apps Script)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="Apps Script URL (for Agent)">
+                            
+                            <label class="block text-xs text-emerald-300 mb-2 mt-4 font-bold flex items-center gap-2"><i class="ph-fill ph-notebook"></i> 隨手記事本 Google Doc</label>
+                            <input type="text" id="key-note-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-emerald-500 outline-none mb-2" placeholder="Apps Script URL (for Notes)">
+
                             <div class="flex items-center justify-between">
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.5 - Bing RSS 版)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 7.0 - Yahoo 優先 & News 解鎖)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">此版本改用 Bing RSS 作為主要搜尋源，穩定性極高，不會被 Google Cloud 封鎖。請全選複製並覆蓋 Apps Script：</p>
+                                    <p class="mb-2">改用 Yahoo 作為第一順位搜尋 (解決關聯錯誤)，並新增 Google News 的 noscript 抓取 (解決無內容)。</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
-function doGet(e) {
-  try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
-  catch(e) { return ContentService.createTextOutput("Error"); }
-}
+function doGet(e) { try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } catch(e) { return ContentService.createTextOutput("Error"); } }
 
 function doPost(e) {
   var d = JSON.parse(e.postData.contents);
@@ -123,51 +123,56 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
-  // 1. 搜尋模式 (Bing RSS - 高穩定性)
+  // 1. 搜尋模式 (Yahoo 優先 -> Bing -> DDG)
   if (d.type === 'search') {
     var q = encodeURIComponent(d.query);
-    var resultText = "🔍 **搜尋結果 (Bing RSS)：**\n\n";
+    var resultText = "";
     var count = 0;
     
-    // Strategy: Bing RSS
+    // Attempt A: Yahoo Search (最穩定，少擋)
     try {
-      var url = "https://www.bing.com/search?q=" + q + "&format=rss";
-      var options = { 'muteHttpExceptions': true, 'headers': { 'User-Agent': 'Mozilla/5.0' } };
-      var xml = UrlFetchApp.fetch(url, options).getContentText();
-      
-      // Simple XML parsing
-      var items = xml.match(/&lt;item&gt;([\s\S]*?)&lt;\/item&gt;/g);
-      if (items) {
-        for (var i = 0; i &lt; Math.min(items.length, 10); i++) {
-           var titleMatch = items[i].match(/&lt;title&gt;([\s\S]*?)&lt;\/title&gt;/);
-           var linkMatch = items[i].match(/&lt;link&gt;([\s\S]*?)&lt;\/link&gt;/);
-           if (titleMatch && linkMatch) {
-             var t = titleMatch[1].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-             var l = linkMatch[1].trim();
-             if (l.indexOf("http") === 0) {
-                resultText += (count+1) + ". [" + t + "](" + l + ")\n";
-                count++;
-             }
-           }
-        }
-      }
-    } catch(e) { resultText += "[Bing 失敗: " + e.message + "]\n"; }
+       var url = "https://search.yahoo.com/search?p=" + q + "&ei=UTF-8";
+       var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
+       // Yahoo Regex
+       var regex = /&lt;h3 class="title"&gt;&lt;a[^&gt;]*href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
+       var descRegex = /&lt;div class="compText aAbs"&gt;(.*?)&lt;\/div&gt;/; // 嘗試抓摘要
+       var match;
+       while ((match = regex.exec(html)) !== null && count < 8) {
+         var l = match[1]; 
+         // Yahoo 轉址處理
+         if(l.indexOf("r.search.yahoo") > -1) {
+            var u = l.match(/RU=([^/]+)/);
+            if(u) l = decodeURIComponent(u[1]);
+         }
+         var t = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+         if (l.indexOf("http") === 0 && t) {
+            resultText += (count+1) + ". [" + t + "](" + l + ")\n";
+            count++;
+         }
+       }
+    } catch(e) { resultText += "[Yahoo 失敗]\n"; }
 
-    // Fallback: Google GBV
+    // Attempt B: Bing RSS (備援)
     if (count === 0) {
       try {
-        var url = "https://www.google.com/search?q=" + q + "&gbv=1&hl=zh-TW";
-        var html = UrlFetchApp.fetch(url, {'headers':{'User-Agent':'Mozilla/5.0'}}).getContentText();
-        var regex = /&lt;a href="\/url\?q=(http[^"&]+)[^&gt;]*&gt;&lt;div[^&gt;]*&gt;([^&lt;]+)&lt;\/div&gt;/g;
-        var match;
-        while ((match = regex.exec(html)) !== null && count &lt; 8) {
-           resultText += (count+1) + ". [" + match[2] + "](" + match[1] + ")\n";
-           count++;
+        var url = "https://www.bing.com/search?q=" + q + "&format=rss";
+        var xml = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
+        var items = xml.match(/&lt;item&gt;([\s\S]*?)&lt;\/item&gt;/g);
+        if (items) {
+          resultText += "**(Bing 備援結果)**\n";
+          for (var i = 0; i < Math.min(items.length, 8); i++) {
+             var titleMatch = items[i].match(/&lt;title&gt;([\s\S]*?)&lt;\/title&gt;/);
+             var linkMatch = items[i].match(/&lt;link&gt;([\s\S]*?)&lt;\/link&gt;/);
+             if (titleMatch && linkMatch) {
+               resultText += (count+1) + ". [" + titleMatch[1] + "](" + linkMatch[1] + ")\n";
+               count++;
+             }
+          }
         }
-      } catch(e) { }
+      } catch(e) {}
     }
 
-    if(count === 0) return ContentService.createTextOutput("無法取得搜尋結果，可能是關鍵字太冷門或連線被阻擋。");
+    if(count === 0) return ContentService.createTextOutput("搜尋無結果 (Yahoo/Bing 皆無回應)");
     
     body.clear();
     body.appendParagraph("🔍 搜尋: " + d.query);
@@ -175,29 +180,45 @@ function doPost(e) {
     return ContentService.createTextOutput(resultText);
   }
 
-  // 2. 爬蟲模式 (增強版 - Meta & Body)
+  // 2. 爬蟲模式 (News 解鎖版)
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
+      var targetUrl = d.url;
       var options = {
         'muteHttpExceptions': true,
         'followRedirects': true,
         'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
       };
-      var html = UrlFetchApp.fetch(d.url, options).getContentText();
-      var textContent = "";
+      
+      var response = UrlFetchApp.fetch(targetUrl, options);
+      var html = response.getContentText();
+      
+      // Google News 轉址/內容解鎖 (關鍵)
+      if (targetUrl.indexOf('news.google.com') > -1) {
+         // 1. 找 noscript 內的真實連結
+         var noScriptLink = html.match(/&lt;noscript&gt;.*?&lt;a href="([^"]+)".*?&lt;\/noscript&gt;/);
+         if (noScriptLink) {
+             var realUrl = noScriptLink[1];
+             if(realUrl.indexOf('.') === 0) realUrl = "https://news.google.com" + realUrl.substring(1);
+             targetUrl = realUrl;
+             body.appendParagraph("↪️ 追蹤新聞連結: " + targetUrl);
+             html = UrlFetchApp.fetch(targetUrl, options).getContentText();
+         }
+      }
 
+      var textContent = "";
       var metaDesc = html.match(/&lt;meta name="description" content="([^"]*)"/i) || html.match(/&lt;meta property="og:description" content="([^"]*)"/i);
       if (metaDesc) textContent += "📝 摘要: " + metaDesc[1] + "\n\n";
 
       var meaningfulRegex = /&lt;(h[1-3]|p|li|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
       var match; var count = 0;
-      while ((match = meaningfulRegex.exec(html)) !== null && count &lt; 300) {
+      while ((match = meaningfulRegex.exec(html)) !== null && count < 200) {
         var clean = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-        if (clean.length > 25 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
+        if (clean.length > 20 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
       }
 
-      if (textContent.length &lt; 50) textContent += "(此頁面內容受 JS 保護，僅能提取上述摘要)";
+      if (textContent.length < 50) textContent += "(無法提取有效內容，請嘗試手動訪問)";
       
       var final = textContent.substring(0, 48000);
       body.appendParagraph("🌐 來源: " + d.url);
@@ -208,7 +229,7 @@ function doPost(e) {
     } catch (err) { return ContentService.createTextOutput("Error: " + err.toString()); }
   }
   
-  // 3. 一般寫入
+  // 3. 筆記寫入
   if (d.type === 'image') { try { body.appendImage(UrlFetchApp.fetch(d.content).getBlob()); } catch(e){} }
   else if (d.type === 'image_base64') { try { var b=Utilities.newBlob(Utilities.base64Decode(d.content.split(',')[1]), d.content.split(';')[0].split(':')[1]); body.appendImage(b); } catch(e){} }
   else if (d.type === 'link') { body.appendParagraph(d.text).setLinkUrl(d.content); }
@@ -294,12 +315,11 @@ function doPost(e) {
             currentModel: 'gemini', detectedGeminiModel: null,
             openRouterModel: localStorage.getItem('nova_or_model') || 'deepseek/deepseek-r1:free',
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
-            noteDocUrl: localStorage.getItem('nova_note_doc_url') || '', // New
+            noteDocUrl: localStorage.getItem('nova_note_doc_url') || '', 
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
             writeMode: 'text',
             pastedImageBase64: null,
-            // ... (rest of state)
             messages: JSON.parse(localStorage.getItem('nova_messages') || '[]'),
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
@@ -353,12 +373,63 @@ function doPost(e) {
             }).join(''); 
             container.scrollTop = container.scrollHeight; 
         }
-        function renderThinkingState(show) { const el = document.getElementById('thinking-indicator'); if(show && !el) document.getElementById('chat-container').insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); else if(!show && el) el.remove(); }
-        function renderTodos() { document.getElementById('full-todo-list').innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; document.getElementById('mini-todo-list').innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; }
-        function renderNotes() { document.getElementById('full-note-list').innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; document.getElementById('mini-note-list').innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; }
-        function renderWeather() { const {temp,condition,humidity,wind,loc}=appState.weather; let icon='ph-cloud',color='text-slate-400',desc='多雲'; if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; }
-        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf.name; const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); const wrap = document.getElementById('input-wrapper'); if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(searchBtn) { if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/30'); searchBtn.classList.remove('text-slate-500'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); } else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/30'); searchBtn.classList.add('text-slate-500'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); } } if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} const orBadge=document.getElementById('openrouter-badge'); if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } }
 
+        function renderThinkingState(show) { 
+            const el = document.getElementById('thinking-indicator'); 
+            const container = document.getElementById('chat-container');
+            if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); 
+            else if(!show && el) el.remove(); 
+        }
+
+        // ... existing renders (todos, notes, weather, updateModelUI) ...
+        function renderTodos() { 
+            const el = document.getElementById('full-todo-list');
+            if(!el) return;
+            el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
+            const mini = document.getElementById('mini-todo-list');
+            if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; 
+        }
+
+        function renderNotes() { 
+            const el = document.getElementById('full-note-list');
+            if(!el) return;
+            el.innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; 
+            const mini = document.getElementById('mini-note-list');
+            if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; 
+        }
+
+        function renderWeather() { 
+            const {temp,condition,humidity,wind,loc}=appState.weather; 
+            let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
+            if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
+            if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
+            const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; 
+            const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
+            const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
+            const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
+            const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
+            const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
+            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
+            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
+        }
+
+        function updateModelUI(){ 
+            const conf=MODEL_CONFIG[appState.currentModel]; 
+            const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf.name; 
+            const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; 
+            document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); 
+            const wrap = document.getElementById('input-wrapper'); if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; 
+            const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); 
+            if(searchBtn) {
+                if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/30'); searchBtn.classList.remove('text-slate-500'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); }
+                else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/30'); searchBtn.classList.add('text-slate-500'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); }
+            }
+            if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} 
+            const orBadge=document.getElementById('openrouter-badge');
+            if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } 
+        }
+
+        // --- ACTIONS ---
         function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); saveMessages(); renderMessages(); }
         function deleteMessage(id) { appState.messages = appState.messages.filter(m => m.id !== id); saveMessages(); renderMessages(); }
         function clearChatHistory() { if(confirm("確定要清空所有對話紀錄嗎？")) { appState.messages = []; saveMessages(); renderMessages(); } }
@@ -706,6 +777,7 @@ function doPost(e) {
                     const data = await res.json();
                     return data.choices?.[0]?.message?.content || "無回應";
                 } else if(model === 'cerebras') {
+                    // Update model to llama-3.3-70b
                     const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
                     const data = await res.json(); 
                     if(data.error) throw new Error(data.error.message); 
@@ -751,7 +823,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.16.6 就緒！\n穩定版更新：\n1. 改用 Bing RSS 修復搜尋連線問題。\n2. 新增 Google GBV 備援機制。\n3. 請務必更新您的 Apps Script (6.5 版)！', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.18 就緒！\n穩定版更新：\n1. 改用 Yahoo 作為主要搜尋源，大幅降低被擋機率。\n2. 修復 Google News 只抓到網址的問題。\n3. 請務必更新您的 Apps Script (7.0 版)！', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
