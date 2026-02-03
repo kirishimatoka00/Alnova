@@ -699,7 +699,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.16.1 就緒！\n穩定版更新：\n1. 新增「搜尋代理」功能：輸入「搜尋 XXX」可透過 Google Doc 取得 10 筆結果。\n2. 自動清理文件：抓取網頁時會自動清空舊文件。\n3. 請務必更新您的 Apps Script！', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.16.2 就緒！\n穩定版更新：\n1. 修復了 Google 搜尋功能 (改用 DuckDuckGo HTML API)。\n2. 增強了對新聞網站的內容提取能力 (加入 Meta Description 備援)。\n3. 請務必更新您的 Apps Script 以啟用修復！', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
