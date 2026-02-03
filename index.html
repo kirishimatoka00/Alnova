@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.14.8 - Syntax Fix</title>
+    <title>Nova 12.15 - Stability Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -33,17 +33,12 @@
         .dot-flashing::before { left: -10px; animation-delay: 0s; }
         .dot-flashing::after { left: 10px; animation-delay: 1s; }
         @keyframes dot-flashing { 0% { background-color: #9880ff; } 50%, 100% { background-color: rgba(152, 128, 255, 0.2); } }
-        /* Enhanced content styling for Docs content */
         .msg-content a, #doc-content-area a { color: #60a5fa; text-decoration: underline; word-break: break-all; cursor: pointer; }
         .msg-content img, #doc-content-area img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.1); }
         .msg-content p, #doc-content-area div { margin-bottom: 0.5em; line-height: 1.6; }
         .slide-in { animation: slideIn 0.3s ease-out; }
-        
-        /* Message Actions Group */
         .msg-group:hover .msg-actions { opacity: 1; }
         .msg-actions { opacity: 0; transition: opacity 0.2s; }
-        
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30">
@@ -57,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate 12.14.8</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Stability 12.15</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -101,8 +96,6 @@
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                     <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">設定</h3><button onclick="closeSettings()"><i class="ph ph-x text-2xl text-slate-400"></i></button></div>
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
-                        
-                        <!-- Docs Monitor Section (Highlight) -->
                         <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
                             <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 核心 (Apps Script)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="https://script.google.com/macros/s/...">
@@ -110,61 +103,37 @@
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
-                            
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 5.0 - 清除重寫版)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 5.0 - 必更)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">此版本支援 `scrape_and_log`，會自動清空文件並寫入新的網頁內容：</p>
+                                    <p class="mb-2">請複製下方所有程式碼，取代您 Google Apps Script 內的內容，並執行 <b>「部署」>「管理部署」>「編輯」>「新版本」>「部署」</b>。</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
-  try {
-    return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText());
-  } catch(e) { return ContentService.createTextOutput("Error"); }
+  try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
+  catch(e) { return ContentService.createTextOutput("Error"); }
 }
-
 function doPost(e) {
   var d = JSON.parse(e.postData.contents);
   var body = DocumentApp.getActiveDocument().getBody();
-  
-  if (d.type === 'clear') {
-    body.clear();
-    return ContentService.createTextOutput("Cleared");
-  }
-
+  if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
   if (d.type === 'scrape_and_log') {
     try {
-      body.clear(); // 1. 清除舊內容
+      body.clear();
       var html = UrlFetchApp.fetch(d.url).getContentText();
-      // 簡單過濾
-      var text = html.replace(/&lt;script[^&gt;]*&gt;([\s\S]*?)&lt;\/script&gt;/gmi, "")
-                     .replace(/&lt;style[^&gt;]*&gt;([\s\S]*?)&lt;\/style&gt;/gmi, "")
-                     .replace(/&lt;[^&gt;]*&gt;/g, " ")
-                     .replace(/\s+/g, " ")
-                     .trim().substring(0, 50000);
-      
-      // 2. 寫入新內容
+      var text = html.replace(/&lt;script[^&gt;]*&gt;([\s\S]*?)&lt;\/script&gt;/gmi, "").replace(/&lt;style[^&gt;]*&gt;([\s\S]*?)&lt;\/style&gt;/gmi, "").replace(/&lt;[^&gt;]*&gt;/g, " ").replace(/\s+/g, " ").trim().substring(0, 50000);
       body.appendParagraph("🌐 來源: " + d.url);
       body.appendParagraph("📅 時間: " + new Date().toLocaleString());
       body.appendParagraph("------------------------------------------------");
       body.appendParagraph(text);
-      
-      // 3. 回傳內容
       return ContentService.createTextOutput(text);
-    } catch (err) {
-      return ContentService.createTextOutput("Error: " + err.toString());
-    }
+    } catch (err) { return ContentService.createTextOutput("Error: " + err.toString()); }
   }
-  
-  // 一般寫入
   if (d.type === 'text') body.appendParagraph(d.content);
-  
   return ContentService.createTextOutput("OK");
 }</pre>
                                 </div>
                             </details>
                         </div>
-
-                        <!-- Other APIs -->
                         <div class="space-y-3 pt-2">
                             <div class="p-3 rounded-lg border border-pink-900/30 bg-pink-900/10"><label class="block text-xs text-pink-400 mb-1">Zeabur / Custom API</label><input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none mb-1" placeholder="URL"><input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none" placeholder="Key (Optional)"></div>
                             <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-blue-500 outline-none"></div>
@@ -172,7 +141,6 @@ function doPost(e) {
                             <div><label class="block text-xs text-orange-400 mb-1">Cerebras API Key</label><input type="password" id="key-cerebras" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
                             <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-slate-500 outline-none"></div>
-
                             <select id="model-openrouter-select" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-purple-500 mt-1"><option value="deepseek/deepseek-r1:free">DeepSeek R1</option><option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3</option><option value="google/gemini-2.0-flash-lite-preview-02-05:free">Gemini 2.0 Flash</option><option value="anthropic/claude-3.5-sonnet">Claude 3.5</option></select>
                         </div>
                     </div>
@@ -180,10 +148,8 @@ function doPost(e) {
                 </div>
             </div>
 
-            <!-- Main Dashboard -->
             <div id="view-dashboard" class="flex flex-col lg:flex-row h-full w-full relative min-h-0">
                 <div class="flex-1 flex flex-col h-full min-w-0 relative">
-                    <!-- Model Toggle Bar -->
                     <div class="p-3 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center shrink-0 overflow-x-auto no-scrollbar">
                          <div class="flex items-center space-x-2 mr-4">
                             <span id="web-search-badge" class="hidden md:flex items-center space-x-1 text-[10px] bg-blue-900/30 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full"><i class="ph-bold ph-globe"></i><span>連網搜尋</span></span>
@@ -198,10 +164,7 @@ function doPost(e) {
                             <button onclick="setModel('gpt')" class="model-pill px-3 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-400 transition-all whitespace-nowrap" data-model="gpt">GPT</button>
                          </div>
                     </div>
-                    
                     <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700"></div>
-                    
-                    <!-- Input Area -->
                     <div class="p-4 bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
                             <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
@@ -212,8 +175,6 @@ function doPost(e) {
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
                     </div>
                 </div>
-                
-                <!-- Right Sidebar -->
                 <div class="hidden lg:flex w-80 bg-slate-900 flex-col p-6 space-y-6 border-l border-slate-800 overflow-y-auto shrink-0">
                     <div class="bg-gradient-to-br from-indigo-900 to-slate-800 rounded-3xl p-6 text-white shadow-lg border border-slate-700 relative overflow-hidden group">
                         <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
@@ -235,7 +196,6 @@ function doPost(e) {
                 </div>
             </div>
 
-            <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
             <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
         </main>
@@ -248,7 +208,6 @@ function doPost(e) {
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
-            
             messages: JSON.parse(localStorage.getItem('nova_messages') || '[]'),
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
@@ -273,7 +232,6 @@ function doPost(e) {
             zeabur: { name: 'Zeabur', color: 'text-pink-400', bg: 'bg-pink-600', icon: 'ph-plant' }
         };
 
-        // --- UTILS ---
         function saveMessages() { localStorage.setItem('nova_messages', JSON.stringify(appState.messages)); }
         function saveData() { localStorage.setItem('nova_todos', JSON.stringify(appState.todos)); localStorage.setItem('nova_notes', JSON.stringify(appState.notes)); }
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
@@ -281,9 +239,7 @@ function doPost(e) {
         function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
         function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
 
-        // --- RENDERERS ---
         function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
-        
         function renderMessages() { 
             const container = document.getElementById('chat-container');
             if(!container) return;
@@ -313,6 +269,7 @@ function doPost(e) {
             else if(!show && el) el.remove(); 
         }
 
+        // ... existing renders (todos, notes, weather, updateModelUI) ...
         function renderTodos() { 
             const el = document.getElementById('full-todo-list');
             if(!el) return;
@@ -334,76 +291,30 @@ function doPost(e) {
             let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
             if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
             if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
-            
-            const locEl = document.getElementById('location-name'); 
-            if(locEl) locEl.innerText=loc; 
-            
-            const tempEl = document.getElementById('weather-temp'); 
-            if(tempEl) tempEl.innerText=`${temp}°`; 
-            
-            const descEl = document.getElementById('weather-desc'); 
-            if(descEl) descEl.innerText=desc; 
-            
-            const iconEl = document.getElementById('weather-icon'); 
-            if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
-            
-            const humEl = document.getElementById('weather-humidity'); 
-            if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
-            
-            const windEl = document.getElementById('weather-wind'); 
-            if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
-            
-            const mTemp = document.getElementById('mobile-weather-temp'); 
-            if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
-            
-            const mIcon = document.getElementById('mobile-weather-icon'); 
-            if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
+            const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; 
+            const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
+            const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
+            const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
+            const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
+            const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
+            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
+            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
         }
 
         function updateModelUI(){ 
             const conf=MODEL_CONFIG[appState.currentModel]; 
-            const statusName = document.getElementById('status-name');
-            if(statusName) statusName.innerText=conf.name; 
-            
-            const statusIcon = document.getElementById('status-icon');
-            if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; 
-            
+            const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf.name; 
+            const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; 
             document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); 
-            const wrap = document.getElementById('input-wrapper');
-            if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; 
-            
-            const badge=document.getElementById('web-search-badge'); 
-            const searchBtn=document.getElementById('search-toggle-btn'); 
-            const hint=document.getElementById('search-hint'); 
-            
-            if (searchBtn) {
-                if(appState.isSearchEnabled){
-                    searchBtn.classList.add('text-blue-400','bg-blue-900/30');
-                    searchBtn.classList.remove('text-slate-500');
-                    if(badge)badge.classList.remove('hidden');
-                    if(hint)hint.classList.remove('hidden');
-                }else{
-                    searchBtn.classList.remove('text-blue-400','bg-blue-900/30');
-                    searchBtn.classList.add('text-slate-500');
-                    if(badge)badge.classList.add('hidden');
-                    if(hint)hint.classList.add('hidden');
-                } 
+            const wrap = document.getElementById('input-wrapper'); if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; 
+            const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); 
+            if(searchBtn) {
+                if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/30'); searchBtn.classList.remove('text-slate-500'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); }
+                else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/30'); searchBtn.classList.add('text-slate-500'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); }
             }
-            
             if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} 
-            
             const orBadge=document.getElementById('openrouter-badge');
-            if (orBadge) {
-                if(appState.currentModel === 'openrouter'){ 
-                    orBadge.classList.remove('hidden'); 
-                    orBadge.classList.add('flex'); 
-                    const orName = document.getElementById('or-model-name');
-                    if(orName) orName.innerText = getShortName(appState.openRouterModel); 
-                } else { 
-                    orBadge.classList.add('hidden'); 
-                    orBadge.classList.remove('flex'); 
-                } 
-            } 
+            if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } 
         }
 
         // --- ACTIONS ---
@@ -507,12 +418,15 @@ function doPost(e) {
                 let systemPromptAddon = "";
                 let injectedContext = "";
                 let modelToUse = appState.currentModel;
-                let enableSearchTool = false;
+                let enableSearchTool = false; // Default: disable tool to prevent conflict
+                
+                // If global search is ON, default to true unless overridden
+                if (appState.isSearchEnabled) enableSearchTool = true;
 
                 const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
                 if (searchMatch && appState.keys.gemini) {
                     modelToUse = 'gemini';
-                    enableSearchTool = true;
+                    enableSearchTool = true; // Force ON for explicit search
                     systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。若您無法使用工具，請誠實告知。)`;
                 }
 
@@ -524,7 +438,8 @@ function doPost(e) {
                         const content = await fetchUrlViaGas(url); // Use GAS 5.0 Scraper
                         if (content) {
                             injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`;
-                            // Model switch to Gemini is no longer forced
+                            // IMPORTANT: Disable search tool if context is provided to prevent "No Content" error
+                            enableSearchTool = false; 
                         } else {
                             systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`;
                             if (appState.keys.gemini) { modelToUse = 'gemini'; enableSearchTool = true; }
@@ -581,7 +496,8 @@ function doPost(e) {
                     modelName = modelName.replace('models/', '');
 
                     const payload = { contents:[{parts:[{text:userText}]}] };
-                    if (appState.isSearchEnabled || options.enableSearch) {
+                    // Only add tools if explicitly enabled for this turn
+                    if (options.enableSearch) {
                         payload.tools = [{google_search:{}}];
                     }
 
@@ -597,6 +513,15 @@ function doPost(e) {
                         }
                         throw new Error(data.error.message);
                     }
+                    
+                    if (data.promptFeedback && data.promptFeedback.blockReason) {
+                        return `⚠️ 內容被安全機制阻擋 (${data.promptFeedback.blockReason})`;
+                    }
+                    
+                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                        return "⚠️ 無法生成內容 (可能原因: 安全過濾、無搜尋結果或 API 暫時無回應)";
+                    }
+                    
                     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無內容";
                     let sources = []; 
                     data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); });
@@ -606,11 +531,8 @@ function doPost(e) {
                     const data = await res.json();
                     return data.choices?.[0]?.message?.content || "無回應";
                 } else if(model === 'cerebras') {
-                    // Update model to llama-3.3-70b
                     const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
-                    const data = await res.json(); 
-                    if(data.error) throw new Error(data.error.message); 
-                    return data.choices?.[0]?.message?.content || "無回應";
+                    const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices?.[0]?.message?.content || "無回應";
                 } else {
                     const ep = model==='gpt'?'https://api.openai.com/v1/chat/completions':'https://api.x.ai/v1/chat/completions';
                     const mName = model==='gpt'?'gpt-4o-mini':'grok-beta';
@@ -652,7 +574,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.14.8 就緒！\n我已升級為「超級代理」模式。\n1. 搜尋關鍵字 -> 自動聯網回答\n2. 貼上網址 -> 自動清空文件、抓取內容並摘要\n3. 對話紀錄已永久保存，可隨時刪除。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.15 就緒！\n穩定版更新：\n1. 修復網頁內容讀取時的「無內容」錯誤。\n2. 當成功抓取網頁時，自動關閉搜尋工具以避免衝突。\n3. 修復所有語法錯誤，請安心使用。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
