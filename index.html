@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.25 - Paste Fix</title>
+    <title>Nova 12.26 - Notebook Logic Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Paste Fix 12.25</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Notebook Logic Fix 12.26</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -236,15 +236,16 @@ function doPost(e) {
                             <div class="flex flex-col gap-3">
                                 <!-- Inputs (Enlarged) -->
                                 <div class="relative">
-                                    <textarea id="doc-input-main" rows="5" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24 resize-none"></textarea>
+                                    <textarea id="doc-input-main" rows="5" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24 resize-none" onkeydown="handleNoteKeydown(event)"></textarea>
                                     <div id="paste-indicator" class="hidden absolute right-3 top-3 text-[10px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded border border-emerald-500/50 animate-pulse">
                                         <i class="ph-bold ph-image"></i> 圖片已就緒
                                     </div>
+                                    <button onclick="clearNoteInput()" class="absolute right-3 bottom-3 text-slate-500 hover:text-red-400 p-1 bg-slate-900/50 rounded-full transition-colors" title="清除內容"><i class="ph-bold ph-trash"></i></button>
                                 </div>
                                 <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
                                 
                                 <div class="flex justify-end">
-                                    <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                    <button onclick="handleDocWriteBtn()" id="note-send-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
                                         <i class="ph-bold ph-paper-plane-right"></i> 發送寫入
                                     </button>
                                 </div>
@@ -571,6 +572,30 @@ function doPost(e) {
                 }
             }
         }
+        
+        function handleNoteKeydown(e) {
+            // New logic: Clear image buffer on user typing
+            if (appState.pastedImageBase64) {
+                 const docInput = document.getElementById('doc-input-main');
+                 if (docInput.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
+                     // User is overwriting the placeholder, clear the image
+                     appState.pastedImageBase64 = null;
+                     document.getElementById('paste-indicator').classList.add('hidden');
+                     docInput.value = ""; // Clear placeholder
+                 }
+            }
+            // Ctrl+Enter to send
+            if (e.ctrlKey && e.key === 'Enter') {
+                handleDocWriteBtn();
+            }
+        }
+        
+        function clearNoteInput() {
+             document.getElementById('doc-input-main').value = '';
+             document.getElementById('doc-input-sub').value = '';
+             appState.pastedImageBase64 = null;
+             document.getElementById('paste-indicator').classList.add('hidden');
+        }
 
         // --- FORMATTER ---
         function formatMessage(text, isTrustedHtml = false) {
@@ -592,8 +617,11 @@ function doPost(e) {
             });
             const mainInput = document.getElementById('doc-input-main');
             const subInput = document.getElementById('doc-input-sub');
-            appState.pastedImageBase64 = null;
-            document.getElementById('paste-indicator').classList.add('hidden');
+            
+            // Do not clear paste state on mode switch to allow flexible usage
+            // appState.pastedImageBase64 = null; 
+            // document.getElementById('paste-indicator').classList.add('hidden');
+
             if(mode === 'text') {
                 mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片...";
                 subInput.classList.add('hidden');
@@ -614,12 +642,18 @@ function doPost(e) {
             
             const mainVal = document.getElementById('doc-input-main').value.trim();
             const subVal = document.getElementById('doc-input-sub').value.trim();
+            const sendBtn = document.getElementById('note-send-btn');
+            
             let payload = {};
             
-            if (appState.pastedImageBase64) {
+            // Logic Fix: If there is text content and it's NOT the placeholder, assume text mode even if image buffer exists
+            // Or prioritize text if mode is text.
+            
+            if (appState.pastedImageBase64 && mainVal === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
                 payload = { type: 'image_base64', content: appState.pastedImageBase64 };
             } else {
                 if(!mainVal && appState.writeMode !== 'image_base64') return; 
+                
                 if(appState.writeMode === 'text') payload = { type: 'text', content: mainVal };
                 else if (appState.writeMode === 'image') payload = { type: 'image', content: mainVal };
                 else if (appState.writeMode === 'link') {
@@ -627,20 +661,28 @@ function doPost(e) {
                     payload = { type: 'link', text: mainVal, content: subVal };
                 }
             }
-
-            try {
-                await fetch(targetUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload)
-                });
-                addMessage(`📝 已寫入記事本`, 'system');
-                document.getElementById('doc-input-main').value = '';
-                document.getElementById('doc-input-sub').value = '';
-                appState.pastedImageBase64 = null;
-                document.getElementById('paste-indicator').classList.add('hidden');
-            } catch(e) { alert("寫入失敗，請檢查 URL"); }
+            
+            // UI Feedback
+            if(sendBtn) {
+                const originalText = sendBtn.innerHTML;
+                sendBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> ⏳ 寫入中...';
+                sendBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                
+                try {
+                    await fetch(targetUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(payload)
+                    });
+                    addMessage(`📝 已寫入記事本`, 'system');
+                    clearNoteInput();
+                } catch(e) { alert("寫入失敗，請檢查 URL"); }
+                finally {
+                    sendBtn.innerHTML = originalText;
+                    sendBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                }
+            }
         }
 
         // --- DOC VIEWER ---
@@ -846,7 +888,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.24 就緒！\n修復了貼上圖片與資料傳送問題。\n現在您可以直接在筆記本中按 Ctrl+V 貼上圖片。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.26 就緒！\n修復了貼上圖片與資料傳送問題。\n現在您可以直接在筆記本中按 Ctrl+V 貼上圖片。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
