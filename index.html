@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.16.6 - Syntax Fix</title>
+    <title>Nova 12.17 - Dual Docs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Fix 12.16.6</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Dual Docs 12.17</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -98,19 +98,22 @@
                     <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">設定</h3><button onclick="closeSettings()"><i class="ph ph-x text-2xl text-slate-400"></i></button></div>
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
                         
-                        <!-- Docs Monitor Section (Highlight) -->
+                        <!-- Docs Monitor Section -->
                         <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
-                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 核心 (Apps Script)</label>
-                            <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="https://script.google.com/macros/s/...">
+                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-robot"></i> 系統代理 Google Doc (搜尋/爬蟲)</label>
+                            <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="Apps Script URL (for Agent)">
+                            
+                            <label class="block text-xs text-emerald-300 mb-2 mt-4 font-bold flex items-center gap-2"><i class="ph-fill ph-notebook"></i> 隨手記事本 Google Doc (寫入/閱讀)</label>
+                            <input type="text" id="key-note-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-emerald-500 outline-none mb-2" placeholder="Apps Script URL (for Notes)">
                             <div class="flex items-center justify-between">
-                                <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
-                                <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
+                                <span class="text-[10px] text-slate-500">請建立兩個不同的腳本以分開管理</span>
+                                <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試系統 Doc 連線</button>
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.4.1 - 語法修復版)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 查看通用 Apps Script 代碼 (兩個 Doc 皆適用)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">解決語法錯誤問題，請全選複製並覆蓋 Apps Script：</p>
+                                    <p class="mb-2">這段代碼同時支援「代理搜尋」和「筆記讀寫」。您可以將相同的代碼部署在兩個不同的 Google Doc 上。</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
   try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
@@ -220,7 +223,26 @@ function doPost(e) {
     } catch (err) { return ContentService.createTextOutput("Error: " + err.toString()); }
   }
   
-  if (d.type === 'text') body.appendParagraph(d.content);
+  // 3. 筆記寫入模式 (圖片/連結/文字)
+  if (d.type === 'image') {
+    try {
+      var resp = UrlFetchApp.fetch(d.content);
+      body.appendImage(resp.getBlob());
+    } catch(err) { body.appendParagraph("[圖片插入失敗]"); }
+  } else if (d.type === 'image_base64') {
+    try {
+      var parts = d.content.split(',');
+      var mimeType = parts[0].match(/:(.*?);/)[1];
+      var blob = Utilities.newBlob(Utilities.base64Decode(parts[1]), mimeType, "pasted");
+      body.appendImage(blob);
+    } catch(err) { body.appendParagraph("[圖片上傳失敗]"); }
+  } else if (d.type === 'link') {
+    var p = body.appendParagraph(d.text || d.content);
+    p.setLinkUrl(d.content);
+  } else if (d.type === 'text') {
+    body.appendParagraph(d.content);
+  }
+  
   return ContentService.createTextOutput("OK");
 }</pre>
                                 </div>
@@ -292,7 +314,66 @@ function doPost(e) {
 
             <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
-            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
+            
+            <!-- Notes View with Write Feature (Updated) -->
+            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto">
+                <div class="max-w-5xl mx-auto w-full">
+                    
+                    <!-- Google Docs Writer Widget -->
+                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden shadow-lg">
+                        <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                        <div class="relative z-10">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-notebook text-emerald-400"></i> 隨手記事本 (Notebook)</h3>
+                                <button onclick="openNoteDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-book-open"></i> 📖 閱讀筆記本</button>
+                            </div>
+                            
+                            <!-- Tabs -->
+                            <div class="flex space-x-2 mb-3">
+                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字 / 貼上圖片 (Ctrl+V)</button>
+                                <button onclick="setWriteMode('image')" id="btn-mode-image" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">圖片網址</button>
+                                <button onclick="setWriteMode('link')" id="btn-mode-link" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">超連結</button>
+                            </div>
+
+                            <div class="flex flex-col gap-3">
+                                <!-- Inputs -->
+                                <div class="relative">
+                                    <input type="text" id="doc-input-main" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24">
+                                    <div id="paste-indicator" class="hidden absolute right-3 top-3 text-[10px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded border border-emerald-500/50 animate-pulse">
+                                        <i class="ph-bold ph-image"></i> 圖片已就緒
+                                    </div>
+                                </div>
+                                <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
+                                
+                                <div class="flex justify-end">
+                                    <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                        <i class="ph-bold ph-paper-plane-right"></i> 發送寫入
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 寫入將發送至「隨手記事本」設定的 Google Doc。</p>
+                        </div>
+                    </div>
+
+                    <header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">本地筆記中心</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header>
+                    <div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+            
+            <!-- Full Doc Viewer Modal (Reused) -->
+            <div id="doc-viewer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-fill ph-book-open text-blue-400"></i> 文件瀏覽器</h3>
+                    <div class="flex gap-2">
+                        <button onclick="refreshDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
+                        <button onclick="closeDocViewer()" class="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
+                    </div>
+                </div>
+                <div class="flex-1 bg-white text-slate-900 rounded-xl p-6 overflow-y-auto shadow-2xl font-serif leading-relaxed text-lg" id="doc-content-area">
+                    <div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 載入中...</div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -301,8 +382,12 @@ function doPost(e) {
             currentModel: 'gemini', detectedGeminiModel: null,
             openRouterModel: localStorage.getItem('nova_or_model') || 'deepseek/deepseek-r1:free',
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
+            noteDocUrl: localStorage.getItem('nova_note_doc_url') || '', // New
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
+            writeMode: 'text',
+            pastedImageBase64: null,
+            // ... (rest of state)
             messages: JSON.parse(localStorage.getItem('nova_messages') || '[]'),
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
@@ -347,7 +432,7 @@ function doPost(e) {
                     ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'}"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
                     <div class="msg-group relative max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">
                         ${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo?.color||'text-slate-400'} opacity-80">${modelInfo?.name||'System'}${msg.model==='openrouter'?` (${getShortName(appState.openRouterModel)})`:''}</span>` : ''}
-                        <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div>
+                        <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text, msg.isHtml)}</div>
                         ${sourcesHTML}
                         <p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p>
                         <button onclick="deleteMessage(${msg.id})" class="msg-actions absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/50 rounded-full"><i class="ph-bold ph-trash text-xs"></i></button>
@@ -356,62 +441,12 @@ function doPost(e) {
             }).join(''); 
             container.scrollTop = container.scrollHeight; 
         }
+        function renderThinkingState(show) { const el = document.getElementById('thinking-indicator'); if(show && !el) document.getElementById('chat-container').insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); else if(!show && el) el.remove(); }
+        function renderTodos() { document.getElementById('full-todo-list').innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; document.getElementById('mini-todo-list').innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; }
+        function renderNotes() { document.getElementById('full-note-list').innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; document.getElementById('mini-note-list').innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; }
+        function renderWeather() { const {temp,condition,humidity,wind,loc}=appState.weather; let icon='ph-cloud',color='text-slate-400',desc='多雲'; if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; }
+        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf.name; const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); const wrap = document.getElementById('input-wrapper'); if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(searchBtn) { if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/30'); searchBtn.classList.remove('text-slate-500'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); } else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/30'); searchBtn.classList.add('text-slate-500'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); } } if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} const orBadge=document.getElementById('openrouter-badge'); if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } }
 
-        function renderThinkingState(show) { 
-            const el = document.getElementById('thinking-indicator'); 
-            const container = document.getElementById('chat-container');
-            if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); 
-            else if(!show && el) el.remove(); 
-        }
-
-        function renderTodos() { 
-            const el = document.getElementById('full-todo-list');
-            if(!el) return;
-            el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
-            const mini = document.getElementById('mini-todo-list');
-            if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; 
-        }
-
-        function renderNotes() { 
-            const el = document.getElementById('full-note-list');
-            if(!el) return;
-            el.innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; 
-            const mini = document.getElementById('mini-note-list');
-            if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; 
-        }
-
-        function renderWeather() { 
-            const {temp,condition,humidity,wind,loc}=appState.weather; 
-            let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
-            if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
-            if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
-            const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; 
-            const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
-            const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
-            const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
-            const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
-            const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
-            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
-            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
-        }
-
-        function updateModelUI(){ 
-            const conf=MODEL_CONFIG[appState.currentModel]; 
-            const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf.name; 
-            const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; 
-            document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); 
-            const wrap = document.getElementById('input-wrapper'); if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; 
-            const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); 
-            if(searchBtn) {
-                if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/30'); searchBtn.classList.remove('text-slate-500'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); }
-                else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/30'); searchBtn.classList.add('text-slate-500'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); }
-            }
-            if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} 
-            const orBadge=document.getElementById('openrouter-badge');
-            if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } 
-        }
-
-        // --- ACTIONS ---
         function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); saveMessages(); renderMessages(); }
         function deleteMessage(id) { appState.messages = appState.messages.filter(m => m.id !== id); saveMessages(); renderMessages(); }
         function clearChatHistory() { if(confirm("確定要清空所有對話紀錄嗎？")) { appState.messages = []; saveMessages(); renderMessages(); } }
@@ -423,7 +458,7 @@ function doPost(e) {
         function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
         function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
         function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
+        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_note_doc_url', appState.noteDocUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
         function setModel(m){ appState.currentModel=m; updateModelUI(); }
         function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
         function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
@@ -432,18 +467,10 @@ function doPost(e) {
         async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
         async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
         async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
-        function updateLocStatus(msg) { 
-            const el = document.getElementById('location-status'); 
-            if(el) el.innerText = msg; 
-            if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { 
-                const {loc, temp} = appState.weather; 
-                const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; 
-                const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; 
-            } 
-        }
+        function updateLocStatus(msg) { const el = document.getElementById('location-status'); if(el) el.innerText = msg; if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { const {loc, temp} = appState.weather; const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; } }
         function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
 
-        // --- WEB SCRAPER ---
+        // --- WEB SCRAPER & SEARCH ---
         async function fetchUrlViaGas(url) {
             if (!appState.docMonitorUrl) return null;
             try {
@@ -461,7 +488,6 @@ function doPost(e) {
             }
         }
         
-        // --- GOOGLE SEARCH AGENT ---
         async function searchViaGas(query) {
              if (!appState.docMonitorUrl) return null;
              try {
@@ -512,7 +538,117 @@ function doPost(e) {
             } catch (e) { return null; }
         }
 
-        // --- HANDLERS ---
+        // --- PASTE HANDLER ---
+        function handlePaste(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.includes('image/')) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        appState.pastedImageBase64 = event.target.result;
+                        document.getElementById('paste-indicator').classList.remove('hidden');
+                        document.getElementById('doc-input-main').value = "[已貼上圖片，請點擊發送]";
+                    };
+                    reader.readAsDataURL(blob);
+                    e.preventDefault(); 
+                }
+            }
+        }
+
+        // --- FORMATTER ---
+        function formatMessage(text, isTrustedHtml = false) {
+            if (!text) return '';
+            if (isTrustedHtml) return text; 
+            let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
+            safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-400 underline break-all">$1</a>');
+            return safe.replace(/\n/g, '<br>');
+        }
+
+        // --- DOC WRITER UI LOGIC ---
+        function setWriteMode(mode) {
+            appState.writeMode = mode;
+            ['text', 'image', 'link'].forEach(m => {
+                const btn = document.getElementById(`btn-mode-${m}`);
+                if(m === mode) btn.className = 'text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all';
+                else btn.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all';
+            });
+            const mainInput = document.getElementById('doc-input-main');
+            const subInput = document.getElementById('doc-input-sub');
+            appState.pastedImageBase64 = null;
+            document.getElementById('paste-indicator').classList.add('hidden');
+            if(mode === 'text') {
+                mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片...";
+                subInput.classList.add('hidden');
+            } else if (mode === 'image') {
+                mainInput.placeholder = "輸入圖片網址 (https://...)";
+                subInput.classList.add('hidden');
+            } else if (mode === 'link') {
+                mainInput.placeholder = "輸入連結顯示文字";
+                subInput.placeholder = "輸入連結網址 (https://...)";
+                subInput.classList.remove('hidden');
+            }
+        }
+
+        async function handleDocWriteBtn() {
+            // Use noteDocUrl for writing
+            const targetUrl = appState.noteDocUrl;
+            if(!targetUrl) return alert("請先至設定輸入「隨手記事本」的 Apps Script URL");
+            
+            const mainVal = document.getElementById('doc-input-main').value.trim();
+            const subVal = document.getElementById('doc-input-sub').value.trim();
+            let payload = {};
+            
+            if (appState.pastedImageBase64) {
+                payload = { type: 'image_base64', content: appState.pastedImageBase64 };
+            } else {
+                if(!mainVal && appState.writeMode !== 'image_base64') return; 
+                if(appState.writeMode === 'text') payload = { type: 'text', content: mainVal };
+                else if (appState.writeMode === 'image') payload = { type: 'image', content: mainVal };
+                else if (appState.writeMode === 'link') {
+                    if(!subVal) return alert("請輸入連結網址");
+                    payload = { type: 'link', text: mainVal, content: subVal };
+                }
+            }
+
+            try {
+                await fetch(targetUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload)
+                });
+                addMessage(`📝 已寫入記事本`, 'system');
+                document.getElementById('doc-input-main').value = '';
+                document.getElementById('doc-input-sub').value = '';
+                appState.pastedImageBase64 = null;
+                document.getElementById('paste-indicator').classList.add('hidden');
+            } catch(e) { alert("寫入失敗，請檢查 URL"); }
+        }
+
+        // --- DOC VIEWER ---
+        function openNoteDocViewer() { 
+            if(!appState.noteDocUrl) return alert("請先設定隨手記事本 URL");
+            document.getElementById('doc-viewer-modal').classList.remove('hidden'); 
+            refreshNoteDocView(); 
+        }
+        function closeDocViewer() { document.getElementById('doc-viewer-modal').classList.add('hidden'); }
+        
+        async function refreshNoteDocView() {
+            const area = document.getElementById('doc-content-area');
+            const targetUrl = appState.noteDocUrl;
+            
+            area.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 讀取中...</div>';
+            try {
+                const res = await fetch(targetUrl);
+                const text = await res.text();
+                area.innerHTML = text || '<div class="text-center text-slate-400">記事本是空的</div>';
+            } catch(e) { area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>'; }
+        }
+
+        // --- HANDLERS & AI LOGIC (Same as before) ---
         function handleEnter(e) { if(e.key==='Enter') handleSendMessage(); }
         
         async function handleSendMessage() {
@@ -531,25 +667,18 @@ function doPost(e) {
                 let systemPromptAddon = "";
                 let injectedContext = "";
                 let modelToUse = appState.currentModel;
-                let enableSearchTool = false; // Default: disable tool to prevent conflict
-                let directResponse = false;
+                let enableSearchTool = false;
                 
-                // If global search is ON, default to true unless overridden
                 if (appState.isSearchEnabled) enableSearchTool = true;
 
-                // --- 1. Search Intent (Google Agent) ---
                 const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
                 if (searchMatch) {
-                    // Priority 1: Use GAS Search if available
                     if (appState.docMonitorUrl) {
                         const searchResult = await searchViaGas(searchMatch[1]);
                         addMessage(searchResult, 'system');
-                        // We stop here, no need to ask LLM again unless user wants to chat about it
-                        // But to keep consistency, we can feed this result to LLM to summarize
                         injectedContext = `\n\n[系統搜尋結果]:\n${searchResult}\n\n[指令]: 請根據上述搜尋結果回答使用者的問題。`;
-                        enableSearchTool = false; // We already searched
+                        enableSearchTool = false; 
                     } 
-                    // Priority 2: Use Gemini Search if available
                     else if (appState.keys.gemini) {
                         modelToUse = 'gemini';
                         enableSearchTool = true;
@@ -557,16 +686,14 @@ function doPost(e) {
                     }
                 }
 
-                // --- 2. URL Scraper via GAS (The requested feature) ---
                 const urlMatch = text.match(/https?:\/\/[^\s]+/);
                 if (urlMatch) {
                     const url = urlMatch[0];
                     if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('twitter.com') && !url.includes('facebook.com')) {
                         addMessage(`🔍 正在透過 Google Doc 代理抓取網頁...`, 'system');
-                        const content = await fetchUrlViaGas(url); // Use GAS 5.2 Scraper
+                        const content = await fetchUrlViaGas(url);
                         if (content) {
                             injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`;
-                            // IMPORTANT: Disable search tool if context is provided to prevent "No Content" error
                             enableSearchTool = false; 
                         } else {
                             systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`;
@@ -582,7 +709,6 @@ function doPost(e) {
                 }
 
                 const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}`;
-                // Pass disableSearch: !enableSearchTool to override global setting
                 const res = await fetchAIResponse(prompt, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "" });
                 
                 if(typeof res === 'string') addMessage(res, 'ai', modelToUse);
@@ -625,12 +751,7 @@ function doPost(e) {
                     modelName = modelName.replace('models/', '');
 
                     const payload = { contents:[{parts:[{text:userText}]}] };
-                    
-                    // Determine if we should use search tool
-                    // Logic: Global setting OR Per-request enable, BUT overridden by per-request disable
-                    const useSearch = (appState.isSearchEnabled || options.enableSearch) && !options.disableSearch;
-                    
-                    if (useSearch) {
+                    if (appState.isSearchEnabled || options.enableSearch) {
                         payload.tools = [{google_search:{}}];
                     }
 
@@ -638,19 +759,11 @@ function doPost(e) {
                     const data = await res.json();
                     
                     if(data.error) {
-                        // Retry logic if error (e.g. tool conflict)
-                        // If we tried to use search and failed, retry without search
-                        if (useSearch) {
+                        if (payload.tools) {
                             delete payload.tools;
-                             const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                             const d = await retry.json();
-                             
-                             if (d.error) return `⚠️ API 重試失敗: ${d.error.message}`;
-                             // Safety check again
-                             if (d.promptFeedback && d.promptFeedback.blockReason) return `⚠️ 內容被安全機制阻擋 (${d.promptFeedback.blockReason})`;
-                             if (!d.candidates || !d.candidates[0] || !d.candidates[0].content) return "⚠️ 無法生成內容 (安全過濾或空回應)";
-                             
-                             return d.candidates[0].content.parts[0].text + "\n\n(註：搜尋工具調用失敗，已切換為純文字模式回答)";
+                            const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                            const d = await retry.json();
+                            return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (搜尋失敗後重試)";
                         }
                         throw new Error(data.error.message);
                     }
@@ -672,7 +785,6 @@ function doPost(e) {
                     const data = await res.json();
                     return data.choices?.[0]?.message?.content || "無回應";
                 } else if(model === 'cerebras') {
-                    // Update model to llama-3.3-70b
                     const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
                     const data = await res.json(); 
                     if(data.error) throw new Error(data.error.message); 
@@ -718,11 +830,10 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.16.4 就緒！\n穩定版更新：\n1. 改用 DuckDuckGo Lite 修復搜尋功能。\n2. 新增智慧轉址追蹤 (支援 Google News)。\n3. 請務必更新您的 Apps Script (6.2 版)！', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.17 就緒！\n新增「雙文件架構」：\n1. 系統核心文件：負責搜尋代理與爬蟲。\n2. 隨手記事本：負責您的個人筆記與資料儲存。\n請至設定中分別設定兩個不同的 Apps Script URL。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
-            // Safe initialization of values
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
             
             safeSet('key-gemini', appState.keys.gemini);
@@ -731,10 +842,15 @@ function doPost(e) {
             safeSet('key-openai', appState.keys.openai);
             safeSet('key-grok', appState.keys.grok);
             safeSet('key-doc-url', appState.docMonitorUrl);
+            safeSet('key-note-doc-url', appState.noteDocUrl);
             safeSet('key-zeabur-url', appState.zeaburUrl);
             safeSet('key-zeabur-key', appState.zeaburKey);
             safeSet('model-openrouter-select', appState.openRouterModel);
             
+            // Paste Listener
+            const inputMain = document.getElementById('doc-input-main');
+            if(inputMain) inputMain.addEventListener('paste', handlePaste);
+
             tryGetLocation(true);
             updateModelUI();
         };
