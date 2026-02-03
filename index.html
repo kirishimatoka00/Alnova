@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.27 - Input Logic Fix</title>
+    <title>Nova 12.28 - Notebook Restored</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Notebook Fix 12.27</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Notebook Restored 12.28</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -212,7 +212,67 @@ function doPost(e) {
 
             <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
-            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
+            
+            <!-- Notes View with Write Feature (Restored) -->
+            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto">
+                <div class="max-w-5xl mx-auto w-full">
+                    
+                    <!-- Google Docs Writer Widget -->
+                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden shadow-lg">
+                        <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                        <div class="relative z-10">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-notebook text-emerald-400"></i> 隨手記事本 (Notebook)</h3>
+                                <button onclick="openNoteDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-book-open"></i> 📖 閱讀筆記本</button>
+                            </div>
+                            
+                            <!-- Tabs -->
+                            <div class="flex space-x-2 mb-3">
+                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字 / 貼上圖片 (Ctrl+V)</button>
+                                <button onclick="setWriteMode('image')" id="btn-mode-image" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">圖片網址</button>
+                                <button onclick="setWriteMode('link')" id="btn-mode-link" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">超連結</button>
+                            </div>
+
+                            <div class="flex flex-col gap-3">
+                                <!-- Inputs (Enlarged) -->
+                                <div class="relative">
+                                    <textarea id="doc-input-main" rows="5" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24 resize-none" onkeydown="handleNoteKeydown(event)"></textarea>
+                                    <div id="paste-indicator" class="hidden absolute right-3 top-3 text-[10px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded border border-emerald-500/50 animate-pulse">
+                                        <i class="ph-bold ph-image"></i> 圖片已就緒
+                                    </div>
+                                    <button onclick="clearNoteInput()" class="absolute right-3 bottom-3 text-slate-500 hover:text-red-400 p-1 bg-slate-900/50 rounded-full transition-colors" title="清除內容"><i class="ph-bold ph-trash"></i></button>
+                                </div>
+                                <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
+                                
+                                <div class="flex justify-end">
+                                    <button onclick="handleDocWriteBtn()" id="note-send-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                        <i class="ph-bold ph-paper-plane-right"></i> 發送寫入
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 寫入將發送至「隨手記事本」設定的 Google Doc。</p>
+                        </div>
+                    </div>
+
+                    <header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">本地筆記中心</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header>
+                    <div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+            
+            <!-- Full Doc Viewer Modal (Reused) -->
+            <div id="doc-viewer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-fill ph-book-open text-blue-400"></i> 文件瀏覽器</h3>
+                    <div class="flex gap-2">
+                        <button onclick="refreshDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
+                        <button onclick="closeDocViewer()" class="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
+                    </div>
+                </div>
+                <div class="flex-1 bg-white text-slate-900 rounded-xl p-6 overflow-y-auto shadow-2xl font-serif leading-relaxed text-lg" id="doc-content-area">
+                    <div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 載入中...</div>
+                </div>
+            </div>
+
         </main>
     </div>
 
