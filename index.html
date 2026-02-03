@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.20 - Search Resilience</title>
+    <title>Nova 12.21 - Search Precision Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Resilience 12.20</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Precision 12.21</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -112,9 +112,9 @@
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 8.0 - 抗封鎖最終版)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 8.1 - 移除 Bing 垃圾內容)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">採用 Yahoo + Bing RSS 混合搜尋策略，徹底解決被擋問題。請全選複製並覆蓋 Apps Script：</p>
+                                    <p class="mb-2">改用 Google GBV 優先策略，並移除不穩定的 Bing RSS。請全選複製並覆蓋 Apps Script：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) { try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } catch(e) { return ContentService.createTextOutput("Error"); } }
 
@@ -124,61 +124,78 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
-  // 1. 搜尋模式 (Yahoo HTML -> Bing RSS -> DDG Lite)
+  // 1. 搜尋模式 (Google GBV -> DDG Lite -> Yahoo)
   if (d.type === 'search') {
     var q = encodeURIComponent(d.query);
     var resultText = "";
     var count = 0;
+    var seen = {};
     
-    // Strategy A: Yahoo Search (最穩定，少擋)
+    // Strategy A: Google GBV (通常最準確)
     try {
-       var url = "https://search.yahoo.com/search?p=" + q + "&ei=UTF-8";
-       var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
-       var regex = /&lt;h3 class="title"&gt;&lt;a[^&gt;]*href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
-       var match;
-       while ((match = regex.exec(html)) !== null && count < 8) {
-         var l = match[1]; 
-         if(l.indexOf("r.search.yahoo") > -1) { var u = l.match(/RU=([^/]+)/); if(u) l = decodeURIComponent(u[1]); }
-         var t = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-         if (l.indexOf("http") === 0 && t) { resultText += (count+1) + ". [" + t + "](" + l + ")\n"; count++; }
+       var url = "https://www.google.com/search?q=" + q + "&gbv=1&hl=zh-TW";
+       var options = {
+         'muteHttpExceptions': true,
+         'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+       };
+       var html = UrlFetchApp.fetch(url, options).getContentText();
+       var parts = html.split('href="/url?q=');
+       for(var i=1; i&lt;parts.length && count &lt; 10; i++) {
+         var link = parts[i].split('&')[0];
+         if(link.indexOf('http') === 0 && link.indexOf('google.com') === -1) {
+            var title = "Google Result " + (count+1);
+            var remainder = parts[i].split('&gt;')[1]; 
+            if(remainder) { var t = remainder.split('&lt;')[0]; if(t) title = t; }
+            if(!seen[link]) {
+              link = decodeURIComponent(link);
+              resultText += (count+1) + ". [" + title + "](" + link + ")\n";
+              seen[link] = true;
+              count++;
+            }
+         }
        }
     } catch(e) { resultText += ""; }
 
-    // Strategy B: Bing RSS (抗封鎖備援)
-    if (count === 0) {
-      try {
-        var url = "https://www.bing.com/search?q=" + q + "&format=rss";
-        var xml = UrlFetchApp.fetch(url, {'muteHttpExceptions':true, 'headers':{'User-Agent':'Mozilla/5.0'}}).getContentText();
-        var items = xml.match(/&lt;item&gt;([\s\S]*?)&lt;\/item&gt;/g);
-        if (items) {
-          resultText += "**(Bing 備援結果)**\n";
-          for (var i = 0; i < Math.min(items.length, 8); i++) {
-             var title = items[i].match(/&lt;title&gt;([\s\S]*?)&lt;\/title&gt;/);
-             var link = items[i].match(/&lt;link&gt;([\s\S]*?)&lt;\/link&gt;/);
-             if (title && link) {
-               var t = title[1].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-               var l = link[1].trim();
-               if (l.indexOf("http") === 0) { resultText += (count+1) + ". [" + t + "](" + l + ")\n"; count++; }
-             }
-          }
-        }
-      } catch(e) {}
-    }
-
-    // Strategy C: DuckDuckGo Lite (最後防線)
+    // Strategy B: DuckDuckGo Lite (備援)
     if (count === 0) {
       try {
         var url = "https://lite.duckduckgo.com/lite/?q=" + q;
         var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
-        var regex = /&lt;a class="result-link" href="([^"]+)"&gt;(.*?)&lt;\/a&gt;/g;
+        var regex = /&lt;a class="result-link" href="([^"]+)"&gt;([^&lt;]+)&lt;\/a&gt;/g;
         var match;
-        while ((match = regex.exec(html)) !== null && count < 8) {
-           if (match[1].indexOf("http") === 0) { resultText += (count+1) + ". [" + match[2] + "](" + match[1] + ")\n"; count++; }
+        while ((match = regex.exec(html)) !== null && count &lt; 10) {
+           var l = match[1];
+           var t = match[2];
+           if (l.indexOf("http") === 0 && !seen[l]) {
+              resultText += (count+1) + ". [" + t + "](" + l + ")\n";
+              seen[l] = true;
+              count++;
+           }
         }
       } catch(e) {}
     }
+    
+    // Strategy C: Yahoo (最後手段)
+    if (count === 0) {
+       try {
+         var url = "https://search.yahoo.com/search?p=" + q;
+         var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
+         var regex = /&lt;h3 class="title"&gt;&lt;a[^&gt;]*href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
+         var match;
+         while ((match = regex.exec(html)) !== null && count &lt; 10) {
+             var l = match[1];
+             if(l.indexOf("r.search.yahoo") > -1) { var u = l.match(/RU=([^/]+)/); if(u) l = decodeURIComponent(u[1]); }
+             var t = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+             if (l.indexOf("http") === 0 && !seen[l]) {
+               resultText += (count+1) + ". [" + t + "](" + l + ")\n";
+               seen[l] = true;
+               count++;
+            }
+         }
+       } catch(e) {}
+    }
 
-    if(count === 0) return ContentService.createTextOutput("搜尋無結果 (Yahoo/Bing/DDG 皆無回應)");
+    if(count === 0) return ContentService.createTextOutput("搜尋無結果 (可能被阻擋)。");
     
     body.clear();
     body.appendParagraph("🔍 搜尋: " + d.query);
@@ -186,45 +203,42 @@ function doPost(e) {
     return ContentService.createTextOutput(resultText);
   }
 
-  // 2. 爬蟲模式 (News 解鎖版)
+  // 2. 爬蟲模式
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
-      var targetUrl = d.url;
       var options = {
         'muteHttpExceptions': true,
         'followRedirects': true,
-        'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+        'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
       };
+      var html = UrlFetchApp.fetch(d.url, options).getContentText();
       
-      var response = UrlFetchApp.fetch(targetUrl, options);
-      var html = response.getContentText();
-      
-      if (targetUrl.indexOf('news.google.com') > -1) {
-         var noScriptLink = html.match(/&lt;noscript&gt;.*?&lt;a href="([^"]+)".*?&lt;\/noscript&gt;/);
-         if (noScriptLink) {
-             var realUrl = noScriptLink[1];
-             if(realUrl.indexOf('.') === 0) realUrl = "https://news.google.com" + realUrl.substring(1);
-             targetUrl = realUrl;
-             body.appendParagraph("↪️ 追蹤新聞連結: " + targetUrl);
-             html = UrlFetchApp.fetch(targetUrl, options).getContentText();
+      // Google News Redirect
+      if (d.url.indexOf('news.google.com') > -1 || html.indexOf('window.location.replace') > -1) {
+         var redirect = html.match(/window\.location\.replace\("([^"]+)"\)/) || html.match(/&lt;noscript&gt;.*?&lt;a href="([^"]+)".*?&lt;\/noscript&gt;/);
+         if (redirect) {
+            var newUrl = redirect[1];
+            if(newUrl.indexOf('http')!==0) newUrl = "https://news.google.com" + newUrl.replace("./", "/");
+            html = UrlFetchApp.fetch(newUrl, options).getContentText();
+            body.appendParagraph("↪️ 轉址: " + newUrl);
          }
       }
 
       var textContent = "";
-      var metaDesc = html.match(/&lt;meta name="description" content="([^"]*)"/i) || html.match(/&lt;meta property="og:description" content="([^"]*)"/i);
+      var metaDesc = html.match(/&lt;meta name="description" content="([^"]*)"/i);
       if (metaDesc) textContent += "📝 摘要: " + metaDesc[1] + "\n\n";
 
-      var meaningfulRegex = /&lt;(h[1-3]|p|li|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
+      var meaningfulRegex = /&lt;(h[1-3]|p|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
       var match; var count = 0;
-      while ((match = meaningfulRegex.exec(html)) !== null && count < 200) {
+      while ((match = meaningfulRegex.exec(html)) !== null && count &lt; 200) {
         var clean = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-        if (clean.length > 20 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
+        if (clean.length > 25 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
       }
-
-      if (textContent.length < 50) textContent += "(無法提取有效內容，請嘗試手動訪問)";
       
+      if (textContent.length &lt; 50) textContent += "(無法提取有效內容)";
       var final = textContent.substring(0, 48000);
+      
       body.appendParagraph("🌐 來源: " + d.url);
       body.appendParagraph("📅 時間: " + new Date().toLocaleString());
       body.appendParagraph("------------------------------------------------");
@@ -574,7 +588,7 @@ function doPost(e) {
                     else if (appState.keys.gemini) {
                         modelToUse = 'gemini';
                         enableSearchTool = true;
-                        systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。)`;
+                        systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。若您無法使用工具，請誠實告知。)`;
                     }
                 }
 
@@ -726,7 +740,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.19 就緒！\n穩定版更新：\n1. 修復了 Google 搜尋功能 (改用 Bing HTML 精準搜尋)。\n2. 增強了對新聞網站的內容提取能力 (加入 Meta Description 備援)。\n3. 請務必更新您的 Apps Script 以啟用修復！', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.21 就緒！\n穩定版更新：\n1. 改用 Bing HTML 精準搜尋解決垃圾結果問題。\n2. 增加關鍵字過濾，排除無效連結。\n3. 請務必更新您的 Apps Script (7.1 版)！', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
