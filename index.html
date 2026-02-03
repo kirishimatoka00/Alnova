@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.16.1 - Google Search Agent</title>
+    <title>Nova 12.16.3 - Search Rescue</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Agent 12.16.1</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Rescue 12.16.3</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -108,9 +108,9 @@
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.0 - 搜尋引擎版)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.2 - DDG Lite & 轉址修復)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">請複製下方所有程式碼，取代您 Google Apps Script 內的內容，並執行 <b>「部署」>「管理部署」>「編輯」>「新版本」>「部署」</b>。</p>
+                                    <p class="mb-2">改用 DuckDuckGo Lite 解決搜尋被擋問題，並新增 JS 轉址解析能力。請全選複製並覆蓋 Apps Script：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
   try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
@@ -123,74 +123,99 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
-  // 1. Google 搜尋模式 (回傳連結)
+  // 1. 搜尋模式 (使用 DuckDuckGo Lite)
   if (d.type === 'search') {
     try {
       var q = encodeURIComponent(d.query);
-      var url = "https://www.google.com/search?q=" + q + "&num=10&hl=zh-TW";
+      var url = "https://lite.duckduckgo.com/lite/?q=" + q;
+      // 模擬普通瀏覽器 Header
       var options = {
         'muteHttpExceptions': true,
-        'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+        'headers': { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
       };
       var html = UrlFetchApp.fetch(url, options).getContentText();
       
-      // 簡易解析 Google 搜尋結果 (針對舊版/簡易版 HTML)
-      // 注意：Google HTML 結構常變，這裡使用較通用的 Regex 抓取 /url?q= 格式
       var links = [];
-      var regex = /&lt;a href="\/url\?q=(https?:\/\/[^&"]+)[^&gt;]*&gt;([\s\S]*?)&lt;\/a&gt;/g;
+      // DuckDuckGo Lite 表格結構解析
+      var regex = /&lt;a class="result-link" href="([^"]+)"&gt;([^&lt;]+)&lt;\/a&gt;/g;
       var match;
-      var resultText = "🔍 **Google 搜尋結果：**\n\n";
+      var resultText = "🔍 **搜尋結果 (DuckDuckGo Lite)：**\n\n";
       var count = 0;
       
-      // 輔助過濾無效連結
-      var ignoreList = ['google.com', 'youtube.com', 'preferences', 'policies', 'support'];
-      
-      while ((match = regex.exec(html)) !== null && count &lt; 10) {
+      while ((match = regex.exec(html)) !== null && count < 8) {
         var linkUrl = match[1];
-        var linkTitle = match[2].replace(/&lt;[^&gt;]*&gt;/g, "").trim(); // 去除標籤
-        
-        var isIgnored = false;
-        for(var k=0; k&lt;ignoreList.length; k++) { if(linkUrl.indexOf(ignoreList[k]) > -1) isIgnored = true; }
-        
-        if (linkTitle && !isIgnored && linkUrl.indexOf('http') === 0) {
+        var linkTitle = match[2];
+        if (linkUrl.indexOf('http') === 0) {
            resultText += (count+1) + ". [" + linkTitle + "](" + linkUrl + ")\n";
-           links.push({title: linkTitle, url: linkUrl});
            count++;
         }
       }
       
-      if(count === 0) return ContentService.createTextOutput("找不到相關結果，或 Google 阻擋了請求。");
+      if(count === 0) {
+        // Fallback: 嘗試直接返回原始碼看是否被擋
+        if(html.indexOf("captcha") > -1) return ContentService.createTextOutput("搜尋請求被驗證碼阻擋。");
+        return ContentService.createTextOutput("搜尋無結果。");
+      }
       
       return ContentService.createTextOutput(resultText);
     } catch (err) { return ContentService.createTextOutput("Search Error: " + err.toString()); }
   }
 
-  // 2. 網頁抓取模式 (清空並寫入)
+  // 2. 爬蟲模式 (支援轉址與偽裝)
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
+      var targetUrl = d.url;
       var options = {
         'muteHttpExceptions': true,
-        'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+        'followRedirects': true, // 自動跟隨 301/302
+        'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
       };
-      var html = UrlFetchApp.fetch(d.url, options).getContentText();
+      
+      var response = UrlFetchApp.fetch(targetUrl, options);
+      var html = response.getContentText();
+      
+      // 檢測 JS 轉址 (例如 Google News)
+      if (html.indexOf('window.location.replace') > -1 || html.indexOf('window.location.href') > -1) {
+         var redirectMatch = html.match(/window\.location\.replace\("([^"]+)"\)/) || html.match(/window\.location\.href\s*=\s*"([^"]+)"/);
+         if (redirectMatch) {
+            targetUrl = redirectMatch[1];
+            // 處理相對路徑
+            if(targetUrl.indexOf('http') !== 0) targetUrl = "https://news.google.com" + targetUrl; 
+            response = UrlFetchApp.fetch(targetUrl, options);
+            html = response.getContentText();
+            body.appendParagraph("↪️ 自動轉址至: " + targetUrl);
+         }
+      }
+
       var textContent = "";
-      var meaningfulRegex = /&lt;(p|h[1-6]|li|article|div)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
+      // 優先抓取 Meta Description (通常最準確)
+      var metaDesc = html.match(/&lt;meta name="description" content="([^"]*)"/i) || html.match(/&lt;meta property="og:description" content="([^"]*)"/i);
+      if (metaDesc) textContent += "📝 摘要: " + metaDesc[1] + "\n\n";
+
+      // 智慧提取內文
+      var meaningfulRegex = /&lt;(h[1-3]|p|li|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
       var match; var count = 0;
-      while ((match = meaningfulRegex.exec(html)) !== null && count &lt; 200) {
-        var dirtyText = match[2];
-        dirtyText = dirtyText.replace(/&lt;a[^&gt;]*href="([^"]*)"[^&gt;]*&gt;([\s\S]*?)&lt;\/a&gt;/gi, " [$2]($1) ");
-        var cleanText = dirtyText.replace(/&lt;[^&gt;]*&gt;/g, "").replace(/\s+/g, " ").trim();
-        if (cleanText.length &gt; 20) { textContent += cleanText + "\n\n"; count++; }
+      while ((match = meaningfulRegex.exec(html)) !== null && count < 300) {
+        var clean = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+        // 過濾導航雜訊
+        if (clean.length > 25 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
       }
-      if (textContent.length &lt; 100) {
-         textContent = html.replace(/&lt;script[^&gt;]*&gt;[\s\S]*?&lt;\/script&gt;/gmi, "").replace(/&lt;style[^&gt;]*&gt;[\s\S]*?&lt;\/style&gt;/gmi, "").replace(/&lt;[^&gt;]*&gt;/g, " ").replace(/\s+/g, " ").trim();
+
+      if (textContent.length < 50) {
+         // 最後手段：暴力移除標籤
+         textContent += html.replace(/&lt;script[^&gt;]*&gt;[\s\S]*?&lt;\/script&gt;/gmi, "").replace(/&lt;style[^&gt;]*&gt;[\s\S]*?&lt;\/style&gt;/gmi, "").replace(/&lt;[^&gt;]*&gt;/g, " ").replace(/\s+/g, " ").trim();
       }
+
+      var finalContent = textContent.substring(0, 48000);
       body.appendParagraph("🌐 來源: " + d.url);
       body.appendParagraph("📅 時間: " + new Date().toLocaleString());
       body.appendParagraph("------------------------------------------------");
-      body.appendParagraph(textContent.substring(0, 48000));
-      return ContentService.createTextOutput(textContent.substring(0, 48000));
+      body.appendParagraph(finalContent);
+      return ContentService.createTextOutput(finalContent);
     } catch (err) { return ContentService.createTextOutput("Error: " + err.toString()); }
   }
   
@@ -241,8 +266,6 @@ function doPost(e) {
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
                     </div>
                 </div>
-                
-                <!-- Right Sidebar -->
                 <div class="hidden lg:flex w-80 bg-slate-900 flex-col p-6 space-y-6 border-l border-slate-800 overflow-y-auto shrink-0">
                     <div class="bg-gradient-to-br from-indigo-900 to-slate-800 rounded-3xl p-6 text-white shadow-lg border border-slate-700 relative overflow-hidden group">
                         <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
@@ -264,7 +287,6 @@ function doPost(e) {
                 </div>
             </div>
 
-            <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
             <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
         </main>
@@ -277,10 +299,7 @@ function doPost(e) {
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
-            
-            // Persistent Messages
             messages: JSON.parse(localStorage.getItem('nova_messages') || '[]'),
-            
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
@@ -304,7 +323,6 @@ function doPost(e) {
             zeabur: { name: 'Zeabur', color: 'text-pink-400', bg: 'bg-pink-600', icon: 'ph-plant' }
         };
 
-        // --- UTILS ---
         function saveMessages() { localStorage.setItem('nova_messages', JSON.stringify(appState.messages)); }
         function saveData() { localStorage.setItem('nova_todos', JSON.stringify(appState.todos)); localStorage.setItem('nova_notes', JSON.stringify(appState.notes)); }
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
@@ -312,9 +330,7 @@ function doPost(e) {
         function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
         function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
 
-        // --- RENDERERS ---
         function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
-        
         function renderMessages() { 
             const container = document.getElementById('chat-container');
             if(!container) return;
@@ -344,7 +360,6 @@ function doPost(e) {
             else if(!show && el) el.remove(); 
         }
 
-        // ... existing renders (todos, notes, weather, updateModelUI) ...
         function renderTodos() { 
             const el = document.getElementById('full-todo-list');
             if(!el) return;
@@ -699,7 +714,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.16.2 就緒！\n穩定版更新：\n1. 修復了 Google 搜尋功能 (改用 DuckDuckGo HTML API)。\n2. 增強了對新聞網站的內容提取能力 (加入 Meta Description 備援)。\n3. 請務必更新您的 Apps Script 以啟用修復！', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.16.3 就緒！\n穩定版更新：\n1. 改用 DuckDuckGo Lite 修復搜尋功能。\n2. 新增智慧轉址追蹤 (支援 Google News)。\n3. 請務必更新您的 Apps Script (6.2 版)！', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
