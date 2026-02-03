@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.15 - Stability Fix</title>
+    <title>Nova 12.16 - Focus Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -52,7 +52,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Stability 12.15</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Focus Fix 12.16</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -96,6 +96,8 @@
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                     <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">設定</h3><button onclick="closeSettings()"><i class="ph ph-x text-2xl text-slate-400"></i></button></div>
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
+                        
+                        <!-- Docs Monitor Section (Highlight) -->
                         <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
                             <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 核心 (Apps Script)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="https://script.google.com/macros/s/...">
@@ -103,10 +105,11 @@
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
+                            
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 5.0 - 必更)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 5.1 - 強化爬蟲)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">請複製下方所有程式碼，取代您 Google Apps Script 內的內容，並執行 <b>「部署」>「管理部署」>「編輯」>「新版本」>「部署」</b>。</p>
+                                    <p class="mb-2">此版本加入 User-Agent 偽裝，能突破更多網站的阻擋。請複製並覆蓋 Apps Script：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
   try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
@@ -119,8 +122,22 @@ function doPost(e) {
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
-      var html = UrlFetchApp.fetch(d.url).getContentText();
-      var text = html.replace(/&lt;script[^&gt;]*&gt;([\s\S]*?)&lt;\/script&gt;/gmi, "").replace(/&lt;style[^&gt;]*&gt;([\s\S]*?)&lt;\/style&gt;/gmi, "").replace(/&lt;[^&gt;]*&gt;/g, " ").replace(/\s+/g, " ").trim().substring(0, 50000);
+      // FIX: Add Headers to mimic a real browser
+      var options = {
+        'muteHttpExceptions': true,
+        'headers': {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      };
+      var response = UrlFetchApp.fetch(d.url, options);
+      var html = response.getContentText();
+      
+      var text = html.replace(/&lt;script[^&gt;]*&gt;([\s\S]*?)&lt;\/script&gt;/gmi, "")
+                     .replace(/&lt;style[^&gt;]*&gt;([\s\S]*?)&lt;\/style&gt;/gmi, "")
+                     .replace(/&lt;[^&gt;]*&gt;/g, " ")
+                     .replace(/\s+/g, " ")
+                     .trim().substring(0, 50000);
+                     
       body.appendParagraph("🌐 來源: " + d.url);
       body.appendParagraph("📅 時間: " + new Date().toLocaleString());
       body.appendParagraph("------------------------------------------------");
@@ -439,6 +456,10 @@ function doPost(e) {
                         if (content) {
                             injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`;
                             // IMPORTANT: Disable search tool if context is provided to prevent "No Content" error
+                            // But allow user to override by checking "Global Search"
+                            // Wait, previous logic was strict disable. Let's make it flexible.
+                            // If we have content, we prefer NO search unless user explicit query suggests otherwise.
+                            // To be safe and fix "No Content" error:
                             enableSearchTool = false; 
                         } else {
                             systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`;
@@ -454,7 +475,8 @@ function doPost(e) {
                 }
 
                 const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}`;
-                const res = await fetchAIResponse(prompt, modelToUse, { enableSearch: enableSearchTool });
+                // Pass disableSearch: !enableSearchTool to override global setting
+                const res = await fetchAIResponse(prompt, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "" });
                 
                 if(typeof res === 'string') addMessage(res, 'ai', modelToUse);
                 else addMessage(res.text, 'ai', modelToUse, res.sources);
@@ -496,8 +518,12 @@ function doPost(e) {
                     modelName = modelName.replace('models/', '');
 
                     const payload = { contents:[{parts:[{text:userText}]}] };
-                    // Only add tools if explicitly enabled for this turn
-                    if (options.enableSearch) {
+                    
+                    // Determine if we should use search tool
+                    // Logic: Global setting OR Per-request enable, BUT overridden by per-request disable
+                    const useSearch = (appState.isSearchEnabled || options.enableSearch) && !options.disableSearch;
+                    
+                    if (useSearch) {
                         payload.tools = [{google_search:{}}];
                     }
 
@@ -505,11 +531,19 @@ function doPost(e) {
                     const data = await res.json();
                     
                     if(data.error) {
-                        if (payload.tools) {
+                        // Retry logic if error (e.g. tool conflict)
+                        // If we tried to use search and failed, retry without search
+                        if (useSearch) {
                             delete payload.tools;
-                            const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                            const d = await retry.json();
-                            return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (搜尋失敗後重試)";
+                             const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                             const d = await retry.json();
+                             
+                             if (d.error) return `⚠️ API 重試失敗: ${d.error.message}`;
+                             // Safety check again
+                             if (d.promptFeedback && d.promptFeedback.blockReason) return `⚠️ 內容被安全機制阻擋 (${d.promptFeedback.blockReason})`;
+                             if (!d.candidates || !d.candidates[0] || !d.candidates[0].content) return "⚠️ 無法生成內容 (安全過濾或空回應)";
+                             
+                             return d.candidates[0].content.parts[0].text + "\n\n(註：搜尋工具調用失敗，已切換為純文字模式回答)";
                         }
                         throw new Error(data.error.message);
                     }
@@ -531,8 +565,11 @@ function doPost(e) {
                     const data = await res.json();
                     return data.choices?.[0]?.message?.content || "無回應";
                 } else if(model === 'cerebras') {
+                    // Update model to llama-3.3-70b
                     const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
-                    const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices?.[0]?.message?.content || "無回應";
+                    const data = await res.json(); 
+                    if(data.error) throw new Error(data.error.message); 
+                    return data.choices?.[0]?.message?.content || "無回應";
                 } else {
                     const ep = model==='gpt'?'https://api.openai.com/v1/chat/completions':'https://api.x.ai/v1/chat/completions';
                     const mName = model==='gpt'?'gpt-4o-mini':'grok-beta';
@@ -574,7 +611,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.15 就緒！\n穩定版更新：\n1. 修復網頁內容讀取時的「無內容」錯誤。\n2. 當成功抓取網頁時，自動關閉搜尋工具以避免衝突。\n3. 修復所有語法錯誤，請安心使用。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.16 就緒！\n穩定版更新：\n1. 修復網頁內容讀取時的「無內容」錯誤。\n2. 當成功抓取網頁時，自動關閉搜尋工具以避免衝突。\n3. 修復所有語法錯誤，請安心使用。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
