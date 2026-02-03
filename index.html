@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.16.3 - Search Rescue</title>
+    <title>Nova 12.16.4 - Search Fix Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Rescue 12.16.3</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Fix 12.16.4</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -108,9 +108,9 @@
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.2 - DDG Lite & 轉址修復)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.3 - 雙引擎搜尋 & 強力偽裝)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">改用 DuckDuckGo Lite 解決搜尋被擋問題，並新增 JS 轉址解析能力。請全選複製並覆蓋 Apps Script：</p>
+                                    <p class="mb-2">支援 Google GBV + DuckDuckGo 雙引擎切換，並修復動態網頁抓取問題。請全選複製並覆蓋 Apps Script：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
   try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
@@ -123,90 +123,103 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
-  // 1. 搜尋模式 (使用 DuckDuckGo Lite)
+  // 1. 搜尋模式 (Google GBV + DuckDuckGo Fallback)
   if (d.type === 'search') {
     try {
       var q = encodeURIComponent(d.query);
-      var url = "https://lite.duckduckgo.com/lite/?q=" + q;
-      // 模擬普通瀏覽器 Header
+      // Strategy A: Google Basic Version (GBV)
+      var url = "https://www.google.com/search?q=" + q + "&gbv=1&hl=zh-TW";
       var options = {
         'muteHttpExceptions': true,
         'headers': { 
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
         }
       };
       var html = UrlFetchApp.fetch(url, options).getContentText();
       
       var links = [];
-      // DuckDuckGo Lite 表格結構解析
-      var regex = /&lt;a class="result-link" href="([^"]+)"&gt;([^&lt;]+)&lt;\/a&gt;/g;
-      var match;
-      var resultText = "🔍 **搜尋結果 (DuckDuckGo Lite)：**\n\n";
-      var count = 0;
+      var resultText = "";
+      // Regex for Google GBV Links
+      var regex = /&lt;a href="\/url\?q=(https?:\/\/[^"&]+)[^&gt;]*&gt;[\s\S]*?&lt;div class="BNeawe vvjwJb AP7Wnd"&gt;([^&lt;]+)&lt;\/div&gt;/g; 
+      // Alternative Regex for simpler structure
+      var regex2 = /&lt;a href="\/url\?q=(https?:\/\/[^"&]+)[^&gt;]*&gt;&lt;span[^&gt;]*&gt;([^&lt;]+)&lt;\/span&gt;/g;
       
+      var match; var count = 0; var seen = {};
+
       while ((match = regex.exec(html)) !== null && count < 8) {
-        var linkUrl = match[1];
-        var linkTitle = match[2];
-        if (linkUrl.indexOf('http') === 0) {
-           resultText += (count+1) + ". [" + linkTitle + "](" + linkUrl + ")\n";
-           count++;
-        }
+        var l = match[1]; var t = match[2];
+        if (!seen[l] && l.indexOf("google.com") == -1) { resultText += (count+1) + ". [" + t + "](" + l + ")\n"; seen[l]=true; count++; }
       }
       
-      if(count === 0) {
-        // Fallback: 嘗試直接返回原始碼看是否被擋
-        if(html.indexOf("captcha") > -1) return ContentService.createTextOutput("搜尋請求被驗證碼阻擋。");
-        return ContentService.createTextOutput("搜尋無結果。");
+      // Fallback Strategy B: DuckDuckGo HTML if Google fails
+      if (count === 0) {
+          url = "https://html.duckduckgo.com/html/?q=" + q;
+          html = UrlFetchApp.fetch(url, options).getContentText();
+          var regexDDG = /&lt;a class="result__a" href="([^"]+)"&gt;([^&lt;]+)&lt;\/a&gt;/g;
+          while ((match = regexDDG.exec(html)) !== null && count < 8) {
+            var l = match[1]; var t = match[2];
+            if (l.indexOf("//duckduckgo.com/l/") > -1) { var u = l.match(/uddg=([^&]+)/); if (u) l = decodeURIComponent(u[1]); }
+            if (!seen[l]) { resultText += (count+1) + ". [" + t + "](" + l + ")\n"; seen[l]=true; count++; }
+          }
       }
+
+      if(count === 0) return ContentService.createTextOutput("搜尋無結果 (Google/DDG 皆無回應)");
       
+      // 成功：寫入文件並回傳
+      body.clear();
+      body.appendParagraph("🔍 搜尋關鍵字: " + d.query);
+      body.appendParagraph(resultText);
       return ContentService.createTextOutput(resultText);
+
     } catch (err) { return ContentService.createTextOutput("Search Error: " + err.toString()); }
   }
 
-  // 2. 爬蟲模式 (支援轉址與偽裝)
+  // 2. 爬蟲模式 (強力偽裝)
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
-      var targetUrl = d.url;
       var options = {
         'muteHttpExceptions': true,
-        'followRedirects': true, // 自動跟隨 301/302
-        'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
+        'followRedirects': true,
+        'headers': { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
       };
       
-      var response = UrlFetchApp.fetch(targetUrl, options);
+      var response = UrlFetchApp.fetch(d.url, options);
       var html = response.getContentText();
       
-      // 檢測 JS 轉址 (例如 Google News)
-      if (html.indexOf('window.location.replace') > -1 || html.indexOf('window.location.href') > -1) {
-         var redirectMatch = html.match(/window\.location\.replace\("([^"]+)"\)/) || html.match(/window\.location\.href\s*=\s*"([^"]+)"/);
-         if (redirectMatch) {
-            targetUrl = redirectMatch[1];
-            // 處理相對路徑
-            if(targetUrl.indexOf('http') !== 0) targetUrl = "https://news.google.com" + targetUrl; 
-            response = UrlFetchApp.fetch(targetUrl, options);
-            html = response.getContentText();
-            body.appendParagraph("↪️ 自動轉址至: " + targetUrl);
+      // 處理轉址
+      if (html.indexOf('window.location.replace') > -1) {
+         var redirect = html.match(/window\.location\.replace\("([^"]+)"\)/);
+         if (redirect) {
+            var newUrl = redirect[1];
+            if(newUrl.indexOf('http')!==0) newUrl = "https://news.google.com" + newUrl.replace("./", "/");
+            html = UrlFetchApp.fetch(newUrl, options).getContentText();
+            body.appendParagraph("↪️ 轉址至: " + newUrl);
          }
       }
 
       var textContent = "";
-      // 優先抓取 Meta Description (通常最準確)
+      // 1. 抓取 Meta Description (最穩)
       var metaDesc = html.match(/&lt;meta name="description" content="([^"]*)"/i) || html.match(/&lt;meta property="og:description" content="([^"]*)"/i);
       if (metaDesc) textContent += "📝 摘要: " + metaDesc[1] + "\n\n";
 
-      // 智慧提取內文
-      var meaningfulRegex = /&lt;(h[1-3]|p|li|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
+      // 2. 抓取正文段落
+      var meaningfulRegex = /&lt;(p|h[1-3]|li|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
       var match; var count = 0;
-      while ((match = meaningfulRegex.exec(html)) !== null && count < 300) {
-        var clean = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-        // 過濾導航雜訊
-        if (clean.length > 25 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
+      while ((match = meaningfulRegex.exec(html)) !== null && count < 200) {
+        // 去除標籤並解碼 HTML 實體
+        var clean = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").replace(/&nbsp;/g, " ").trim();
+        if (clean.length > 20 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
       }
 
+      // 3. Fallback: 如果抓不到東西，保留原始文字
       if (textContent.length < 50) {
-         // 最後手段：暴力移除標籤
          textContent += html.replace(/&lt;script[^&gt;]*&gt;[\s\S]*?&lt;\/script&gt;/gmi, "").replace(/&lt;style[^&gt;]*&gt;[\s\S]*?&lt;\/style&gt;/gmi, "").replace(/&lt;[^&gt;]*&gt;/g, " ").replace(/\s+/g, " ").trim();
       }
 
@@ -266,6 +279,8 @@ function doPost(e) {
                         <div id="search-hint" class="text-[10px] text-blue-400 mt-2 text-center hidden">🌐 已開啟連網搜尋 (Gemini)</div>
                     </div>
                 </div>
+                
+                <!-- Right Sidebar -->
                 <div class="hidden lg:flex w-80 bg-slate-900 flex-col p-6 space-y-6 border-l border-slate-800 overflow-y-auto shrink-0">
                     <div class="bg-gradient-to-br from-indigo-900 to-slate-800 rounded-3xl p-6 text-white shadow-lg border border-slate-700 relative overflow-hidden group">
                         <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
@@ -287,6 +302,7 @@ function doPost(e) {
                 </div>
             </div>
 
+            <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
             <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
         </main>
@@ -360,6 +376,7 @@ function doPost(e) {
             else if(!show && el) el.remove(); 
         }
 
+        // ... existing renders (todos, notes, weather, updateModelUI) ...
         function renderTodos() { 
             const el = document.getElementById('full-todo-list');
             if(!el) return;
@@ -714,7 +731,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.16.3 就緒！\n穩定版更新：\n1. 改用 DuckDuckGo Lite 修復搜尋功能。\n2. 新增智慧轉址追蹤 (支援 Google News)。\n3. 請務必更新您的 Apps Script (6.2 版)！', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.16.4 就緒！\n穩定版更新：\n1. 改用 DuckDuckGo Lite 修復搜尋功能。\n2. 新增智慧轉址追蹤 (支援 Google News)。\n3. 請務必更新您的 Apps Script (6.2 版)！', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
