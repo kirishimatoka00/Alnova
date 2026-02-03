@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.22 - Search Official</title>
+    <title>Nova 12.23 - Notebook</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Official 12.22</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Dual Docs 12.23</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -100,27 +100,21 @@
                         
                         <!-- Docs Monitor Section (Highlight) -->
                         <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
-                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 核心 (Apps Script)</label>
+                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-robot"></i> 系統代理 Google Doc (搜尋/爬蟲)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="Apps Script URL (for Agent)">
                             
-                            <label class="block text-xs text-emerald-300 mb-2 mt-4 font-bold flex items-center gap-2"><i class="ph-fill ph-notebook"></i> 隨手記事本 Google Doc</label>
+                            <label class="block text-xs text-emerald-300 mb-2 mt-4 font-bold flex items-center gap-2"><i class="ph-fill ph-notebook"></i> 隨手記事本 Google Doc (寫入/閱讀)</label>
                             <input type="text" id="key-note-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-emerald-500 outline-none mb-2" placeholder="Apps Script URL (for Notes)">
-                            
-                            <div class="border-t border-blue-500/30 my-4 pt-3">
-                                <label class="block text-xs text-yellow-400 mb-1 font-bold">Google Custom Search (CSE) - 選填但推薦</label>
-                                <p class="text-[9px] text-slate-400 mb-2">如果您希望 100% 準確的 Google 搜尋，請申請免費的 CSE ID。若無填寫則使用 Google News RSS 與 Wikipedia 作為備援。</p>
-                                <input type="text" id="key-cse-id" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-yellow-500 outline-none mb-1" placeholder="Search Engine ID (cx)">
-                            </div>
 
                             <div class="flex items-center justify-between">
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
-                                <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
+                                <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試系統 Doc 連線</button>
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 8.2 - 官方接口版)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 查看通用 Apps Script 代碼 (兩個 Doc 皆適用)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">改用官方 Google News RSS 與 Wikipedia API，不再被阻擋。請全選複製並覆蓋 Apps Script：</p>
+                                    <p class="mb-2">這段代碼同時支援「代理搜尋」和「筆記讀寫」。您可以將相同的代碼部署在兩個不同的 Google Doc 上。</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) { try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } catch(e) { return ContentService.createTextOutput("Error"); } }
 
@@ -130,66 +124,48 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
-  // 1. 搜尋模式 (Google News RSS + Wikipedia + CSE)
+  // 1. 搜尋模式 (Yahoo + Bing + DDG)
   if (d.type === 'search') {
     var q = encodeURIComponent(d.query);
     var resultText = "";
+    var count = 0;
     
-    // 優先: Google Custom Search (如果有提供 API Key 和 CX)
-    // 這裡我們只處理 News RSS 和 Wiki 作為無 Key 的備援
-    
-    // Strategy A: Google News RSS (官方公開接口，不擋)
+    // Yahoo
     try {
-       var rssUrl = "https://news.google.com/rss/search?q=" + q + "&hl=zh-TW&gl=TW&ceid=TW:zh-Hant";
-       var xml = UrlFetchApp.fetch(rssUrl).getContentText();
-       var items = xml.match(/&lt;item&gt;([\s\S]*?)&lt;\/item&gt;/g);
-       
-       if (items && items.length > 0) {
-         resultText += "📰 **Google 新聞結果：**\n";
-         for(var i=0; i&lt;Math.min(items.length, 5); i++) {
-           var titleMatch = items[i].match(/&lt;title&gt;(.*?)&lt;\/title&gt;/);
-           var linkMatch = items[i].match(/&lt;link&gt;(.*?)&lt;\/link&gt;/);
-           if (titleMatch && linkMatch) {
-             resultText += (i+1) + ". [" + titleMatch[1] + "](" + linkMatch[1] + ")\n";
-           }
-         }
-         resultText += "\n";
+       var url = "https://search.yahoo.com/search?p=" + q + "&ei=UTF-8";
+       var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
+       var regex = /&lt;h3 class="title"&gt;&lt;a[^&gt;]*href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
+       var match;
+       while ((match = regex.exec(html)) !== null && count < 8) {
+         var l = match[1]; 
+         if(l.indexOf("r.search.yahoo") > -1) { var u = l.match(/RU=([^/]+)/); if(u) l = decodeURIComponent(u[1]); }
+         var t = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+         if (l.indexOf("http") === 0 && t) { resultText += (count+1) + ". [" + t + "](" + l + ")\n"; count++; }
        }
     } catch(e) {}
 
-    // Strategy B: Wikipedia API (知識庫)
-    try {
-       var wikiUrl = "https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + q + "&format=json";
-       var wikiJson = JSON.parse(UrlFetchApp.fetch(wikiUrl).getContentText());
-       if (wikiJson.query && wikiJson.query.search && wikiJson.query.search.length > 0) {
-          resultText += "📚 **維基百科結果：**\n";
-          for(var j=0; j&lt;Math.min(wikiJson.query.search.length, 3); j++) {
-             var item = wikiJson.query.search[j];
-             var link = "https://zh.wikipedia.org/wiki/" + encodeURIComponent(item.title);
-             // 移除 HTML 標籤
-             var snippet = item.snippet.replace(/&lt;[^&gt;]+&gt;/g, "");
-             resultText += "• [" + item.title + "](" + link + "): " + snippet + "\n";
+    // Bing RSS Fallback
+    if (count === 0) {
+      try {
+        var url = "https://www.bing.com/search?q=" + q + "&format=rss";
+        var xml = UrlFetchApp.fetch(url, {'muteHttpExceptions':true, 'headers':{'User-Agent':'Mozilla/5.0'}}).getContentText();
+        var items = xml.match(/&lt;item&gt;([\s\S]*?)&lt;\/item&gt;/g);
+        if (items) {
+          resultText += "**(Bing 結果)**\n";
+          for (var i = 0; i < Math.min(items.length, 8); i++) {
+             var title = items[i].match(/&lt;title&gt;([\s\S]*?)&lt;\/title&gt;/);
+             var link = items[i].match(/&lt;link&gt;([\s\S]*?)&lt;\/link&gt;/);
+             if (title && link) {
+               var t = title[1].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+               var l = link[1].trim();
+               if (l.indexOf("http") === 0) { resultText += (count+1) + ". [" + t + "](" + l + ")\n"; count++; }
+             }
           }
-       }
-    } catch(e) {}
-    
-    // Strategy C: Google CSE (如果前端有傳送)
-    if (d.cse_id && d.api_key) {
-        try {
-            var cseUrl = "https://www.googleapis.com/customsearch/v1?key=" + d.api_key + "&cx=" + d.cse_id + "&q=" + q;
-            var cseJson = JSON.parse(UrlFetchApp.fetch(cseUrl).getContentText());
-            if (cseJson.items && cseJson.items.length > 0) {
-                resultText = "🔍 **Google 搜尋結果 (CSE)：**\n\n"; // 覆蓋前面的備援
-                for(var k=0; k&lt;Math.min(cseJson.items.length, 8); k++) {
-                    var item = cseJson.items[k];
-                    resultText += (k+1) + ". [" + item.title + "](" + item.link + ")\n";
-                    if(item.snippet) resultText += "   > " + item.snippet + "\n";
-                }
-            }
-        } catch(e) { resultText += "\n[CSE Error: " + e.message + "]"; }
+        }
+      } catch(e) {}
     }
 
-    if(resultText === "") return ContentService.createTextOutput("無搜尋結果。建議申請 Google CSE Key 以獲得最佳效果。");
+    if(count === 0) return ContentService.createTextOutput("無搜尋結果。");
     
     body.clear();
     body.appendParagraph("🔍 搜尋: " + d.query);
@@ -201,36 +177,37 @@ function doPost(e) {
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
-      var options = {
-        'muteHttpExceptions': true,
-        'followRedirects': true,
-        'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
-      };
-      
+      var options = {'muteHttpExceptions': true, 'followRedirects': true, 'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }};
       var html = UrlFetchApp.fetch(d.url, options).getContentText();
-      var textContent = "";
+      
+      if (d.url.indexOf('news.google.com') > -1) {
+         var noScriptLink = html.match(/&lt;noscript&gt;.*?&lt;a href="([^"]+)".*?&lt;\/noscript&gt;/);
+         if (noScriptLink) {
+             var realUrl = noScriptLink[1];
+             if(realUrl.indexOf('.') === 0) realUrl = "https://news.google.com" + realUrl.substring(1);
+             html = UrlFetchApp.fetch(realUrl, options).getContentText();
+         }
+      }
 
-      // Meta Description
+      var textContent = "";
       var metaDesc = html.match(/&lt;meta name="description" content="([^"]*)"/i) || html.match(/&lt;meta property="og:description" content="([^"]*)"/i);
       if (metaDesc) textContent += "📝 摘要: " + metaDesc[1] + "\n\n";
 
-      // Paragraphs
-      var meaningfulRegex = /&lt;p[^&gt;]*&gt;([\s\S]*?)&lt;\/p&gt;/gi;
+      var meaningfulRegex = /&lt;(h[1-3]|p|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
       var match; var count = 0;
-      while ((match = meaningfulRegex.exec(html)) !== null && count < 150) {
-        var clean = match[1].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-        if (clean.length > 20) { textContent += clean + "\n\n"; count++; }
+      while ((match = meaningfulRegex.exec(html)) !== null && count < 200) {
+        var clean = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+        if (clean.length > 20 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
       }
-
-      if (textContent.length < 50) textContent += html.replace(/&lt;[^&gt;]*&gt;/g, " ").substring(0, 2000); // Fallback to raw text
       
-      var final = textContent.substring(0, 48000);
+      var final = textContent.substring(0, 48000) || html.substring(0, 2000);
       body.appendParagraph("🌐 來源: " + d.url);
       body.appendParagraph(final);
       return ContentService.createTextOutput(final);
     } catch (err) { return ContentService.createTextOutput("Error: " + err.toString()); }
   }
   
+  // 3. 筆記寫入模式 (圖片/連結/文字)
   if (d.type === 'image') { try { body.appendImage(UrlFetchApp.fetch(d.content).getBlob()); } catch(e){} }
   else if (d.type === 'image_base64') { try { var b=Utilities.newBlob(Utilities.base64Decode(d.content.split(',')[1]), d.content.split(';')[0].split(':')[1]); body.appendImage(b); } catch(e){} }
   else if (d.type === 'link') { body.appendParagraph(d.text).setLinkUrl(d.content); }
@@ -248,6 +225,10 @@ function doPost(e) {
                             <div><label class="block text-xs text-orange-400 mb-1">Cerebras API Key</label><input type="password" id="key-cerebras" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
                             <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-slate-500 outline-none"></div>
+                            <div class="border-t border-blue-500/30 mt-2 pt-2">
+                                <label class="block text-xs text-yellow-400 mb-1">Google Custom Search (選填)</label>
+                                <input type="text" id="key-cse-id" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-yellow-500 outline-none" placeholder="Search Engine ID (cx)">
+                            </div>
                             <select id="model-openrouter-select" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-purple-500 mt-1"><option value="deepseek/deepseek-r1:free">DeepSeek R1</option><option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3</option><option value="google/gemini-2.0-flash-lite-preview-02-05:free">Gemini 2.0 Flash</option><option value="anthropic/claude-3.5-sonnet">Claude 3.5</option></select>
                         </div>
                     </div>
@@ -307,7 +288,66 @@ function doPost(e) {
 
             <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
-            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
+            
+            <!-- Notes View with Write Feature (Updated) -->
+            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto">
+                <div class="max-w-5xl mx-auto w-full">
+                    
+                    <!-- Google Docs Writer Widget -->
+                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden shadow-lg">
+                        <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                        <div class="relative z-10">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-notebook text-emerald-400"></i> 隨手記事本 (Notebook)</h3>
+                                <button onclick="openNoteDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-book-open"></i> 📖 閱讀筆記本</button>
+                            </div>
+                            
+                            <!-- Tabs -->
+                            <div class="flex space-x-2 mb-3">
+                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字 / 貼上圖片 (Ctrl+V)</button>
+                                <button onclick="setWriteMode('image')" id="btn-mode-image" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">圖片網址</button>
+                                <button onclick="setWriteMode('link')" id="btn-mode-link" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">超連結</button>
+                            </div>
+
+                            <div class="flex flex-col gap-3">
+                                <!-- Inputs -->
+                                <div class="relative">
+                                    <input type="text" id="doc-input-main" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24">
+                                    <div id="paste-indicator" class="hidden absolute right-3 top-3 text-[10px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded border border-emerald-500/50 animate-pulse">
+                                        <i class="ph-bold ph-image"></i> 圖片已就緒
+                                    </div>
+                                </div>
+                                <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
+                                
+                                <div class="flex justify-end">
+                                    <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                        <i class="ph-bold ph-paper-plane-right"></i> 發送寫入
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 寫入將發送至「隨手記事本」設定的 Google Doc。</p>
+                        </div>
+                    </div>
+
+                    <header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">本地筆記中心</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header>
+                    <div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+            
+            <!-- Full Doc Viewer Modal (Reused) -->
+            <div id="doc-viewer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-fill ph-book-open text-blue-400"></i> 文件瀏覽器</h3>
+                    <div class="flex gap-2">
+                        <button onclick="refreshDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
+                        <button onclick="closeDocViewer()" class="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
+                    </div>
+                </div>
+                <div class="flex-1 bg-white text-slate-900 rounded-xl p-6 overflow-y-auto shadow-2xl font-serif leading-relaxed text-lg" id="doc-content-area">
+                    <div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 載入中...</div>
+                </div>
+            </div>
+
         </main>
     </div>
 
