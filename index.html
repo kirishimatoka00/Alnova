@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.28 - Notebook Restored</title>
+    <title>Nova 12.29 - Notebook Viewer Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Notebook Restored 12.28</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Notebook Fix 12.29</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -114,17 +114,63 @@
                             <details class="mt-3 group">
                                 <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 查看通用 Apps Script 代碼 (必看)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">請確保您的 Google Doc Apps Script (兩個 Doc 都要) 更新為以下支援圖片寫入的版本：</p>
+                                    <p class="mb-2">請確保您的 Google Doc Apps Script (兩個 Doc 都要) 更新為以下支援圖片顯示的版本：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
-function doGet(e) { try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } catch(e) { return ContentService.createTextOutput("Error"); } }
+function doGet(e) {
+  try {
+    var body = DocumentApp.getActiveDocument().getBody();
+    var output = "";
+    var numChildren = body.getNumChildren();
+    
+    for (var i = 0; i &lt; numChildren; i++) {
+      var child = body.getChild(i);
+      
+      // 處理段落 Paragraph
+      if (child.getType() == DocumentApp.ElementType.PARAGRAPH) {
+        var p = child.asParagraph();
+        var numSub = p.getNumChildren();
+        if (numSub == 0) { output += "&lt;br&gt;"; continue; }
+        
+        output += "&lt;div style='margin-bottom:8px'&gt;";
+        for (var j = 0; j &lt; numSub; j++) {
+          var el = p.getChild(j);
+          if (el.getType() == DocumentApp.ElementType.TEXT) {
+            var t = el.asText();
+            var content = t.getText();
+            var url = t.getLinkUrl();
+            if (url) {
+               output += "&lt;a href='" + url + "' target='_blank' style='color:#60a5fa;text-decoration:underline'&gt;" + content + "&lt;/a&gt;";
+            } else {
+               output += content;
+            }
+          } else if (el.getType() == DocumentApp.ElementType.INLINE_IMAGE) {
+             try {
+                var img = el.asInlineImage();
+                var b64 = Utilities.base64Encode(img.getBlob().getBytes());
+                var type = img.getBlob().getContentType();
+                output += "&lt;img src='data:" + type + ";base64," + b64 + "' style='max-width:100%;height:auto;border-radius:8px;margin:8px 0'/&gt;";
+             } catch(err) { output += "[圖片載入錯誤]"; }
+          }
+        }
+        output += "&lt;/div&gt;";
+      } 
+      // 處理列表 ListItem
+      else if (child.getType() == DocumentApp.ElementType.LIST_ITEM) {
+        var li = child.asListItem();
+        output += "&lt;li style='margin-left:20px'&gt;" + li.getText() + "&lt;/li&gt;";
+      }
+    }
+    return ContentService.createTextOutput(output).setMimeType(ContentService.MimeType.TEXT);
+  } catch(e) { return ContentService.createTextOutput("Error: " + e.toString()); }
+}
 
 function doPost(e) {
   var d = JSON.parse(e.postData.contents);
   var body = DocumentApp.getActiveDocument().getBody();
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
-  if (d.type === 'search') { /* ... (Search logic same as v8.2) ... */ return ContentService.createTextOutput("Search Done"); }
-  if (d.type === 'scrape_and_log') { /* ... (Scrape logic same as v8.2) ... */ return ContentService.createTextOutput("Scrape Done"); }
+  if (d.type === 'search') { /* ... Search logic ... */ return ContentService.createTextOutput("Search Done"); }
+  if (d.type === 'scrape_and_log') { /* ... Scrape logic ... */ return ContentService.createTextOutput("Scrape Done"); }
 
   // 3. 筆記寫入模式 (關鍵部分)
   if (d.type === 'image') { try { body.appendImage(UrlFetchApp.fetch(d.content).getBlob()); } catch(e){} }
@@ -213,7 +259,7 @@ function doPost(e) {
             <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
             
-            <!-- Notes View with Write Feature (Restored) -->
+            <!-- Notes View with Write Feature (Updated) -->
             <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto">
                 <div class="max-w-5xl mx-auto w-full">
                     
