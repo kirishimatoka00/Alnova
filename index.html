@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.18 - Search Fix Ultimate</title>
+    <title>Nova 12.19 - Precision Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -33,6 +33,7 @@
         .dot-flashing::before { left: -10px; animation-delay: 0s; }
         .dot-flashing::after { left: 10px; animation-delay: 1s; }
         @keyframes dot-flashing { 0% { background-color: #9880ff; } 50%, 100% { background-color: rgba(152, 128, 255, 0.2); } }
+        /* Enhanced content styling for Docs content */
         .msg-content a, #doc-content-area a { color: #60a5fa; text-decoration: underline; word-break: break-all; cursor: pointer; }
         .msg-content img, #doc-content-area img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; border: 1px solid rgba(255,255,255,0.1); }
         .msg-content p, #doc-content-area div { margin-bottom: 0.5em; line-height: 1.6; }
@@ -52,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Ultimate 12.18</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search Precision 12.19</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -111,9 +112,9 @@
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 7.0 - Yahoo 優先 & News 解鎖)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 7.1 - 精準搜尋版)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">改用 Yahoo 作為第一順位搜尋 (解決關聯錯誤)，並新增 Google News 的 noscript 抓取 (解決無內容)。</p>
+                                    <p class="mb-2">改用 Bing HTML 作為主要搜尋源，並加入嚴格的過濾機制，排除無關連結。請全選複製並覆蓋 Apps Script：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) { try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } catch(e) { return ContentService.createTextOutput("Error"); } }
 
@@ -123,56 +124,59 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
-  // 1. 搜尋模式 (Yahoo 優先 -> Bing -> DDG)
+  // 1. 搜尋模式 (Bing HTML -> DDG Lite)
   if (d.type === 'search') {
     var q = encodeURIComponent(d.query);
     var resultText = "";
+    var links = [];
     var count = 0;
+    var ignoreList = ["microsoft.com", "bing.com", "google.com", "duckduckgo.com", "search", "privacy", "terms"];
     
-    // Attempt A: Yahoo Search (最穩定，少擋)
+    // Attempt A: Bing HTML (最準確的標題匹配)
     try {
-       var url = "https://search.yahoo.com/search?p=" + q + "&ei=UTF-8";
-       var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
-       // Yahoo Regex
-       var regex = /&lt;h3 class="title"&gt;&lt;a[^&gt;]*href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
-       var descRegex = /&lt;div class="compText aAbs"&gt;(.*?)&lt;\/div&gt;/; // 嘗試抓摘要
+       var url = "https://www.bing.com/search?q=" + q;
+       var options = {
+         'muteHttpExceptions': true,
+         'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+       };
+       var html = UrlFetchApp.fetch(url, options).getContentText();
+       
+       // 專找 Bing 搜尋結果標題 h2 > a
+       var regex = /&lt;h2&gt;&lt;a[^&gt;]*href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
        var match;
        while ((match = regex.exec(html)) !== null && count < 8) {
-         var l = match[1]; 
-         // Yahoo 轉址處理
-         if(l.indexOf("r.search.yahoo") > -1) {
-            var u = l.match(/RU=([^/]+)/);
-            if(u) l = decodeURIComponent(u[1]);
-         }
+         var l = match[1];
          var t = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-         if (l.indexOf("http") === 0 && t) {
+         
+         var isIgnored = false;
+         for(var k=0; k&lt;ignoreList.length; k++) { if(l.toLowerCase().indexOf(ignoreList[k]) > -1) isIgnored = true; }
+
+         if (l.indexOf("http") === 0 && t && !isIgnored) {
             resultText += (count+1) + ". [" + t + "](" + l + ")\n";
             count++;
          }
        }
-    } catch(e) { resultText += "[Yahoo 失敗]\n"; }
+    } catch(e) { resultText += ""; }
 
-    // Attempt B: Bing RSS (備援)
+    // Attempt B: DuckDuckGo Lite (備援)
     if (count === 0) {
       try {
-        var url = "https://www.bing.com/search?q=" + q + "&format=rss";
-        var xml = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
-        var items = xml.match(/&lt;item&gt;([\s\S]*?)&lt;\/item&gt;/g);
-        if (items) {
-          resultText += "**(Bing 備援結果)**\n";
-          for (var i = 0; i < Math.min(items.length, 8); i++) {
-             var titleMatch = items[i].match(/&lt;title&gt;([\s\S]*?)&lt;\/title&gt;/);
-             var linkMatch = items[i].match(/&lt;link&gt;([\s\S]*?)&lt;\/link&gt;/);
-             if (titleMatch && linkMatch) {
-               resultText += (count+1) + ". [" + titleMatch[1] + "](" + linkMatch[1] + ")\n";
-               count++;
-             }
-          }
+        var url = "https://lite.duckduckgo.com/lite/?q=" + q;
+        var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
+        var regex = /&lt;a class="result-link" href="([^"]+)"&gt;(.*?)&lt;\/a&gt;/g;
+        var match;
+        while ((match = regex.exec(html)) !== null && count < 8) {
+           var l = match[1];
+           var t = match[2];
+           if (l.indexOf("http") === 0) {
+              resultText += (count+1) + ". [" + t + "](" + l + ")\n";
+              count++;
+           }
         }
       } catch(e) {}
     }
 
-    if(count === 0) return ContentService.createTextOutput("搜尋無結果 (Yahoo/Bing 皆無回應)");
+    if(count === 0) return ContentService.createTextOutput("搜尋無結果 (可能被阻擋，請稍後再試)");
     
     body.clear();
     body.appendParagraph("🔍 搜尋: " + d.query);
@@ -188,15 +192,13 @@ function doPost(e) {
       var options = {
         'muteHttpExceptions': true,
         'followRedirects': true,
-        'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
+        'headers': { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
       };
       
       var response = UrlFetchApp.fetch(targetUrl, options);
       var html = response.getContentText();
       
-      // Google News 轉址/內容解鎖 (關鍵)
       if (targetUrl.indexOf('news.google.com') > -1) {
-         // 1. 找 noscript 內的真實連結
          var noScriptLink = html.match(/&lt;noscript&gt;.*?&lt;a href="([^"]+)".*?&lt;\/noscript&gt;/);
          if (noScriptLink) {
              var realUrl = noScriptLink[1];
@@ -229,7 +231,6 @@ function doPost(e) {
     } catch (err) { return ContentService.createTextOutput("Error: " + err.toString()); }
   }
   
-  // 3. 筆記寫入
   if (d.type === 'image') { try { body.appendImage(UrlFetchApp.fetch(d.content).getBlob()); } catch(e){} }
   else if (d.type === 'image_base64') { try { var b=Utilities.newBlob(Utilities.base64Decode(d.content.split(',')[1]), d.content.split(';')[0].split(':')[1]); body.appendImage(b); } catch(e){} }
   else if (d.type === 'link') { body.appendParagraph(d.text).setLinkUrl(d.content); }
