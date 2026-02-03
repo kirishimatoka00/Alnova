@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.17 - Dual Docs</title>
+    <title>Nova 12.16.6 - Search Rescue RSS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Dual Docs 12.17</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Search RSS 12.16.6</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -98,22 +98,19 @@
                     <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">設定</h3><button onclick="closeSettings()"><i class="ph ph-x text-2xl text-slate-400"></i></button></div>
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
                         
-                        <!-- Docs Monitor Section -->
+                        <!-- Docs Monitor Section (Highlight) -->
                         <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
-                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-robot"></i> 系統代理 Google Doc (搜尋/爬蟲)</label>
+                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-file-doc"></i> Google Docs 核心 (Apps Script)</label>
                             <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="Apps Script URL (for Agent)">
-                            
-                            <label class="block text-xs text-emerald-300 mb-2 mt-4 font-bold flex items-center gap-2"><i class="ph-fill ph-notebook"></i> 隨手記事本 Google Doc (寫入/閱讀)</label>
-                            <input type="text" id="key-note-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-emerald-500 outline-none mb-2" placeholder="Apps Script URL (for Notes)">
                             <div class="flex items-center justify-between">
-                                <span class="text-[10px] text-slate-500">請建立兩個不同的腳本以分開管理</span>
-                                <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試系統 Doc 連線</button>
+                                <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
+                                <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
                             
                             <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 查看通用 Apps Script 代碼 (兩個 Doc 皆適用)</summary>
+                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 點此更新程式碼 (Apps Script 6.5 - Bing RSS 版)</summary>
                                 <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">這段代碼同時支援「代理搜尋」和「筆記讀寫」。您可以將相同的代碼部署在兩個不同的 Google Doc 上。</p>
+                                    <p class="mb-2">此版本改用 Bing RSS 作為主要搜尋源，穩定性極高，不會被 Google Cloud 封鎖。請全選複製並覆蓋 Apps Script：</p>
                                     <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
 function doGet(e) {
   try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } 
@@ -126,56 +123,51 @@ function doPost(e) {
   
   if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
 
-  // 1. 搜尋模式 (Triple-Failover)
+  // 1. 搜尋模式 (Bing RSS - 高穩定性)
   if (d.type === 'search') {
     var q = encodeURIComponent(d.query);
-    var resultText = "";
+    var resultText = "🔍 **搜尋結果 (Bing RSS)：**\n\n";
     var count = 0;
     
-    // Attempt A: DuckDuckGo Lite
+    // Strategy: Bing RSS
     try {
-      var url = "https://lite.duckduckgo.com/lite/?q=" + q;
-      var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
-      var regex = /&lt;a class="result-link" href="([^"]+)"&gt;(.*?)&lt;\/a&gt;/g;
-      var match;
-      while ((match = regex.exec(html)) !== null && count &lt; 6) {
-        if(match[1].indexOf("http")===0) {
-           resultText += (count+1) + ". [" + match[2] + "](" + match[1] + ")\n"; count++;
+      var url = "https://www.bing.com/search?q=" + q + "&format=rss";
+      var options = { 'muteHttpExceptions': true, 'headers': { 'User-Agent': 'Mozilla/5.0' } };
+      var xml = UrlFetchApp.fetch(url, options).getContentText();
+      
+      // Simple XML parsing
+      var items = xml.match(/&lt;item&gt;([\s\S]*?)&lt;\/item&gt;/g);
+      if (items) {
+        for (var i = 0; i &lt; Math.min(items.length, 10); i++) {
+           var titleMatch = items[i].match(/&lt;title&gt;([\s\S]*?)&lt;\/title&gt;/);
+           var linkMatch = items[i].match(/&lt;link&gt;([\s\S]*?)&lt;\/link&gt;/);
+           if (titleMatch && linkMatch) {
+             var t = titleMatch[1].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+             var l = linkMatch[1].trim();
+             if (l.indexOf("http") === 0) {
+                resultText += (count+1) + ". [" + t + "](" + l + ")\n";
+                count++;
+             }
+           }
         }
       }
-    } catch(e) { resultText += "[DDG 失敗]\n"; }
+    } catch(e) { resultText += "[Bing 失敗: " + e.message + "]\n"; }
 
-    // Attempt B: Bing
+    // Fallback: Google GBV
     if (count === 0) {
-       try {
-         var url = "https://www.bing.com/search?q=" + q;
-         var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
-         var regex = /&lt;h2&gt;&lt;a href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
-         var match;
-         while ((match = regex.exec(html)) !== null && count &lt; 6) {
-            if(match[1].indexOf("http")===0) {
-               resultText += (count+1) + ". [" + match[2].replace(/&lt;[^&gt;]+&gt;/g,"") + "](" + match[1] + ")\n"; count++;
-            }
-         }
-       } catch(e) { resultText += "[Bing 失敗]\n"; }
-    }
-    
-    // Attempt C: Yahoo
-    if (count === 0) {
-       try {
-         var url = "https://search.yahoo.com/search?p=" + q;
-         var html = UrlFetchApp.fetch(url, {'muteHttpExceptions':true}).getContentText();
-         var regex = /&lt;h3 class="title"&gt;&lt;a[^&gt;]*href="([^"]+)"[^&gt;]*&gt;(.*?)&lt;\/a&gt;/g;
-         var match;
-         while ((match = regex.exec(html)) !== null && count &lt; 6) {
-             if(match[1].indexOf("http")===0) {
-               resultText += (count+1) + ". [" + match[2].replace(/&lt;[^&gt;]+&gt;/g,"") + "](" + match[1] + ")\n"; count++;
-            }
-         }
-       } catch(e) { resultText += "[Yahoo 失敗]\n"; }
+      try {
+        var url = "https://www.google.com/search?q=" + q + "&gbv=1&hl=zh-TW";
+        var html = UrlFetchApp.fetch(url, {'headers':{'User-Agent':'Mozilla/5.0'}}).getContentText();
+        var regex = /&lt;a href="\/url\?q=(http[^"&]+)[^&gt;]*&gt;&lt;div[^&gt;]*&gt;([^&lt;]+)&lt;\/div&gt;/g;
+        var match;
+        while ((match = regex.exec(html)) !== null && count &lt; 8) {
+           resultText += (count+1) + ". [" + match[2] + "](" + match[1] + ")\n";
+           count++;
+        }
+      } catch(e) { }
     }
 
-    if(count === 0) return ContentService.createTextOutput("所有搜尋引擎皆無回應，請稍後再試。");
+    if(count === 0) return ContentService.createTextOutput("無法取得搜尋結果，可能是關鍵字太冷門或連線被阻擋。");
     
     body.clear();
     body.appendParagraph("🔍 搜尋: " + d.query);
@@ -183,65 +175,44 @@ function doPost(e) {
     return ContentService.createTextOutput(resultText);
   }
 
-  // 2. 爬蟲模式
+  // 2. 爬蟲模式 (增強版 - Meta & Body)
   if (d.type === 'scrape_and_log') {
     try {
       body.clear();
       var options = {
         'muteHttpExceptions': true,
+        'followRedirects': true,
         'headers': { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }
       };
       var html = UrlFetchApp.fetch(d.url, options).getContentText();
       var textContent = "";
 
-      // Meta Description
       var metaDesc = html.match(/&lt;meta name="description" content="([^"]*)"/i) || html.match(/&lt;meta property="og:description" content="([^"]*)"/i);
       if (metaDesc) textContent += "📝 摘要: " + metaDesc[1] + "\n\n";
-      
-      // H1-H3
-      var headers = html.match(/&lt;h[1-3][^&gt;]*&gt;(.*?)&lt;\/h[1-3]&gt;/gi);
-      if(headers) {
-         for(var i=0; i&lt;Math.min(headers.length, 5); i++) {
-            textContent += headers[i].replace(/&lt;[^&gt;]+&gt;/g, "").trim() + "\n";
-         }
-         textContent += "\n";
-      }
 
-      // P
-      var meaningfulRegex = /&lt;p[^&gt;]*&gt;([\s\S]*?)&lt;\/p&gt;/gi;
+      var meaningfulRegex = /&lt;(h[1-3]|p|li|article)[^&gt;]*&gt;([\s\S]*?)&lt;\/\1&gt;/gi;
       var match; var count = 0;
-      while ((match = meaningfulRegex.exec(html)) !== null && count &lt; 100) {
-        var clean = match[1].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
-        if (clean.length > 30) { textContent += clean + "\n\n"; count++; }
+      while ((match = meaningfulRegex.exec(html)) !== null && count &lt; 300) {
+        var clean = match[2].replace(/&lt;[^&gt;]+&gt;/g, "").trim();
+        if (clean.length > 25 && clean.indexOf("{") === -1) { textContent += clean + "\n\n"; count++; }
       }
 
       if (textContent.length &lt; 50) textContent += "(此頁面內容受 JS 保護，僅能提取上述摘要)";
-
+      
+      var final = textContent.substring(0, 48000);
       body.appendParagraph("🌐 來源: " + d.url);
-      body.appendParagraph(textContent.substring(0, 48000));
-      return ContentService.createTextOutput(textContent.substring(0, 48000));
+      body.appendParagraph("📅 時間: " + new Date().toLocaleString());
+      body.appendParagraph("------------------------------------------------");
+      body.appendParagraph(final);
+      return ContentService.createTextOutput(final);
     } catch (err) { return ContentService.createTextOutput("Error: " + err.toString()); }
   }
   
-  // 3. 筆記寫入模式 (圖片/連結/文字)
-  if (d.type === 'image') {
-    try {
-      var resp = UrlFetchApp.fetch(d.content);
-      body.appendImage(resp.getBlob());
-    } catch(err) { body.appendParagraph("[圖片插入失敗]"); }
-  } else if (d.type === 'image_base64') {
-    try {
-      var parts = d.content.split(',');
-      var mimeType = parts[0].match(/:(.*?);/)[1];
-      var blob = Utilities.newBlob(Utilities.base64Decode(parts[1]), mimeType, "pasted");
-      body.appendImage(blob);
-    } catch(err) { body.appendParagraph("[圖片上傳失敗]"); }
-  } else if (d.type === 'link') {
-    var p = body.appendParagraph(d.text || d.content);
-    p.setLinkUrl(d.content);
-  } else if (d.type === 'text') {
-    body.appendParagraph(d.content);
-  }
+  // 3. 一般寫入
+  if (d.type === 'image') { try { body.appendImage(UrlFetchApp.fetch(d.content).getBlob()); } catch(e){} }
+  else if (d.type === 'image_base64') { try { var b=Utilities.newBlob(Utilities.base64Decode(d.content.split(',')[1]), d.content.split(';')[0].split(':')[1]); body.appendImage(b); } catch(e){} }
+  else if (d.type === 'link') { body.appendParagraph(d.text).setLinkUrl(d.content); }
+  else if (d.type === 'text') { body.appendParagraph(d.content); }
   
   return ContentService.createTextOutput("OK");
 }</pre>
@@ -314,66 +285,7 @@ function doPost(e) {
 
             <!-- Other Views -->
             <div id="view-schedule" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-3xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">行程管理</h2><button onclick="addTodoManually()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-todo-list" class="space-y-3"></div></div></div>
-            
-            <!-- Notes View with Write Feature (Updated) -->
-            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto">
-                <div class="max-w-5xl mx-auto w-full">
-                    
-                    <!-- Google Docs Writer Widget -->
-                    <div class="bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden shadow-lg">
-                        <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-                        <div class="relative z-10">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-notebook text-emerald-400"></i> 隨手記事本 (Notebook)</h3>
-                                <button onclick="openNoteDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-book-open"></i> 📖 閱讀筆記本</button>
-                            </div>
-                            
-                            <!-- Tabs -->
-                            <div class="flex space-x-2 mb-3">
-                                <button onclick="setWriteMode('text')" id="btn-mode-text" class="text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all">純文字 / 貼上圖片 (Ctrl+V)</button>
-                                <button onclick="setWriteMode('image')" id="btn-mode-image" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">圖片網址</button>
-                                <button onclick="setWriteMode('link')" id="btn-mode-link" class="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all">超連結</button>
-                            </div>
-
-                            <div class="flex flex-col gap-3">
-                                <!-- Inputs -->
-                                <div class="relative">
-                                    <input type="text" id="doc-input-main" placeholder="輸入文字內容，或直接 Ctrl+V 貼上圖片..." class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none pr-24">
-                                    <div id="paste-indicator" class="hidden absolute right-3 top-3 text-[10px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded border border-emerald-500/50 animate-pulse">
-                                        <i class="ph-bold ph-image"></i> 圖片已就緒
-                                    </div>
-                                </div>
-                                <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
-                                
-                                <div class="flex justify-end">
-                                    <button onclick="handleDocWriteBtn()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
-                                        <i class="ph-bold ph-paper-plane-right"></i> 發送寫入
-                                    </button>
-                                </div>
-                            </div>
-                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 寫入將發送至「隨手記事本」設定的 Google Doc。</p>
-                        </div>
-                    </div>
-
-                    <header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">本地筆記中心</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header>
-                    <div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-                </div>
-            </div>
-            
-            <!-- Full Doc Viewer Modal (Reused) -->
-            <div id="doc-viewer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-4">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                    <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-fill ph-book-open text-blue-400"></i> 文件瀏覽器</h3>
-                    <div class="flex gap-2">
-                        <button onclick="refreshDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
-                        <button onclick="closeDocViewer()" class="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
-                    </div>
-                </div>
-                <div class="flex-1 bg-white text-slate-900 rounded-xl p-6 overflow-y-auto shadow-2xl font-serif leading-relaxed text-lg" id="doc-content-area">
-                    <div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 載入中...</div>
-                </div>
-            </div>
-
+            <div id="view-notes" class="hidden flex-col h-full w-full p-6 overflow-y-auto"><div class="max-w-5xl mx-auto w-full"><header class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-white">筆記/文件</h2><button onclick="addNoteManually()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2"><i class="ph-bold ph-plus"></i><span>新增</span></button></header><div id="full-note-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
         </main>
     </div>
 
@@ -467,10 +379,18 @@ function doPost(e) {
         async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
         async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
         async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
-        function updateLocStatus(msg) { const el = document.getElementById('location-status'); if(el) el.innerText = msg; if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { const {loc, temp} = appState.weather; const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; } }
+        function updateLocStatus(msg) { 
+            const el = document.getElementById('location-status'); 
+            if(el) el.innerText = msg; 
+            if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { 
+                const {loc, temp} = appState.weather; 
+                const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; 
+                const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; 
+            } 
+        }
         function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
 
-        // --- WEB SCRAPER & SEARCH ---
+        // --- WEB SCRAPER ---
         async function fetchUrlViaGas(url) {
             if (!appState.docMonitorUrl) return null;
             try {
@@ -488,6 +408,7 @@ function doPost(e) {
             }
         }
         
+        // --- GOOGLE SEARCH AGENT (Revised for Bing RSS) ---
         async function searchViaGas(query) {
              if (!appState.docMonitorUrl) return null;
              try {
@@ -682,7 +603,7 @@ function doPost(e) {
                     else if (appState.keys.gemini) {
                         modelToUse = 'gemini';
                         enableSearchTool = true;
-                        systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。)`;
+                        systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。若您無法使用工具，請誠實告知。)`;
                     }
                 }
 
@@ -830,10 +751,11 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.17 就緒！\n新增「雙文件架構」：\n1. 系統核心文件：負責搜尋代理與爬蟲。\n2. 隨手記事本：負責您的個人筆記與資料儲存。\n請至設定中分別設定兩個不同的 Apps Script URL。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.16.6 就緒！\n穩定版更新：\n1. 改用 Bing RSS 修復搜尋連線問題。\n2. 新增 Google GBV 備援機制。\n3. 請務必更新您的 Apps Script (6.5 版)！', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
+            // Safe initialization of values
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
             
             safeSet('key-gemini', appState.keys.gemini);
@@ -847,10 +769,6 @@ function doPost(e) {
             safeSet('key-zeabur-key', appState.zeaburKey);
             safeSet('model-openrouter-select', appState.openRouterModel);
             
-            // Paste Listener
-            const inputMain = document.getElementById('doc-input-main');
-            if(inputMain) inputMain.addEventListener('paste', handlePaste);
-
             tryGetLocation(true);
             updateModelUI();
         };
