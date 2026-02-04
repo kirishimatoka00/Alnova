@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.31 - Execution Fix</title>
+    <title>Nova 12.31 - Hybrid Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Fixed 12.31</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Fix 12.31</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -780,52 +780,50 @@
                 if(!key) throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
 
                 if(model === 'gemini') {
+                    // --- HYBRID FIX: Using TEST-1 Logic for Gemini Request Construction ---
                     if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key);
-                    let modelName = appState.detectedGeminiModel;
+                    const modelName = appState.detectedGeminiModel.replace('models/', '');
                     
-                    const safeModelName = appState.detectedGeminiModel.replace('models/', '');
-                    
-                    if (options.enableSearch && !modelName.includes('pro')) {
-                         const pro = appState.detectedGeminiModel.replace('flash', 'pro');
-                         modelName = pro; 
-                    }
-                    modelName = modelName.replace('models/', '');
+                    const payload = { 
+                        contents: [{ parts: [{ text: userText }] }],
+                        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+                    };
 
-                    const payload = { contents:[{parts:[{text:userText}]}] };
-                    if (appState.isSearchEnabled || options.enableSearch) {
-                        payload.tools = [{google_search:{}}];
+                    // Only enable search if requested AND not explicitly disabled (by scraper logic)
+                    if ((appState.isSearchEnabled || options.enableSearch) && !options.disableSearch) {
+                        payload.tools = [{ google_search: {} }];
                     }
 
-                    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify(payload) 
+                    });
+                    
                     const data = await res.json();
-                    
-                    if(data.error) {
-                        if (options.enableSearch || appState.isSearchEnabled) {
-                             delete payload.tools;
-                             const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${safeModelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                             const d = await retry.json();
-                             
-                             if (d.error) return `⚠️ API 重試失敗 (${safeModelName}): ${d.error.message}`;
-                             if (d.promptFeedback && d.promptFeedback.blockReason) return `⚠️ 內容被安全機制阻擋 (${d.promptFeedback.blockReason})`;
-                             if (!d.candidates || !d.candidates[0] || !d.candidates[0].content) return "⚠️ 無法生成內容 (安全過濾或空回應)";
-                             
-                             return d.candidates[0].content.parts[0].text + "\n\n(註：搜尋工具調用失敗，已自動切換回穩定的基礎模型回答)";
-                        }
-                        throw new Error(data.error.message);
+                    if(data.error) throw new Error(data.error.message);
+
+                    // --- HYBRID FIX: Using TEST-1 Logic for Response Parsing (Better for Search) ---
+                    const candidate = data.candidates?.[0];
+                    if (!candidate) return "⚠️ API 未回傳內容，請檢查設定。";
+
+                    let outputText = "";
+                    if (candidate.content && candidate.content.parts) {
+                        outputText = candidate.content.parts.filter(p => p.text).map(p => p.text).join("");
                     }
-                    
-                    if (data.promptFeedback && data.promptFeedback.blockReason) {
-                        return `⚠️ 內容被安全機制阻擋 (${data.promptFeedback.blockReason})`;
+
+                    let sources = [];
+                    if (candidate.groundingMetadata?.groundingAttributions) {
+                        candidate.groundingMetadata.groundingAttributions.forEach(attr => {
+                            if (attr.web?.uri) sources.push({ title: attr.web.title || "參考連結", uri: attr.web.uri });
+                        });
                     }
+
+                    if (!outputText && sources.length > 0) outputText = "已為您搜尋到相關資訊，請參考來源連結。";
+                    else if (!outputText) outputText = "(無回傳文字內容)";
+
+                    return { text: outputText, sources: sources };
                     
-                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-                        return "⚠️ 無法生成內容 (可能原因: 安全過濾、無搜尋結果或 API 暫時無回應)";
-                    }
-                    
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無內容";
-                    let sources = []; 
-                    data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); });
-                    return {text, sources};
                 } else if (model === 'openrouter') {
                     const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/nova-ai', 'X-Title': 'Nova AI' }, body: JSON.stringify({ model: appState.openRouterModel, messages: [{ role: 'user', content: userText }] }) });
                     const data = await res.json();
@@ -849,8 +847,9 @@
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
                 const data = await res.json();
                 const models = data.models.filter(m => m.supportedGenerationMethods?.includes("generateContent"));
-                return (models.find(m=>m.name.includes("gemini-1.5-pro")) || models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name;
-            } catch(e) { return 'gemini-1.5-pro'; }
+                // Fallback logic from Index 2, but ensuring we get a valid name
+                return (models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name;
+            } catch(e) { return 'gemini-1.5-flash'; }
         }
 
         function testDocConnection() {
@@ -876,7 +875,7 @@
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.31 就緒！\n修復了執行錯誤問題。\n所有功能已恢復正常。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.31 Hybrid Fix 就緒！\n已整合 TEST-1 的 Gemini 搜尋邏輯，並保留了 Index 2 的所有功能。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
