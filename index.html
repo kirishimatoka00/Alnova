@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.30.2 - Voice Logic Fix</title>
+    <title>Nova 12.31 - Execution Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Voice Fix 12.30.2</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Fixed 12.31</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -110,30 +110,6 @@
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
                                 <button onclick="testDocConnection()" class="text-[10px] bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500">測試連線</button>
                             </div>
-                            
-                            <details class="mt-3 group">
-                                <summary class="text-[10px] text-yellow-400 cursor-pointer hover:text-yellow-300 font-bold flex items-center gap-1"><i class="ph-bold ph-warning"></i> 查看通用 Apps Script 代碼</summary>
-                                <div class="text-[10px] text-slate-400 mt-2 p-3 bg-slate-950 rounded border border-slate-700 leading-relaxed">
-                                    <p class="mb-2">請確保您的 Google Doc Apps Script (兩個 Doc 都要) 更新為以下版本：</p>
-                                    <pre class="bg-slate-900 p-2 rounded text-blue-300 overflow-x-auto text-[9px] select-all border border-slate-800 font-mono">
-function doGet(e) { try { return ContentService.createTextOutput(DocumentApp.getActiveDocument().getBody().getText()); } catch(e) { return ContentService.createTextOutput("Error"); } }
-
-function doPost(e) {
-  var d = JSON.parse(e.postData.contents);
-  var body = DocumentApp.getActiveDocument().getBody();
-  if (d.type === 'clear') { body.clear(); return ContentService.createTextOutput("Cleared"); }
-  if (d.type === 'search') { /* ... (請使用 7.1 版的搜尋邏輯) ... */ return ContentService.createTextOutput("Search Done"); }
-  if (d.type === 'scrape_and_log') { /* ... (請使用 7.1 版的爬蟲邏輯) ... */ return ContentService.createTextOutput("Scrape Done"); }
-
-  // 3. 筆記寫入模式
-  if (d.type === 'image') { try { body.appendImage(UrlFetchApp.fetch(d.content).getBlob()); } catch(e){} }
-  else if (d.type === 'image_base64') { try { var b=Utilities.newBlob(Utilities.base64Decode(d.content.split(',')[1]), d.content.split(';')[0].split(':')[1]); body.appendImage(b); } catch(e){} }
-  else if (d.type === 'link') { body.appendParagraph(d.text).setLinkUrl(d.content); }
-  else if (d.type === 'text') { body.appendParagraph(d.content); }
-  return ContentService.createTextOutput("OK");
-}</pre>
-                                </div>
-                            </details>
                         </div>
                         <div class="space-y-3 pt-2">
                             <div class="p-3 rounded-lg border border-pink-900/30 bg-pink-900/10"><label class="block text-xs text-pink-400 mb-1">Zeabur / Custom API</label><input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none mb-1" placeholder="URL"><input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none" placeholder="Key (Optional)"></div>
@@ -272,7 +248,7 @@ function doPost(e) {
     </div>
 
     <script>
-        // Global variables moved to top scope
+        // Global variables defined at the very top
         let recognition = null;
         let noteRecognition = null;
         let voiceTimer = null;
@@ -311,6 +287,7 @@ function doPost(e) {
             zeabur: { name: 'Zeabur', color: 'text-pink-400', bg: 'bg-pink-600', icon: 'ph-plant' }
         };
 
+        // --- UTILS ---
         function saveMessages() { localStorage.setItem('nova_messages', JSON.stringify(appState.messages)); }
         function saveData() { localStorage.setItem('nova_todos', JSON.stringify(appState.todos)); localStorage.setItem('nova_notes', JSON.stringify(appState.notes)); }
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
@@ -318,6 +295,10 @@ function doPost(e) {
         function escapeHtml(t){return t?t.replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">"):""}
         function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
 
+        // --- GLOBAL HANDLERS ---
+        function handleEnter(e) { if(e.key==='Enter') handleSendMessage(); }
+
+        // --- RENDERERS ---
         function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
         function renderMessages() { 
             const container = document.getElementById('chat-container');
@@ -369,14 +350,30 @@ function doPost(e) {
             let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
             if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
             if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
-            const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; 
-            const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
-            const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
-            const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
-            const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
-            const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
-            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
-            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
+            
+            const locEl = document.getElementById('location-name'); 
+            if(locEl) locEl.innerText=loc; 
+            
+            const tempEl = document.getElementById('weather-temp'); 
+            if(tempEl) tempEl.innerText=`${temp}°`; 
+            
+            const descEl = document.getElementById('weather-desc'); 
+            if(descEl) descEl.innerText=desc; 
+            
+            const iconEl = document.getElementById('weather-icon'); 
+            if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
+            
+            const humEl = document.getElementById('weather-humidity'); 
+            if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
+            
+            const windEl = document.getElementById('weather-wind'); 
+            if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
+            
+            const mTemp = document.getElementById('mobile-weather-temp'); 
+            if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
+            
+            const mIcon = document.getElementById('mobile-weather-icon'); 
+            if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
         }
 
         function updateModelUI(){ 
@@ -395,7 +392,39 @@ function doPost(e) {
             if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } 
         }
 
-        // --- GLOBAL ACTIONS ---
+        // --- ACTIONS ---
+        function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); saveMessages(); renderMessages(); }
+        function deleteMessage(id) { appState.messages = appState.messages.filter(m => m.id !== id); saveMessages(); renderMessages(); }
+        function clearChatHistory() { if(confirm("確定要清空所有對話紀錄嗎？")) { appState.messages = []; saveMessages(); renderMessages(); } }
+        function toggleTodo(id){ const t=appState.todos.find(x=>x.id===id); if(t){t.done=!t.done;saveData();renderTodos();} }
+        function deleteTodo(id){ appState.todos=appState.todos.filter(x=>x.id!==id); saveData(); renderTodos(); }
+        function deleteNote(id){ appState.notes=appState.notes.filter(x=>x.id!==id); saveData(); renderNotes(); }
+        function addTodoManually(){ const t=prompt("任務"); if(t){appState.todos.push({id:Date.now(),text:t,done:false,time:'手動'});saveData();renderTodos();} }
+        function addNoteManually(){ const t=prompt("標題"),c=prompt("內容"); if(t&&c){appState.notes.push({id:Date.now(),title:t,content:c,date:new Date().toLocaleDateString()});saveData();renderNotes();} }
+        function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
+        function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
+        function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
+        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
+        function setModel(m){ appState.currentModel=m; updateModelUI(); }
+        function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
+        function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
+        function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
+        function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
+        async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
+        async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
+        async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
+        function updateLocStatus(msg) { 
+            const el = document.getElementById('location-status'); 
+            if(el) el.innerText = msg; 
+            if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { 
+                const {loc, temp} = appState.weather; 
+                const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; 
+                const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; 
+            } 
+        }
+        function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
+
+        // --- GLOBAL ACTIONS (Moved to top level) ---
         function toggleVoice() { 
             if (!recognition) { alert("瀏覽器不支援"); return; }
             if (appState.isListening) {
@@ -423,68 +452,6 @@ function doPost(e) {
             else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} 
         }
 
-        function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); saveMessages(); renderMessages(); }
-        function deleteMessage(id) { appState.messages = appState.messages.filter(m => m.id !== id); saveMessages(); renderMessages(); }
-        function clearChatHistory() { if(confirm("確定要清空所有對話紀錄嗎？")) { appState.messages = []; saveMessages(); renderMessages(); } }
-        function toggleTodo(id){ const t=appState.todos.find(x=>x.id===id); if(t){t.done=!t.done;saveData();renderTodos();} }
-        function deleteTodo(id){ appState.todos=appState.todos.filter(x=>x.id!==id); saveData(); renderTodos(); }
-        function deleteNote(id){ appState.notes=appState.notes.filter(x=>x.id!==id); saveData(); renderNotes(); }
-        function addTodoManually(){ const t=prompt("任務"); if(t){appState.todos.push({id:Date.now(),text:t,done:false,time:'手動'});saveData();renderTodos();} }
-        function addNoteManually(){ const t=prompt("標題"),c=prompt("內容"); if(t&&c){appState.notes.push({id:Date.now(),title:t,content:c,date:new Date().toLocaleDateString()});saveData();renderNotes();} }
-        function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
-        function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
-        function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        
-        function saveKeys(){ 
-            appState.keys.gemini=document.getElementById('key-gemini').value.trim(); 
-            appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); 
-            appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); 
-            appState.keys.openai=document.getElementById('key-openai').value.trim(); 
-            appState.keys.grok=document.getElementById('key-grok').value.trim(); 
-            appState.openRouterModel=document.getElementById('model-openrouter-select').value; 
-            appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); 
-            appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); 
-            appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); 
-            appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); 
-            appState.cseId=document.getElementById('key-cse-id').value.trim(); 
-            
-            localStorage.setItem('nova_key_gemini',appState.keys.gemini); 
-            localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); 
-            localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); 
-            localStorage.setItem('nova_key_openai',appState.keys.openai); 
-            localStorage.setItem('nova_key_grok',appState.keys.grok); 
-            localStorage.setItem('nova_or_model', appState.openRouterModel); 
-            localStorage.setItem('nova_doc_url', appState.docMonitorUrl); 
-            localStorage.setItem('nova_note_doc_url', appState.noteDocUrl); 
-            localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); 
-            localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); 
-            localStorage.setItem('nova_key_cse_id', appState.cseId); 
-            
-            appState.detectedGeminiModel=null; 
-            updateModelUI(); 
-            startDocMonitor(); 
-            closeSettings(); 
-            addMessage("設定已儲存", 'system'); 
-        }
-        function setModel(m){ appState.currentModel=m; updateModelUI(); }
-        function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
-        function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
-        function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
-        function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手動)", false); }
-        async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
-        async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
-        async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
-        function updateLocStatus(msg) { 
-            const el = document.getElementById('location-status'); 
-            if(el) el.innerText = msg; 
-            if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { 
-                const {loc, temp} = appState.weather; 
-                const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; 
-                const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; 
-            } 
-        }
-        function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
-
         // --- WEB SCRAPER ---
         async function fetchUrlViaGas(url) {
             if (!appState.docMonitorUrl) return null;
@@ -503,7 +470,6 @@ function doPost(e) {
             }
         }
         
-        // --- GOOGLE SEARCH AGENT ---
         async function searchViaGas(query) {
              if (!appState.docMonitorUrl) return null;
              
@@ -619,16 +585,6 @@ function doPost(e) {
              document.getElementById('paste-indicator').classList.add('hidden');
         }
 
-        // --- FORMATTER ---
-        function formatMessage(text, isTrustedHtml = false) {
-            if (!text) return '';
-            if (isTrustedHtml) return text; 
-            let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
-            safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-400 underline break-all">$1</a>');
-            return safe.replace(/\n/g, '<br>');
-        }
-
         // --- DOC WRITER UI LOGIC ---
         function setWriteMode(mode) {
             appState.writeMode = mode;
@@ -682,7 +638,6 @@ function doPost(e) {
                 }
             }
             
-            // UI Feedback
             if(sendBtn) {
                 const originalText = sendBtn.innerHTML;
                 sendBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> ⏳ 寫入中...';
@@ -827,6 +782,9 @@ function doPost(e) {
                 if(model === 'gemini') {
                     if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key);
                     let modelName = appState.detectedGeminiModel;
+                    
+                    const safeModelName = appState.detectedGeminiModel.replace('models/', '');
+                    
                     if (options.enableSearch && !modelName.includes('pro')) {
                          const pro = appState.detectedGeminiModel.replace('flash', 'pro');
                          modelName = pro; 
@@ -842,11 +800,16 @@ function doPost(e) {
                     const data = await res.json();
                     
                     if(data.error) {
-                        if (payload.tools) {
-                            delete payload.tools;
-                            const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                            const d = await retry.json();
-                            return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (搜尋失敗後重試)";
+                        if (options.enableSearch || appState.isSearchEnabled) {
+                             delete payload.tools;
+                             const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${safeModelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                             const d = await retry.json();
+                             
+                             if (d.error) return `⚠️ API 重試失敗 (${safeModelName}): ${d.error.message}`;
+                             if (d.promptFeedback && d.promptFeedback.blockReason) return `⚠️ 內容被安全機制阻擋 (${d.promptFeedback.blockReason})`;
+                             if (!d.candidates || !d.candidates[0] || !d.candidates[0].content) return "⚠️ 無法生成內容 (安全過濾或空回應)";
+                             
+                             return d.candidates[0].content.parts[0].text + "\n\n(註：搜尋工具調用失敗，已自動切換回穩定的基礎模型回答)";
                         }
                         throw new Error(data.error.message);
                     }
@@ -913,7 +876,7 @@ function doPost(e) {
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.30.2 就緒！\n修復了語音輸入與文字輸入的邏輯衝突。\n1. 點擊麥克風開始，再次點擊停止。\n2. 停止說話後等待15秒自動發送。\n3. 若期間再次說話，計時重置。\n4. 按 Ctrl+Enter 可直接發送。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.31 就緒！\n修復了執行錯誤問題。\n所有功能已恢復正常。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
@@ -952,7 +915,7 @@ function doPost(e) {
                     appState.isListening = true;
                     updateVoiceUI();
                     const input = document.getElementById('user-input');
-                    initialInput = input.value; // Store initial value before starting
+                    initialInput = input.value; 
                     if(input.value === '') input.placeholder = "聆聽中... (15秒後自動發送)";
                 };
                 
@@ -970,7 +933,6 @@ function doPost(e) {
                     }
                     
                     const input = document.getElementById('user-input');
-                    // Combine initial text with new transcript
                     input.value = initialInput + (initialInput && transcript ? " " : "") + transcript;
                     
                     if (voiceTimer) clearTimeout(voiceTimer);
@@ -986,14 +948,13 @@ function doPost(e) {
                 noteRecognition.continuous = true; 
                 noteRecognition.interimResults = true;
                 
-                // Re-use voiceTimer or create separate? Separate is safer.
                 let noteVoiceTimer = null;
 
                 noteRecognition.onstart = () => { 
                     appState.isNoteListening = true; 
                     updateNoteVoiceUI(); 
                     const el = document.getElementById('doc-input-main');
-                    initialInput = el.value; // Reuse variable or use local? Reusing global is fine if only one active.
+                    initialInput = el.value;
                     if (el.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
                          appState.pastedImageBase64 = null;
                          document.getElementById('paste-indicator').classList.add('hidden');
@@ -1020,10 +981,6 @@ function doPost(e) {
                     if (noteVoiceTimer) clearTimeout(noteVoiceTimer);
                     noteVoiceTimer = setTimeout(() => {
                         noteRecognition.stop();
-                        // Optional: Auto-send for notebook too? Or just stop?
-                        // Let's just stop to avoid accidental sends in notebook which might be longer drafts.
-                        // Or if user requested "Auto Send" behavior everywhere:
-                        // handleDocWriteBtn(); 
                     }, 15000);
                 };
             }
