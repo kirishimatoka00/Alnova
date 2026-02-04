@@ -917,7 +917,7 @@
                     const input = document.getElementById('user-input');
                     initialInput = input.value; 
                     finalTranscript = ''; // Reset for new session
-                    if(input.value === '') input.placeholder = "聆聽中... (10秒後自動發送)";
+                    if(input.value === '') input.placeholder = "聆聽中... (6秒後自動發送)";
                 };
                 
                 recognition.onend = () => {
@@ -939,29 +939,33 @@
                 };
                 
                 recognition.onresult = (e) => {
-                    let interimTranscript = '';
-                    
-                    // Fix: Use resultIndex to avoid processing duplicate history on Android
-                    for (let i = e.resultIndex; i < e.results.length; ++i) {
-                        if (e.results[i].isFinal) {
-                            finalTranscript += e.results[i][0].transcript;
-                        } else {
-                            interimTranscript += e.results[i][0].transcript;
+                    let transcript = "";
+                    // Rebuild entire transcript from this session to prevent duplication on mobile
+                    for (let i = 0; i < e.results.length; ++i) {
+                        transcript += e.results[i][0].transcript;
+                    }
+
+                    // --- DUPLICATION FIX START ---
+                    // Check for "TextText" pattern often seen on mobile
+                    if (transcript.length > 0 && transcript.length % 2 === 0) {
+                        const mid = transcript.length / 2;
+                        if (transcript.substring(0, mid) === transcript.substring(mid)) {
+                            transcript = transcript.substring(0, mid);
                         }
                     }
+                    // --- DUPLICATION FIX END ---
                     
                     const input = document.getElementById('user-input');
-                    // Clean construction
-                    const spacer = (initialInput && (finalTranscript || interimTranscript)) ? " " : "";
-                    input.value = initialInput + spacer + finalTranscript + interimTranscript;
+                    // Combine initial state + current session transcript
+                    input.value = initialInput + (initialInput && transcript ? " " : "") + transcript;
                     
-                    // Reset timer (10s)
+                    // Reset timer (6s)
                     if (voiceTimer) clearTimeout(voiceTimer);
                     voiceTimer = setTimeout(() => {
                         handleSendMessage(); // Send
                         voiceTimer = null;   // Prevent onend from sending again
                         recognition.stop();  // Stop mic
-                    }, 10000);
+                    }, 6000);
                 };
                 
                 // --- Notebook Voice (Fixed for Mobile) ---
@@ -994,24 +998,29 @@
                 };
                 
                 noteRecognition.onresult = (e) => {
-                    let noteInterimTranscript = '';
-                    
-                    for (let i = e.resultIndex; i < e.results.length; ++i) {
-                        if (e.results[i].isFinal) {
-                            noteFinalTranscript += e.results[i][0].transcript;
-                        } else {
-                            noteInterimTranscript += e.results[i][0].transcript;
+                    let transcript = "";
+                    // Rebuild entire transcript
+                    for (let i = 0; i < e.results.length; ++i) {
+                        transcript += e.results[i][0].transcript;
+                    }
+
+                    // --- DUPLICATION FIX START ---
+                    if (transcript.length > 0 && transcript.length % 2 === 0) {
+                        const mid = transcript.length / 2;
+                        if (transcript.substring(0, mid) === transcript.substring(mid)) {
+                            transcript = transcript.substring(0, mid);
                         }
                     }
+                    // --- DUPLICATION FIX END ---
                     
                     const el = document.getElementById('doc-input-main');
-                    const separator = (initialInput && (noteFinalTranscript || noteInterimTranscript)) ? "\n" : "";
-                    el.value = initialInput + separator + noteFinalTranscript + noteInterimTranscript;
+                    const separator = (initialInput && transcript) ? "\n" : "";
+                    el.value = initialInput + separator + transcript;
                     
                     if (noteVoiceTimer) clearTimeout(noteVoiceTimer);
                     noteVoiceTimer = setTimeout(() => {
                         noteRecognition.stop();
-                    }, 10000);
+                    }, 6000);
                 };
             }
 
