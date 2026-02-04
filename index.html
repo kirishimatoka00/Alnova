@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.30 - Voice Note</title>
+    <title>Nova 12.30.2 - Voice Logic Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Voice Note 12.30</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Voice Fix 12.30.2</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -272,6 +272,12 @@ function doPost(e) {
     </div>
 
     <script>
+        // Global variables moved to top scope
+        let recognition = null;
+        let noteRecognition = null;
+        let voiceTimer = null;
+        let initialInput = "";
+
         const appState = {
             currentModel: 'gemini', detectedGeminiModel: null,
             openRouterModel: localStorage.getItem('nova_or_model') || 'deepseek/deepseek-r1:free',
@@ -285,17 +291,16 @@ function doPost(e) {
             todos: JSON.parse(localStorage.getItem('nova_todos') || '[]'),
             notes: JSON.parse(localStorage.getItem('nova_notes') || '[]'),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
-            
-            isThinking: false, isListening: false, isNoteListening: false, isSearchEnabled: false, // Added isNoteListening
-            manualLocIndex: 0,
-            manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}],
             keys: { 
                 gemini: localStorage.getItem('nova_key_gemini')||'', 
                 cerebras: localStorage.getItem('nova_key_cerebras')||'', 
                 openrouter: localStorage.getItem('nova_key_openrouter')||'',
                 openai: localStorage.getItem('nova_key_openai')||'', 
                 grok: localStorage.getItem('nova_key_grok')||'' 
-            }
+            },
+            isThinking: false, isListening: false, isNoteListening: false, isSearchEnabled: false,
+            manualLocIndex: 0,
+            manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}]
         };
         const MODEL_CONFIG = {
             gemini: { name: 'Gemini', color: 'text-blue-400', bg: 'bg-blue-600', icon: 'ph-globe' },
@@ -314,23 +319,110 @@ function doPost(e) {
         function getShortName(m) { if(m.includes('deepseek')) return 'DeepSeek R1'; if(m.includes('llama')) return 'Llama 3.3'; if(m.includes('claude')) return 'Claude 3.5'; if(m.includes('gemini')) return 'Gemini 2.0'; return 'OpenRouter'; }
 
         function renderAll() { renderMessages(); renderTodos(); renderNotes(); renderWeather(); }
-        
-        // --- SPEECH RECOGNITION (Chat & Note) ---
-        let recognition = null;
-        let noteRecognition = null;
-        
-        // --- HANDLERS & LOGIC ---
-        function handleEnter(e) { if(e.key==='Enter') handleSendMessage(); }
+        function renderMessages() { 
+            const container = document.getElementById('chat-container');
+            if(!container) return;
+            container.innerHTML = appState.messages.map(msg => { 
+                const isUser = msg.sender === 'user'; 
+                const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; 
+                let sourcesHTML = ''; 
+                if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`; 
+                return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in relative mb-4">
+                    ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'}"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
+                    <div class="msg-group relative max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">
+                        ${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo?.color||'text-slate-400'} opacity-80">${modelInfo?.name||'System'}${msg.model==='openrouter'?` (${getShortName(appState.openRouterModel)})`:''}</span>` : ''}
+                        <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text, msg.isHtml)}</div>
+                        ${sourcesHTML}
+                        <p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p>
+                        <button onclick="deleteMessage(${msg.id})" class="msg-actions absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/50 rounded-full"><i class="ph-bold ph-trash text-xs"></i></button>
+                    </div>
+                </div>`; 
+            }).join(''); 
+            container.scrollTop = container.scrollHeight; 
+        }
 
-        // (Other helper functions assumed unchanged: renderMessages, renderThinkingState, renderTodos, renderNotes, renderWeather, updateModelUI, addMessage, deleteMessage, clearChatHistory, toggleTodo, deleteTodo, deleteNote, addTodoManually, addNoteManually, switchTab, openSettings, closeSettings, saveKeys, setModel, toggleMobileMenu, updateSendButtonState, toggleSearch, cycleManualLocation, tryGetLocation, getIPLocation, fetchWeather, updateLocStatus, wmoToCondition, fetchUrlViaGas, searchViaGas, extractContentFromUrl, getYouTubeMetadata, handlePaste, handleNoteKeydown, clearNoteInput, setWriteMode, handleDocWriteBtn, openNoteDocViewer, closeDocViewer, refreshNoteDocView, handleSendMessage, fetchAIResponse, detectAvailableGeminiModel, testDocConnection, startDocMonitor, checkDocUpdate, updateDocStatus, handleSendMessageInternal)
-        // Re-declaring key functions for clarity and completeness in the file
-        
-        function renderMessages() { /* ... */ const container = document.getElementById('chat-container'); if(!container) return; container.innerHTML = appState.messages.map(msg => { const isUser = msg.sender === 'user'; const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; let sourcesHTML = ''; if (msg.sources?.length) sourcesHTML = `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>`; return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in relative mb-4">${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'}"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}<div class="msg-group relative max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo?.color||'text-slate-400'} opacity-80">${modelInfo?.name||'System'}${msg.model==='openrouter'?` (${getShortName(appState.openRouterModel)})`:''}</span>` : ''}<div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text, msg.isHtml)}</div>${sourcesHTML}<p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p><button onclick="deleteMessage(${msg.id})" class="msg-actions absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/50 rounded-full"><i class="ph-bold ph-trash text-xs"></i></button></div></div>`; }).join(''); container.scrollTop = container.scrollHeight; }
-        function renderThinkingState(show) { const el = document.getElementById('thinking-indicator'); const container = document.getElementById('chat-container'); if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); else if(!show && el) el.remove(); }
-        function renderTodos() { const el = document.getElementById('full-todo-list'); if(!el) return; el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; const mini = document.getElementById('mini-todo-list'); if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; }
-        function renderNotes() { const el = document.getElementById('full-note-list'); if(!el) return; el.innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; const mini = document.getElementById('mini-note-list'); if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; }
-        function renderWeather() { const {temp,condition,humidity,wind,loc}=appState.weather; let icon='ph-cloud',color='text-slate-400',desc='多雲'; if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; }
-        function updateModelUI(){ const conf=MODEL_CONFIG[appState.currentModel]; const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf.name; const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); const wrap = document.getElementById('input-wrapper'); if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); if(searchBtn) { if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/30'); searchBtn.classList.remove('text-slate-500'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); } else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/30'); searchBtn.classList.add('text-slate-500'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); } } if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} const orBadge=document.getElementById('openrouter-badge'); if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } }
+        function renderThinkingState(show) { 
+            const el = document.getElementById('thinking-indicator'); 
+            const container = document.getElementById('chat-container');
+            if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel].bg}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel].icon} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); 
+            else if(!show && el) el.remove(); 
+        }
+
+        function renderTodos() { 
+            const el = document.getElementById('full-todo-list');
+            if(!el) return;
+            el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><button onclick="deleteTodo(${t.id})" class="text-slate-500 hover:text-red-400 p-2"><i class="ph ph-trash"></i></button></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
+            const mini = document.getElementById('mini-todo-list');
+            if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; 
+        }
+
+        function renderNotes() { 
+            const el = document.getElementById('full-note-list');
+            if(!el) return;
+            el.innerHTML=appState.notes.map(n=>`<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-slate-600 flex flex-col h-48 relative overflow-hidden slide-in"><div class="flex justify-between mb-2"><h3 class="text-lg font-bold text-white truncate pr-2">${escapeHtml(n.title)}</h3><span class="text-xs text-slate-500 whitespace-nowrap">${n.date}</span></div><p class="text-slate-300 text-sm overflow-y-auto flex-1 scrollbar-thin">${escapeHtml(n.content)}</p><button onclick="deleteNote(${n.id})" class="absolute bottom-4 right-4 text-slate-600 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></div>`).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; 
+            const mini = document.getElementById('mini-note-list');
+            if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>`<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate">${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(n.content)}</p></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; 
+        }
+
+        function renderWeather() { 
+            const {temp,condition,humidity,wind,loc}=appState.weather; 
+            let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
+            if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
+            if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
+            const locEl = document.getElementById('location-name'); if(locEl) locEl.innerText=loc; 
+            const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
+            const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
+            const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
+            const humEl = document.getElementById('weather-humidity'); if(humEl) humEl.innerText=`濕度 ${humidity}%`; 
+            const windEl = document.getElementById('weather-wind'); if(windEl) windEl.innerText=`風速 ${wind}km/h`; 
+            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
+            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
+        }
+
+        function updateModelUI(){ 
+            const conf=MODEL_CONFIG[appState.currentModel]; 
+            const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf.name; 
+            const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf.icon} text-lg ${conf.color}`; 
+            document.querySelectorAll('.model-pill').forEach(b=>{ b.className = `model-pill px-3 py-1 rounded-lg text-[10px] font-bold ${b.dataset.model===appState.currentModel ? `${conf.bg} text-white` : 'bg-slate-800 text-slate-400'} transition-all whitespace-nowrap`; }); 
+            const wrap = document.getElementById('input-wrapper'); if(wrap) wrap.className = `flex items-center bg-slate-950 rounded-xl px-2 py-2 border transition-colors border-slate-700 focus-within:border-${appState.currentModel==='gemini'?'blue':appState.currentModel==='cerebras'?'orange':appState.currentModel==='openrouter'?'purple':appState.currentModel==='gpt'?'emerald':appState.currentModel==='zeabur'?'pink':'slate'}-500`; 
+            const badge=document.getElementById('web-search-badge'); const searchBtn=document.getElementById('search-toggle-btn'); const hint=document.getElementById('search-hint'); 
+            if(searchBtn) {
+                if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/30'); searchBtn.classList.remove('text-slate-500'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); }
+                else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/30'); searchBtn.classList.add('text-slate-500'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); }
+            }
+            if(appState.currentModel!=='gemini'&&appState.isSearchEnabled){setModel('gemini');} 
+            const orBadge=document.getElementById('openrouter-badge');
+            if(orBadge) { if(appState.currentModel === 'openrouter'){ orBadge.classList.remove('hidden'); orBadge.classList.add('flex'); const orName = document.getElementById('or-model-name'); if(orName) orName.innerText = getShortName(appState.openRouterModel); } else { orBadge.classList.add('hidden'); orBadge.classList.remove('flex'); } } 
+        }
+
+        // --- GLOBAL ACTIONS ---
+        function toggleVoice() { 
+            if (!recognition) { alert("瀏覽器不支援"); return; }
+            if (appState.isListening) {
+                recognition.stop();
+                if(voiceTimer) clearTimeout(voiceTimer);
+            } else {
+                const input = document.getElementById('user-input');
+                initialInput = input.value; 
+                recognition.start();
+            }
+        }
+        function updateVoiceUI() { 
+            const btn=document.getElementById('voice-btn'),icon=document.getElementById('voice-icon'); 
+            if(appState.isListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}
+            else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} 
+        }
+        function toggleNoteVoice() { 
+            if (!noteRecognition) { alert("瀏覽器不支援"); return; }
+            if (appState.isNoteListening) noteRecognition.stop(); 
+            else noteRecognition.start(); 
+        }
+        function updateNoteVoiceUI() { 
+            const btn=document.getElementById('note-voice-btn'),icon=document.getElementById('note-voice-icon'); 
+            if(appState.isNoteListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}
+            else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} 
+        }
+
         function addMessage(text, sender, model, sources=[]) { appState.messages.push({id:Date.now(), text, sender, model, sources, time:getTime()}); saveMessages(); renderMessages(); }
         function deleteMessage(id) { appState.messages = appState.messages.filter(m => m.id !== id); saveMessages(); renderMessages(); }
         function clearChatHistory() { if(confirm("確定要清空所有對話紀錄嗎？")) { appState.messages = []; saveMessages(); renderMessages(); } }
@@ -342,7 +434,38 @@ function doPost(e) {
         function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
         function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
         function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); appState.cseId=document.getElementById('key-cse-id').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_note_doc_url', appState.noteDocUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); localStorage.setItem('nova_key_cse_id', appState.cseId); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
+        
+        function saveKeys(){ 
+            appState.keys.gemini=document.getElementById('key-gemini').value.trim(); 
+            appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); 
+            appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); 
+            appState.keys.openai=document.getElementById('key-openai').value.trim(); 
+            appState.keys.grok=document.getElementById('key-grok').value.trim(); 
+            appState.openRouterModel=document.getElementById('model-openrouter-select').value; 
+            appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); 
+            appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); 
+            appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); 
+            appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); 
+            appState.cseId=document.getElementById('key-cse-id').value.trim(); 
+            
+            localStorage.setItem('nova_key_gemini',appState.keys.gemini); 
+            localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); 
+            localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); 
+            localStorage.setItem('nova_key_openai',appState.keys.openai); 
+            localStorage.setItem('nova_key_grok',appState.keys.grok); 
+            localStorage.setItem('nova_or_model', appState.openRouterModel); 
+            localStorage.setItem('nova_doc_url', appState.docMonitorUrl); 
+            localStorage.setItem('nova_note_doc_url', appState.noteDocUrl); 
+            localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); 
+            localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); 
+            localStorage.setItem('nova_key_cse_id', appState.cseId); 
+            
+            appState.detectedGeminiModel=null; 
+            updateModelUI(); 
+            startDocMonitor(); 
+            closeSettings(); 
+            addMessage("設定已儲存", 'system'); 
+        }
         function setModel(m){ appState.currentModel=m; updateModelUI(); }
         function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
         function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
@@ -351,39 +474,446 @@ function doPost(e) {
         async function tryGetLocation(silent=false) { if(!silent) updateLocStatus("GPS..."); if (navigator.geolocation) { navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude, "GPS", silent), (e) => getIPLocation(silent), { timeout: 5000 }); } else getIPLocation(silent); }
         async function getIPLocation(silent) { if(!silent) updateLocStatus("IP..."); try { const res = await fetch('https://ipapi.co/json/'); if(!res.ok)throw new Error(); const data=await res.json(); fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); } catch(e){ try { const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success)throw new Error(); fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); } catch(e2) { updateLocStatus("失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); const def = appState.manualLocs[0]; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); } } }
         async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
-        function updateLocStatus(msg) { const el = document.getElementById('location-status'); if(el) el.innerText = msg; if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { const {loc, temp} = appState.weather; const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; } }
+        function updateLocStatus(msg) { 
+            const el = document.getElementById('location-status'); 
+            if(el) el.innerText = msg; 
+            if(msg==="已更新"||msg.includes("預設")||msg.includes("手動")) { 
+                const {loc, temp} = appState.weather; 
+                const locName = document.getElementById('location-name'); if(locName) locName.innerText = loc; 
+                const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; 
+            } 
+        }
         function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
-        async function fetchUrlViaGas(url) { if (!appState.docMonitorUrl) return null; try { const res = await fetch(appState.docMonitorUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'scrape_and_log', url: url }) }); const text = await res.text(); if (text && !text.startsWith("Error")) return text; return null; } catch (e) { console.error("GAS Scrape Error:", e); return null; } }
-        async function searchViaGas(query) { if (!appState.docMonitorUrl) return null; if (appState.cseId && appState.keys.gemini) { try { addMessage(`🔍 正在透過 Google CSE 搜尋：${query}...`, 'system'); const res = await fetch(appState.docMonitorUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'search', query: query, cse_id: appState.cseId, api_key: appState.keys.gemini }) }); const text = await res.text(); return text; } catch(e) { return "CSE 連線錯誤"; } } try { addMessage(`🔍 正在透過 Google News/Wiki 搜尋：${query}...`, 'system'); const res = await fetch(appState.docMonitorUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'search', query: query }) }); const text = await res.text(); if (text && !text.startsWith("Error")) return text; return "搜尋失敗或無結果"; } catch (e) { console.error("GAS Search Error:", e); return "搜尋連線錯誤"; } }
-        async function extractContentFromUrl(url) { if (appState.docMonitorUrl) { const gasContent = await fetchUrlViaGas(url); if (gasContent) return gasContent; } try { if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('facebook.com') || url.includes('twitter.com') || url.includes('x.com')) return null; const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`; const res = await fetch(proxyUrl); const data = await res.json(); if (!data.contents) return null; const parser = new DOMParser(); const doc = parser.parseFromString(data.contents, 'text/html'); const scripts = doc.querySelectorAll('script, style, nav, footer, header, aside, iframe, noscript'); scripts.forEach(node => node.remove()); let text = doc.body.innerText || ""; text = text.replace(/\s+/g, ' ').trim(); return text.substring(0, 15000); } catch (e) { return null; } }
-        async function getYouTubeMetadata(url) { try { const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`; const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oembedUrl)}`; const res = await fetch(proxyUrl); const data = await res.json(); if (!data.contents) return null; return JSON.parse(data.contents); } catch (e) { return null; } }
-        function handlePaste(e) { const items = (e.clipboardData || window.clipboardData).items; if (!items) return; for (let i = 0; i < items.length; i++) { if (items[i].type.indexOf("image") !== -1) { const blob = items[i].getAsFile(); const reader = new FileReader(); reader.onload = function(event) { appState.pastedImageBase64 = event.target.result; const indicator = document.getElementById('paste-indicator'); if(indicator) indicator.classList.remove('hidden'); const docInput = document.getElementById('doc-input-main'); if(docInput) docInput.value = "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]"; }; reader.readAsDataURL(blob); e.preventDefault(); return; } } }
-        function handleNoteKeydown(e) { if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return; if (appState.pastedImageBase64) { const docInput = document.getElementById('doc-input-main'); if (docInput.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") { appState.pastedImageBase64 = null; document.getElementById('paste-indicator').classList.add('hidden'); docInput.value = ""; } } if (e.ctrlKey && e.key === 'Enter') { handleDocWriteBtn(); } }
-        function clearNoteInput() { document.getElementById('doc-input-main').value = ''; document.getElementById('doc-input-sub').value = ''; appState.pastedImageBase64 = null; document.getElementById('paste-indicator').classList.add('hidden'); }
-        function setWriteMode(mode) { appState.writeMode = mode; ['text', 'image', 'link'].forEach(m => { const btn = document.getElementById(`btn-mode-${m}`); if(m === mode) btn.className = 'text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all'; else btn.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all'; }); const mainInput = document.getElementById('doc-input-main'); const subInput = document.getElementById('doc-input-sub'); appState.pastedImageBase64 = null; document.getElementById('paste-indicator').classList.add('hidden'); if(mode === 'text') { mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片..."; subInput.classList.add('hidden'); } else if (mode === 'image') { mainInput.placeholder = "輸入圖片網址 (https://...)"; subInput.classList.add('hidden'); } else if (mode === 'link') { mainInput.placeholder = "輸入連結顯示文字"; subInput.placeholder = "輸入連結網址 (https://...)"; subInput.classList.remove('hidden'); } }
-        async function handleDocWriteBtn() { const targetUrl = appState.noteDocUrl; if(!targetUrl) return alert("請先至設定輸入「隨手記事本」的 Apps Script URL"); const mainVal = document.getElementById('doc-input-main').value.trim(); const subVal = document.getElementById('doc-input-sub').value.trim(); const sendBtn = document.getElementById('note-send-btn'); let payload = {}; let currentMode = appState.writeMode; if ((currentMode === 'image' || currentMode === 'link') && !mainVal.match(/^https?:\/\//i) && mainVal.length > 0) { currentMode = 'text'; } if (appState.pastedImageBase64 && mainVal === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") { payload = { type: 'image_base64', content: appState.pastedImageBase64 }; } else { if(!mainVal && appState.writeMode !== 'image_base64') return; if(currentMode === 'text') payload = { type: 'text', content: mainVal }; else if (currentMode === 'image') payload = { type: 'image', content: mainVal }; else if (currentMode === 'link') { if(!subVal) return alert("請輸入連結網址"); payload = { type: 'link', text: mainVal, content: subVal }; } } if(sendBtn) { const originalText = sendBtn.innerHTML; sendBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> ⏳ 寫入中...'; sendBtn.classList.add('opacity-70', 'cursor-not-allowed'); try { await fetch(targetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }); addMessage(`📝 已寫入記事本`, 'system'); clearNoteInput(); } catch(e) { alert("寫入失敗，請檢查 URL"); } finally { sendBtn.innerHTML = originalText; sendBtn.classList.remove('opacity-70', 'cursor-not-allowed'); } } }
-        function openNoteDocViewer() { if(!appState.noteDocUrl) return alert("請先設定隨手記事本 URL"); document.getElementById('doc-viewer-modal').classList.remove('hidden'); refreshNoteDocView(); }
-        function closeDocViewer() { document.getElementById('doc-viewer-modal').classList.add('hidden'); }
-        async function refreshNoteDocView() { const area = document.getElementById('doc-content-area'); const targetUrl = appState.noteDocUrl; area.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 讀取中...</div>'; try { const res = await fetch(targetUrl); const text = await res.text(); area.innerHTML = text || '<div class="text-center text-slate-400">記事本是空的</div>'; } catch(e) { area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>'; } }
-        function handleSendMessageInternal(text, isHidden=false) { if(!isHidden) addMessage(text, 'user'); fetchAIResponse(text, appState.currentModel).then(res => { if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel); else addMessage(res.text, 'ai', appState.currentModel, res.sources); }).catch(e => { addMessage("無法分析文件更新：" + e.message, 'system'); }); }
+
+        // --- WEB SCRAPER ---
+        async function fetchUrlViaGas(url) {
+            if (!appState.docMonitorUrl) return null;
+            try {
+                const res = await fetch(appState.docMonitorUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ type: 'scrape_and_log', url: url })
+                });
+                const text = await res.text();
+                if (text && !text.startsWith("Error")) return text;
+                return null;
+            } catch (e) {
+                console.error("GAS Scrape Error:", e);
+                return null;
+            }
+        }
         
-        async function handleSendMessage() { if(appState.isThinking) return; const input = document.getElementById('user-input'); const text = input.value.trim(); if(!text) return; appState.isThinking = true; updateSendButtonState(true); addMessage(text, 'user'); input.value = ''; renderThinkingState(true); try { let systemPromptAddon = ""; let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = false; if (appState.isSearchEnabled) enableSearchTool = true; const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i); if (searchMatch) { if (appState.docMonitorUrl) { const searchResult = await searchViaGas(searchMatch[1]); addMessage(searchResult, 'system'); injectedContext = `\n\n[系統搜尋結果]:\n${searchResult}\n\n[指令]: 請根據上述搜尋結果回答使用者的問題。`; enableSearchTool = false; } else if (appState.keys.gemini) { modelToUse = 'gemini'; enableSearchTool = true; systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。若您無法使用工具，請誠實告知。)`; } } const urlMatch = text.match(/https?:\/\/[^\s]+/); if (urlMatch) { const url = urlMatch[0]; if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('twitter.com') && !url.includes('facebook.com')) { addMessage(`🔍 正在透過 Google Doc 代理抓取網頁...`, 'system'); const content = await fetchUrlViaGas(url); if (content) { injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`; enableSearchTool = false; } else { systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`; if (appState.keys.gemini) { modelToUse = 'gemini'; enableSearchTool = true; } } } else if (url.includes('youtube') || url.includes('youtu.be')) { if (appState.keys.gemini) { modelToUse = 'gemini'; enableSearchTool = true; systemPromptAddon += `(系統: 這是一個 YouTube 連結。請使用 Search 工具搜尋該影片的標題、摘要或評論內容來回答。)`; } } } const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}`; const res = await fetchAIResponse(prompt, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "" }); if(typeof res === 'string') addMessage(res, 'ai', modelToUse); else addMessage(res.text, 'ai', modelToUse, res.sources); } catch (error) { console.error("Handler Error:", error); addMessage(`[系統錯誤] ${error.message || '未知錯誤'}`, 'system'); } finally { appState.isThinking = false; updateSendButtonState(false); renderThinkingState(false); } }
-        async function fetchAIResponse(userText, model, options = {}) { const fetchWithTimeout = async (url, options, timeout = 30000) => { const controller = new AbortController(); const id = setTimeout(() => controller.abort(), timeout); try { const response = await fetch(url, { ...options, signal: controller.signal }); clearTimeout(id); return response; } catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時 (30s)' : error.message); } }; try { if(model === 'zeabur') { if(!appState.zeaburUrl) throw new Error("請設定 Zeabur API URL"); const res = await fetchWithTimeout(appState.zeaburUrl, { method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${appState.zeaburKey}`}, body: JSON.stringify({ model: 'user-model', messages: [{ role: 'user', content: userText }] }) }); const data = await res.json(); return data.choices?.[0]?.message?.content || "無回應"; } const key = appState.keys[model]; if(!key) throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`); if(model === 'gemini') { if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key); let modelName = appState.detectedGeminiModel; if (options.enableSearch && !modelName.includes('pro')) { const pro = appState.detectedGeminiModel.replace('flash', 'pro'); modelName = pro; } modelName = modelName.replace('models/', ''); const payload = { contents:[{parts:[{text:userText}]}] }; if (appState.isSearchEnabled || options.enableSearch) { payload.tools = [{google_search:{}}]; } const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); const data = await res.json(); if(data.error) { if (payload.tools) { delete payload.tools; const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); const d = await retry.json(); return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (搜尋失敗後重試)"; } throw new Error(data.error.message); } if (data.promptFeedback && data.promptFeedback.blockReason) { return `⚠️ 內容被安全機制阻擋 (${data.promptFeedback.blockReason})`; } if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) { return "⚠️ 無法生成內容 (可能原因: 安全過濾、無搜尋結果或 API 暫時無回應)"; } const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無內容"; let sources = []; data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); }); return {text, sources}; } else if (model === 'openrouter') { const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/nova-ai', 'X-Title': 'Nova AI' }, body: JSON.stringify({ model: appState.openRouterModel, messages: [{ role: 'user', content: userText }] }) }); const data = await res.json(); return data.choices?.[0]?.message?.content || "無回應"; } else if(model === 'cerebras') { const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) }); const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices?.[0]?.message?.content || "無回應"; } else { const ep = model==='gpt'?'https://api.openai.com/v1/chat/completions':'https://api.x.ai/v1/chat/completions'; const mName = model==='gpt'?'gpt-4o-mini':'grok-beta'; const res = await fetchWithTimeout(ep, { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:mName, messages:[{role:"user", content:userText}]}) }); const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices[0].message.content; } } catch(e) { throw e; } }
-        async function detectAvailableGeminiModel(apiKey) { try { const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`); const data = await res.json(); const models = data.models.filter(m => m.supportedGenerationMethods?.includes("generateContent")); return (models.find(m=>m.name.includes("gemini-1.5-pro")) || models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name; } catch(e) { return 'gemini-1.5-pro'; } }
-        function testDocConnection() { const url = document.getElementById('key-doc-url').value.trim(); if(!url) return alert("請輸入 URL"); document.getElementById('doc-monitor-status').innerText = "測試中..."; fetch(url).then(r=>r.text()).then(t=>{ alert("連線成功！"); document.getElementById('doc-monitor-status').innerText = "測試成功"; }).catch(e=>{ alert("連線失敗：" + e.message); document.getElementById('doc-monitor-status').innerText = "測試失敗"; }); }
-        function startDocMonitor() { if(appState.docMonitorInterval) clearInterval(appState.docMonitorInterval); if(!appState.docMonitorUrl) return; document.getElementById('doc-monitor-badge').classList.remove('hidden'); document.getElementById('doc-monitor-badge').classList.add('flex'); checkDocUpdate(true); appState.docMonitorInterval = setInterval(() => { checkDocUpdate(false); }, 60000); }
-        async function checkDocUpdate(isSilent) { try { const res = await fetch(appState.docMonitorUrl); const text = await res.text(); if (appState.lastDocContent && text !== appState.lastDocContent && !isSilent) { const sysMsg = { id:Date.now(), sender:'system', text:`📑 **Google Doc 已更新！**<br><br>${text}`, time:getTime(), isHtml: true }; appState.messages.push(sysMsg); renderMessages(); if(appState.keys.gemini || appState.keys.openrouter || appState.zeaburUrl) { const strippedText = text.replace(/<[^>]*>?/gm, ''); handleSendMessageInternal(`(系統指令：Google文件已更新，請幫我摘要這份文件的新內容。內容：${strippedText})`, true); } } appState.lastDocContent = text; updateDocStatus("連線正常 - " + getTime()); } catch (e) { updateDocStatus("連線失敗"); if(!isSilent) addMessage("⚠️ Google Docs 監控連線失敗，請檢查 URL。", 'system'); } }
+        // --- GOOGLE SEARCH AGENT ---
+        async function searchViaGas(query) {
+             if (!appState.docMonitorUrl) return null;
+             
+             if (appState.cseId && appState.keys.gemini) { 
+                 try {
+                    addMessage(`🔍 正在透過 Google CSE 搜尋：${query}...`, 'system');
+                    const res = await fetch(appState.docMonitorUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({ 
+                            type: 'search', 
+                            query: query,
+                            cse_id: appState.cseId,
+                            api_key: appState.keys.gemini 
+                        })
+                    });
+                    const text = await res.text();
+                    return text;
+                 } catch(e) { return "CSE 連線錯誤"; }
+             }
 
-        function toggleVoice() { if(!recognition){alert("瀏覽器不支援");return;} if(appState.isListening)recognition.stop(); else recognition.start(); }
-        function updateVoiceUI() { const btn=document.getElementById('voice-btn'),icon=document.getElementById('voice-icon'); if(appState.isListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} }
+             try {
+                addMessage(`🔍 正在透過 Google News/Wiki 搜尋：${query}...`, 'system');
+                const res = await fetch(appState.docMonitorUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ type: 'search', query: query })
+                });
+                const text = await res.text();
+                if (text && !text.startsWith("Error")) return text;
+                return "搜尋失敗或無結果";
+            } catch (e) {
+                console.error("GAS Search Error:", e);
+                return "搜尋連線錯誤";
+            }
+        }
 
-        function toggleNoteVoice() { if(!noteRecognition){alert("瀏覽器不支援");return;} if(appState.isNoteListening)noteRecognition.stop(); else noteRecognition.start(); }
-        function updateNoteVoiceUI() { const btn=document.getElementById('note-voice-btn'),icon=document.getElementById('note-voice-icon'); if(appState.isNoteListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} }
+        async function extractContentFromUrl(url) {
+            if (appState.docMonitorUrl) {
+                const gasContent = await fetchUrlViaGas(url);
+                if (gasContent) return gasContent;
+            }
+            try {
+                if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('facebook.com') || url.includes('twitter.com') || url.includes('x.com')) return null;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                if (!data.contents) return null;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data.contents, 'text/html');
+                const scripts = doc.querySelectorAll('script, style, nav, footer, header, aside, iframe, noscript');
+                scripts.forEach(node => node.remove());
+                let text = doc.body.innerText || "";
+                text = text.replace(/\s+/g, ' ').trim();
+                return text.substring(0, 15000); 
+            } catch (e) { return null; }
+        }
+
+        async function getYouTubeMetadata(url) {
+            try {
+                const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oembedUrl)}`;
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                if (!data.contents) return null;
+                return JSON.parse(data.contents);
+            } catch (e) { return null; }
+        }
+
+        // --- PASTE HANDLER ---
+        function handlePaste(e) {
+            const items = (e.clipboardData || window.clipboardData).items;
+            if (!items) return;
+
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                    const blob = items[i].getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        appState.pastedImageBase64 = event.target.result;
+                        const indicator = document.getElementById('paste-indicator');
+                        if(indicator) indicator.classList.remove('hidden');
+                        const docInput = document.getElementById('doc-input-main');
+                        if(docInput) docInput.value = "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]";
+                    };
+                    reader.readAsDataURL(blob);
+                    e.preventDefault(); 
+                    return;
+                }
+            }
+        }
+        
+        function handleNoteKeydown(e) {
+            if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+            
+            if (appState.pastedImageBase64) {
+                 const docInput = document.getElementById('doc-input-main');
+                 if (docInput.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
+                     appState.pastedImageBase64 = null;
+                     document.getElementById('paste-indicator').classList.add('hidden');
+                     docInput.value = "";
+                 }
+            }
+            if (e.ctrlKey && e.key === 'Enter') {
+                handleDocWriteBtn();
+            }
+        }
+        
+        function clearNoteInput() {
+             document.getElementById('doc-input-main').value = '';
+             document.getElementById('doc-input-sub').value = '';
+             appState.pastedImageBase64 = null;
+             document.getElementById('paste-indicator').classList.add('hidden');
+        }
+
+        // --- FORMATTER ---
+        function formatMessage(text, isTrustedHtml = false) {
+            if (!text) return '';
+            if (isTrustedHtml) return text; 
+            let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
+            safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-400 underline break-all">$1</a>');
+            return safe.replace(/\n/g, '<br>');
+        }
+
+        // --- DOC WRITER UI LOGIC ---
+        function setWriteMode(mode) {
+            appState.writeMode = mode;
+            ['text', 'image', 'link'].forEach(m => {
+                const btn = document.getElementById(`btn-mode-${m}`);
+                if(m === mode) btn.className = 'text-xs px-3 py-1 rounded-full bg-blue-600 text-white font-bold transition-all';
+                else btn.className = 'text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold hover:text-white transition-all';
+            });
+            const mainInput = document.getElementById('doc-input-main');
+            const subInput = document.getElementById('doc-input-sub');
+            
+            if(mode === 'text') {
+                mainInput.placeholder = "輸入文字內容，或直接 Ctrl+V 貼上圖片...";
+                subInput.classList.add('hidden');
+            } else if (mode === 'image') {
+                mainInput.placeholder = "輸入圖片網址 (https://...)";
+                subInput.classList.add('hidden');
+            } else if (mode === 'link') {
+                mainInput.placeholder = "輸入連結顯示文字";
+                subInput.placeholder = "輸入連結網址 (https://...)";
+                subInput.classList.remove('hidden');
+            }
+        }
+
+        async function handleDocWriteBtn() {
+            const targetUrl = appState.noteDocUrl;
+            if(!targetUrl) return alert("請先至設定輸入「隨手記事本」的 Apps Script URL");
+            
+            const mainVal = document.getElementById('doc-input-main').value.trim();
+            const subVal = document.getElementById('doc-input-sub').value.trim();
+            const sendBtn = document.getElementById('note-send-btn');
+            
+            let payload = {};
+            
+            let currentMode = appState.writeMode;
+            if ((currentMode === 'image' || currentMode === 'link') && 
+                !mainVal.match(/^https?:\/\//i) && mainVal.length > 0) {
+                currentMode = 'text';
+            }
+            
+            if (appState.pastedImageBase64 && mainVal === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
+                payload = { type: 'image_base64', content: appState.pastedImageBase64 };
+            } else {
+                if(!mainVal && appState.writeMode !== 'image_base64') return; 
+                
+                if(currentMode === 'text') payload = { type: 'text', content: mainVal };
+                else if (currentMode === 'image') payload = { type: 'image', content: mainVal };
+                else if (currentMode === 'link') {
+                    if(!subVal) return alert("請輸入連結網址");
+                    payload = { type: 'link', text: mainVal, content: subVal };
+                }
+            }
+            
+            // UI Feedback
+            if(sendBtn) {
+                const originalText = sendBtn.innerHTML;
+                sendBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> ⏳ 寫入中...';
+                sendBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                
+                try {
+                    await fetch(targetUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(payload)
+                    });
+                    addMessage(`📝 已寫入記事本`, 'system');
+                    clearNoteInput();
+                } catch(e) { alert("寫入失敗，請檢查 URL"); }
+                finally {
+                    sendBtn.innerHTML = originalText;
+                    sendBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                }
+            }
+        }
+
+        // --- DOC VIEWER ---
+        function openNoteDocViewer() { 
+            if(!appState.noteDocUrl) return alert("請先設定隨手記事本 URL");
+            document.getElementById('doc-viewer-modal').classList.remove('hidden'); 
+            refreshNoteDocView(); 
+        }
+        function closeDocViewer() { document.getElementById('doc-viewer-modal').classList.add('hidden'); }
+        
+        async function refreshNoteDocView() {
+            const area = document.getElementById('doc-content-area');
+            const targetUrl = appState.noteDocUrl;
+            
+            area.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 讀取中...</div>';
+            try {
+                const res = await fetch(targetUrl);
+                const text = await res.text();
+                area.innerHTML = text || '<div class="text-center text-slate-400">記事本是空的</div>';
+            } catch(e) { area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>'; }
+        }
+
+        // --- HANDLERS & AI LOGIC (Same as before) ---
+        function handleSendMessageInternal(text, isHidden=false) {
+             if(!isHidden) addMessage(text, 'user');
+             fetchAIResponse(text, appState.currentModel).then(res => {
+                 if(typeof res === 'string') addMessage(res, 'ai', appState.currentModel);
+                 else addMessage(res.text, 'ai', appState.currentModel, res.sources);
+             }).catch(e => { addMessage("無法分析文件更新：" + e.message, 'system'); });
+        }
+        
+        async function handleSendMessage() {
+            if(appState.isThinking) return;
+            const input = document.getElementById('user-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            appState.isThinking = true;
+            updateSendButtonState(true);
+            addMessage(text, 'user');
+            input.value = '';
+            renderThinkingState(true);
+
+            try {
+                let systemPromptAddon = "";
+                let injectedContext = "";
+                let modelToUse = appState.currentModel;
+                let enableSearchTool = false;
+                
+                if (appState.isSearchEnabled) enableSearchTool = true;
+
+                const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
+                if (searchMatch) {
+                    if (appState.docMonitorUrl) {
+                        const searchResult = await searchViaGas(searchMatch[1]);
+                        addMessage(searchResult, 'system');
+                        injectedContext = `\n\n[系統搜尋結果]:\n${searchResult}\n\n[指令]: 請根據上述搜尋結果回答使用者的問題。`;
+                        enableSearchTool = false; 
+                    } 
+                    else if (appState.keys.gemini) {
+                        modelToUse = 'gemini';
+                        enableSearchTool = true;
+                        systemPromptAddon += `(系統指令: 使用者正在要求搜尋。請務必使用 Google Search 工具查找「${searchMatch[1]}」的最新資訊，並詳細回答。若您無法使用工具，請誠實告知。)`;
+                    }
+                }
+
+                const urlMatch = text.match(/https?:\/\/[^\s]+/);
+                if (urlMatch) {
+                    const url = urlMatch[0];
+                    if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('twitter.com') && !url.includes('facebook.com')) {
+                        addMessage(`🔍 正在透過 Google Doc 代理抓取網頁...`, 'system');
+                        const content = await fetchUrlViaGas(url);
+                        if (content) {
+                            injectedContext = `\n\n[系統: 已透過 Google Doc 成功抓取網頁內容 (${url})，請根據以下內容回答]:\n${content}\n\n`;
+                            enableSearchTool = false; 
+                        } else {
+                            systemPromptAddon += `(系統: 嘗試抓取網頁失敗，請嘗試使用您的 Search 工具搜尋該網址內容)`;
+                            if (appState.keys.gemini) { modelToUse = 'gemini'; enableSearchTool = true; }
+                        }
+                    } else if (url.includes('youtube') || url.includes('youtu.be')) {
+                         if (appState.keys.gemini) {
+                            modelToUse = 'gemini';
+                            enableSearchTool = true; 
+                            systemPromptAddon += `(系統: 這是一個 YouTube 連結。請使用 Search 工具搜尋該影片的標題、摘要或評論內容來回答。)`;
+                         }
+                    }
+                }
+
+                const prompt = `${text}\n${systemPromptAddon}\n${injectedContext}`;
+                const res = await fetchAIResponse(prompt, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "" });
+                
+                if(typeof res === 'string') addMessage(res, 'ai', modelToUse);
+                else addMessage(res.text, 'ai', modelToUse, res.sources);
+
+            } catch (error) {
+                console.error("Handler Error:", error);
+                addMessage(`[系統錯誤] ${error.message || '未知錯誤'}`, 'system');
+            } finally {
+                appState.isThinking = false;
+                updateSendButtonState(false);
+                renderThinkingState(false);
+            }
+        }
+
+        async function fetchAIResponse(userText, model, options = {}) {
+            const fetchWithTimeout = async (url, options, timeout = 30000) => {
+                const controller = new AbortController();
+                const id = setTimeout(() => controller.abort(), timeout);
+                try { const response = await fetch(url, { ...options, signal: controller.signal }); clearTimeout(id); return response; } 
+                catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時 (30s)' : error.message); }
+            };
+
+            try {
+                if(model === 'zeabur') {
+                    if(!appState.zeaburUrl) throw new Error("請設定 Zeabur API URL");
+                    const res = await fetchWithTimeout(appState.zeaburUrl, { method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${appState.zeaburKey}`}, body: JSON.stringify({ model: 'user-model', messages: [{ role: 'user', content: userText }] }) });
+                    const data = await res.json(); return data.choices?.[0]?.message?.content || "無回應";
+                }
+                const key = appState.keys[model];
+                if(!key) throw new Error(`請設定 ${MODEL_CONFIG[model].name} API Key`);
+
+                if(model === 'gemini') {
+                    if(!appState.detectedGeminiModel) appState.detectedGeminiModel = await detectAvailableGeminiModel(key);
+                    let modelName = appState.detectedGeminiModel;
+                    if (options.enableSearch && !modelName.includes('pro')) {
+                         const pro = appState.detectedGeminiModel.replace('flash', 'pro');
+                         modelName = pro; 
+                    }
+                    modelName = modelName.replace('models/', '');
+
+                    const payload = { contents:[{parts:[{text:userText}]}] };
+                    if (appState.isSearchEnabled || options.enableSearch) {
+                        payload.tools = [{google_search:{}}];
+                    }
+
+                    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    const data = await res.json();
+                    
+                    if(data.error) {
+                        if (payload.tools) {
+                            delete payload.tools;
+                            const retry = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                            const d = await retry.json();
+                            return (d.candidates?.[0]?.content?.parts?.[0]?.text) || "無內容 (搜尋失敗後重試)";
+                        }
+                        throw new Error(data.error.message);
+                    }
+                    
+                    if (data.promptFeedback && data.promptFeedback.blockReason) {
+                        return `⚠️ 內容被安全機制阻擋 (${data.promptFeedback.blockReason})`;
+                    }
+                    
+                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                        return "⚠️ 無法生成內容 (可能原因: 安全過濾、無搜尋結果或 API 暫時無回應)";
+                    }
+                    
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無內容";
+                    let sources = []; 
+                    data.candidates?.[0]?.groundingMetadata?.groundingAttributions?.forEach(a => { if(a.web?.uri) sources.push({title:a.web.title, uri:a.web.uri}); });
+                    return {text, sources};
+                } else if (model === 'openrouter') {
+                    const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/nova-ai', 'X-Title': 'Nova AI' }, body: JSON.stringify({ model: appState.openRouterModel, messages: [{ role: 'user', content: userText }] }) });
+                    const data = await res.json();
+                    return data.choices?.[0]?.message?.content || "無回應";
+                } else if(model === 'cerebras') {
+                    const res = await fetchWithTimeout('https://api.cerebras.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:"llama-3.3-70b", messages:[{role:"user", content:userText}], stream:false}) });
+                    const data = await res.json(); 
+                    if(data.error) throw new Error(data.error.message); 
+                    return data.choices?.[0]?.message?.content || "無回應";
+                } else {
+                    const ep = model==='gpt'?'https://api.openai.com/v1/chat/completions':'https://api.x.ai/v1/chat/completions';
+                    const mName = model==='gpt'?'gpt-4o-mini':'grok-beta';
+                    const res = await fetchWithTimeout(ep, { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${key}`}, body: JSON.stringify({model:mName, messages:[{role:"user", content:userText}]}) });
+                    const data = await res.json(); if(data.error) throw new Error(data.error.message); return data.choices[0].message.content;
+                }
+            } catch(e) { throw e; }
+        }
+
+        async function detectAvailableGeminiModel(apiKey) {
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                const data = await res.json();
+                const models = data.models.filter(m => m.supportedGenerationMethods?.includes("generateContent"));
+                return (models.find(m=>m.name.includes("gemini-1.5-pro")) || models.find(m=>m.name.includes("gemini-1.5-flash")) || models[0]).name;
+            } catch(e) { return 'gemini-1.5-pro'; }
+        }
+
+        function testDocConnection() {
+            const url = document.getElementById('key-doc-url').value.trim();
+            if(!url) return alert("請輸入 URL");
+            document.getElementById('doc-monitor-status').innerText = "測試中...";
+            fetch(url).then(r=>r.text()).then(t=>{
+                alert("連線成功！");
+                document.getElementById('doc-monitor-status').innerText = "測試成功";
+            }).catch(e=>{
+                alert("連線失敗：" + e.message);
+                document.getElementById('doc-monitor-status').innerText = "測試失敗";
+            });
+        }
+
+        function startDocMonitor() {
+            if(appState.docMonitorInterval) clearInterval(appState.docMonitorInterval);
+            if(!appState.docMonitorUrl) return;
+            document.getElementById('doc-monitor-badge').classList.remove('hidden');
+            document.getElementById('doc-monitor-badge').classList.add('flex');
+        }
 
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.30 就緒！\n新增「記事本語音輸入」功能。\n點擊筆記本右下角的麥克風，即可將語音轉換為文字並自動附加至輸入框。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.30.2 就緒！\n修復了語音輸入與文字輸入的邏輯衝突。\n1. 點擊麥克風開始，再次點擊停止。\n2. 停止說話後等待15秒自動發送。\n3. 若期間再次說話，計時重置。\n4. 按 Ctrl+Enter 可直接發送。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
@@ -409,28 +939,92 @@ function doPost(e) {
             // Init Speech
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) { 
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition; 
+                
+                // --- Main Chat Voice ---
                 recognition = new SR(); 
                 recognition.lang = 'zh-TW'; 
-                recognition.onstart = () => {appState.isListening=true;updateVoiceUI();}; 
-                recognition.onend = () => {appState.isListening=false;updateVoiceUI();}; 
-                recognition.onresult = (e) => {document.getElementById('user-input').value = e.results[0][0].transcript; setTimeout(()=>handleSendMessage(),500);}; 
+                recognition.continuous = true; 
+                recognition.interimResults = true; 
                 
+                let voiceTimer = null;
+                
+                recognition.onstart = () => {
+                    appState.isListening = true;
+                    updateVoiceUI();
+                    const input = document.getElementById('user-input');
+                    initialInput = input.value; // Store initial value before starting
+                    if(input.value === '') input.placeholder = "聆聽中... (15秒後自動發送)";
+                };
+                
+                recognition.onend = () => {
+                    appState.isListening = false;
+                    updateVoiceUI();
+                    document.getElementById('user-input').placeholder = "貼上網址自動分析，或輸入「搜尋：關鍵字」...";
+                    if(voiceTimer) clearTimeout(voiceTimer);
+                };
+                
+                recognition.onresult = (e) => {
+                    let transcript = "";
+                    for (let i = 0; i < e.results.length; ++i) {
+                        transcript += e.results[i][0].transcript;
+                    }
+                    
+                    const input = document.getElementById('user-input');
+                    // Combine initial text with new transcript
+                    input.value = initialInput + (initialInput && transcript ? " " : "") + transcript;
+                    
+                    if (voiceTimer) clearTimeout(voiceTimer);
+                    voiceTimer = setTimeout(() => {
+                        recognition.stop();
+                        handleSendMessage();
+                    }, 15000);
+                };
+                
+                // --- Notebook Voice ---
                 noteRecognition = new SR();
                 noteRecognition.lang = 'zh-TW';
-                noteRecognition.onstart = () => { appState.isNoteListening = true; updateNoteVoiceUI(); };
-                noteRecognition.onend = () => { appState.isNoteListening = false; updateNoteVoiceUI(); };
-                noteRecognition.onresult = (e) => {
-                    const text = e.results[0][0].transcript;
+                noteRecognition.continuous = true; 
+                noteRecognition.interimResults = true;
+                
+                // Re-use voiceTimer or create separate? Separate is safer.
+                let noteVoiceTimer = null;
+
+                noteRecognition.onstart = () => { 
+                    appState.isNoteListening = true; 
+                    updateNoteVoiceUI(); 
                     const el = document.getElementById('doc-input-main');
-                    if (el) {
-                        // Clear placeholder if present
-                         if (el.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
-                            appState.pastedImageBase64 = null;
-                            document.getElementById('paste-indicator').classList.add('hidden');
-                            el.value = "";
-                        }
-                        el.value = el.value ? el.value + " " + text : text;
+                    initialInput = el.value; // Reuse variable or use local? Reusing global is fine if only one active.
+                    if (el.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
+                         appState.pastedImageBase64 = null;
+                         document.getElementById('paste-indicator').classList.add('hidden');
+                         el.value = "";
+                         initialInput = "";
                     }
+                };
+                
+                noteRecognition.onend = () => { 
+                    appState.isNoteListening = false; 
+                    updateNoteVoiceUI(); 
+                    if(noteVoiceTimer) clearTimeout(noteVoiceTimer);
+                };
+                
+                noteRecognition.onresult = (e) => {
+                    let transcript = "";
+                    for (let i = 0; i < e.results.length; ++i) {
+                        transcript += e.results[i][0].transcript;
+                    }
+                    
+                    const el = document.getElementById('doc-input-main');
+                    el.value = initialInput + (initialInput && transcript ? "\n" : "") + transcript;
+                    
+                    if (noteVoiceTimer) clearTimeout(noteVoiceTimer);
+                    noteVoiceTimer = setTimeout(() => {
+                        noteRecognition.stop();
+                        // Optional: Auto-send for notebook too? Or just stop?
+                        // Let's just stop to avoid accidental sends in notebook which might be longer drafts.
+                        // Or if user requested "Auto Send" behavior everywhere:
+                        // handleDocWriteBtn(); 
+                    }, 15000);
                 };
             }
 
