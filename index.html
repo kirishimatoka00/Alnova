@@ -917,7 +917,7 @@
                     const input = document.getElementById('user-input');
                     initialInput = input.value; 
                     finalTranscript = ''; // Reset for new session
-                    if(input.value === '') input.placeholder = "聆聽中... (15秒後自動發送)";
+                    if(input.value === '') input.placeholder = "聆聽中... (10秒後自動發送)";
                 };
                 
                 recognition.onend = () => {
@@ -939,23 +939,29 @@
                 };
                 
                 recognition.onresult = (e) => {
-                    let transcript = "";
-                    // Rebuild entire transcript from this session to prevent duplication on mobile
-                    for (let i = 0; i < e.results.length; ++i) {
-                        transcript += e.results[i][0].transcript;
+                    let interimTranscript = '';
+                    
+                    // Fix: Use resultIndex to avoid processing duplicate history on Android
+                    for (let i = e.resultIndex; i < e.results.length; ++i) {
+                        if (e.results[i].isFinal) {
+                            finalTranscript += e.results[i][0].transcript;
+                        } else {
+                            interimTranscript += e.results[i][0].transcript;
+                        }
                     }
                     
                     const input = document.getElementById('user-input');
-                    // Combine initial state + current session transcript
-                    input.value = initialInput + (initialInput && transcript ? " " : "") + transcript;
+                    // Clean construction
+                    const spacer = (initialInput && (finalTranscript || interimTranscript)) ? " " : "";
+                    input.value = initialInput + spacer + finalTranscript + interimTranscript;
                     
-                    // Reset timer
+                    // Reset timer (10s)
                     if (voiceTimer) clearTimeout(voiceTimer);
                     voiceTimer = setTimeout(() => {
                         handleSendMessage(); // Send
                         voiceTimer = null;   // Prevent onend from sending again
                         recognition.stop();  // Stop mic
-                    }, 15000);
+                    }, 10000);
                 };
                 
                 // --- Notebook Voice (Fixed for Mobile) ---
@@ -965,12 +971,14 @@
                 noteRecognition.interimResults = true;
                 
                 let noteVoiceTimer = null;
+                let noteFinalTranscript = '';
 
                 noteRecognition.onstart = () => { 
                     appState.isNoteListening = true; 
                     updateNoteVoiceUI(); 
                     const el = document.getElementById('doc-input-main');
                     initialInput = el.value;
+                    noteFinalTranscript = '';
                     if (el.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
                          appState.pastedImageBase64 = null;
                          document.getElementById('paste-indicator').classList.add('hidden');
@@ -986,20 +994,24 @@
                 };
                 
                 noteRecognition.onresult = (e) => {
-                    let transcript = "";
-                    // Rebuild entire transcript
-                    for (let i = 0; i < e.results.length; ++i) {
-                        transcript += e.results[i][0].transcript;
+                    let noteInterimTranscript = '';
+                    
+                    for (let i = e.resultIndex; i < e.results.length; ++i) {
+                        if (e.results[i].isFinal) {
+                            noteFinalTranscript += e.results[i][0].transcript;
+                        } else {
+                            noteInterimTranscript += e.results[i][0].transcript;
+                        }
                     }
                     
                     const el = document.getElementById('doc-input-main');
-                    const separator = (initialInput && transcript) ? "\n" : "";
-                    el.value = initialInput + separator + transcript;
+                    const separator = (initialInput && (noteFinalTranscript || noteInterimTranscript)) ? "\n" : "";
+                    el.value = initialInput + separator + noteFinalTranscript + noteInterimTranscript;
                     
                     if (noteVoiceTimer) clearTimeout(noteVoiceTimer);
                     noteVoiceTimer = setTimeout(() => {
                         noteRecognition.stop();
-                    }, 15000);
+                    }, 10000);
                 };
             }
 
