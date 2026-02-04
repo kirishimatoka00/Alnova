@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.31 - Hybrid Fix</title>
+    <title>Nova 12.31 - Hybrid Fix V3 (Fixed)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Fix 12.31</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Fix V3</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -875,7 +875,7 @@
         // --- INIT ---
         window.onload = () => {
             if(appState.messages.length === 0) {
-                appState.messages.push({ id: 1, text: 'Nova 12.31 Hybrid Fix 就緒！\n已整合 TEST-1 的 Gemini 搜尋邏輯，並保留了 Index 2 的所有功能。', sender: 'ai', model: 'gemini', time: getTime() });
+                appState.messages.push({ id: 1, text: 'Nova 12.31 Hybrid Fix V3 就緒！\n修復了手機端語音輸入重複與自動發送失效的問題。', sender: 'ai', model: 'gemini', time: getTime() });
             }
             renderAll();
             
@@ -902,19 +902,21 @@
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) { 
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition; 
                 
-                // --- Main Chat Voice ---
+                // --- Main Chat Voice (Fixed for Mobile) ---
                 recognition = new SR(); 
                 recognition.lang = 'zh-TW'; 
                 recognition.continuous = true; 
                 recognition.interimResults = true; 
                 
                 let voiceTimer = null;
+                let finalTranscript = ''; // Persist confirmed text
                 
                 recognition.onstart = () => {
                     appState.isListening = true;
                     updateVoiceUI();
                     const input = document.getElementById('user-input');
                     initialInput = input.value; 
+                    finalTranscript = ''; // Reset for new session
                     if(input.value === '') input.placeholder = "聆聽中... (15秒後自動發送)";
                 };
                 
@@ -922,26 +924,41 @@
                     appState.isListening = false;
                     updateVoiceUI();
                     document.getElementById('user-input').placeholder = "貼上網址自動分析，或輸入「搜尋：關鍵字」...";
-                    if(voiceTimer) clearTimeout(voiceTimer);
+                    
+                    // Auto-send fix: If timer exists, it means we were expecting more input or a timeout.
+                    // If browser stopped us early (silence), treat as done and send.
+                    if(voiceTimer) {
+                        clearTimeout(voiceTimer);
+                        voiceTimer = null;
+                        const input = document.getElementById('user-input');
+                        // Only send if text was actually added
+                        if(input.value.trim() !== initialInput.trim()) {
+                             handleSendMessage();
+                        }
+                    }
                 };
                 
                 recognition.onresult = (e) => {
                     let transcript = "";
+                    // Rebuild entire transcript from this session to prevent duplication on mobile
                     for (let i = 0; i < e.results.length; ++i) {
                         transcript += e.results[i][0].transcript;
                     }
                     
                     const input = document.getElementById('user-input');
+                    // Combine initial state + current session transcript
                     input.value = initialInput + (initialInput && transcript ? " " : "") + transcript;
                     
+                    // Reset timer
                     if (voiceTimer) clearTimeout(voiceTimer);
                     voiceTimer = setTimeout(() => {
-                        recognition.stop();
-                        handleSendMessage();
+                        handleSendMessage(); // Send
+                        voiceTimer = null;   // Prevent onend from sending again
+                        recognition.stop();  // Stop mic
                     }, 15000);
                 };
                 
-                // --- Notebook Voice ---
+                // --- Notebook Voice (Fixed for Mobile) ---
                 noteRecognition = new SR();
                 noteRecognition.lang = 'zh-TW';
                 noteRecognition.continuous = true; 
@@ -970,12 +987,14 @@
                 
                 noteRecognition.onresult = (e) => {
                     let transcript = "";
+                    // Rebuild entire transcript
                     for (let i = 0; i < e.results.length; ++i) {
                         transcript += e.results[i][0].transcript;
                     }
                     
                     const el = document.getElementById('doc-input-main');
-                    el.value = initialInput + (initialInput && transcript ? "\n" : "") + transcript;
+                    const separator = (initialInput && transcript) ? "\n" : "";
+                    el.value = initialInput + separator + transcript;
                     
                     if (noteVoiceTimer) clearTimeout(noteVoiceTimer);
                     noteVoiceTimer = setTimeout(() => {
