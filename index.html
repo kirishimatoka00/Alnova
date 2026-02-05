@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.31 - Hybrid Reminder Alarm</title>
+    <title>Nova 12.31 - Hybrid SerpApi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Reminder Alarm</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid SerpApi</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -114,6 +114,7 @@
                         <div class="space-y-3 pt-2">
                             <div class="p-3 rounded-lg border border-pink-900/30 bg-pink-900/10"><label class="block text-xs text-pink-400 mb-1">Zeabur / Custom API</label><input type="text" id="key-zeabur-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none mb-1" placeholder="URL"><input type="password" id="key-zeabur-key" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-pink-500 outline-none" placeholder="Key (Optional)"></div>
                             <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-blue-500 outline-none"></div>
+                            <div><label class="block text-xs text-green-400 mb-1">SerpApi Key</label><input type="password" id="key-serpapi" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-green-500 outline-none" placeholder="Your SerpApi Key"></div>
                             <div><label class="block text-xs text-purple-400 mb-1">OpenRouter Key</label><input type="password" id="key-openrouter" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-purple-500 outline-none"></div>
                             <div><label class="block text-xs text-orange-400 mb-1">Cerebras API Key</label><input type="password" id="key-cerebras" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
@@ -129,7 +130,7 @@
                 </div>
             </div>
 
-            <!-- ALARM MODAL (NEW) -->
+            <!-- ALARM MODAL -->
             <div id="alarm-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
                 <div class="bg-slate-900 border border-red-500/50 rounded-2xl p-8 max-w-sm w-full text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] animate-pulse">
                     <i class="ph-fill ph-alarm text-6xl text-red-500 mb-4 inline-block animate-bounce"></i>
@@ -288,7 +289,8 @@
                 cerebras: localStorage.getItem('nova_key_cerebras')||'', 
                 openrouter: localStorage.getItem('nova_key_openrouter')||'',
                 openai: localStorage.getItem('nova_key_openai')||'', 
-                grok: localStorage.getItem('nova_key_grok')||'' 
+                grok: localStorage.getItem('nova_key_grok')||'',
+                serpapi: localStorage.getItem('nova_key_serpapi')||''
             },
             isThinking: false, isListening: false, isNoteListening: false, isSearchEnabled: false,
             manualLocIndex: 0,
@@ -422,7 +424,7 @@
         function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
         function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
         function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
+        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.keys.serpapi=document.getElementById('key-serpapi').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_key_serpapi',appState.keys.serpapi); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
         function setModel(m){ appState.currentModel=m; updateModelUI(); }
         function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
         function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
@@ -485,6 +487,40 @@
             } catch (e) {
                 console.error("GAS Scrape Error:", e);
                 return null;
+            }
+        }
+        
+        async function searchViaSerpApi(query) {
+            if (!appState.keys.serpapi) return null;
+            addMessage(`🔍 正在透過 SerpApi (Google) 搜尋：${query}...`, 'system');
+            
+            try {
+                // Use AllOrigins as a proxy to bypass CORS for client-side SerpApi calls
+                // Note: In production, API keys should be hidden on backend. This is for client-side demo.
+                const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=google`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                
+                if (!data.contents) throw new Error("No contents from proxy");
+                const serpData = JSON.parse(data.contents);
+                
+                if (serpData.error) throw new Error(serpData.error);
+                
+                let resultText = "【SerpApi 搜尋結果】\n";
+                if (serpData.organic_results) {
+                    serpData.organic_results.slice(0, 5).forEach((item, index) => {
+                        resultText += `${index + 1}. [${item.title}](${item.link})\n   ${item.snippet || ''}\n`;
+                    });
+                } else {
+                    resultText += "未找到相關結果。";
+                }
+                
+                return resultText;
+            } catch (e) {
+                console.error("SerpApi Error:", e);
+                return `SerpApi 搜尋錯誤: ${e.message}`;
             }
         }
         
@@ -799,7 +835,13 @@
 
                 const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
                 if (searchMatch) {
-                    if (appState.docMonitorUrl) {
+                    if (appState.keys.serpapi) {
+                        const searchResult = await searchViaSerpApi(searchMatch[1]);
+                        addMessage(searchResult, 'system');
+                        injectedContext = `\n\n[系統 SerpApi 搜尋結果]:\n${searchResult}\n\n[指令]: 請根據上述搜尋結果回答使用者的問題。`;
+                        enableSearchTool = false;
+                    }
+                    else if (appState.docMonitorUrl) {
                         const searchResult = await searchViaGas(searchMatch[1]);
                         addMessage(searchResult, 'system');
                         injectedContext = `\n\n[系統搜尋結果]:\n${searchResult}\n\n[指令]: 請根據上述搜尋結果回答使用者的問題。`;
@@ -1060,6 +1102,7 @@
             safeSet('key-openrouter', appState.keys.openrouter);
             safeSet('key-openai', appState.keys.openai);
             safeSet('key-grok', appState.keys.grok);
+            safeSet('key-serpapi', appState.keys.serpapi);
             safeSet('key-doc-url', appState.docMonitorUrl);
             safeSet('key-note-doc-url', appState.noteDocUrl);
             safeSet('key-zeabur-url', appState.zeaburUrl);
