@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.31 - Hybrid Fix Reminder Plus</title>
+    <title>Nova 12.31 - Hybrid Reminder Alarm</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Reminder+</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Reminder Alarm</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -126,6 +126,18 @@
                         </div>
                     </div>
                     <div class="mt-6 flex justify-end space-x-3"><button onclick="closeSettings()" class="px-4 py-2 text-slate-400 text-sm">取消</button><button onclick="saveKeys()" class="px-6 py-2 bg-blue-600 text-white rounded-lg">儲存</button></div>
+                </div>
+            </div>
+
+            <!-- ALARM MODAL (NEW) -->
+            <div id="alarm-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
+                <div class="bg-slate-900 border border-red-500/50 rounded-2xl p-8 max-w-sm w-full text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] animate-pulse">
+                    <i class="ph-fill ph-alarm text-6xl text-red-500 mb-4 inline-block animate-bounce"></i>
+                    <h3 class="text-2xl font-bold text-white mb-2">時間到！</h3>
+                    <p id="alarm-text" class="text-lg text-slate-300 mb-8">提醒事項內容</p>
+                    <button onclick="stopAlarm()" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-xl text-xl shadow-lg transition-transform active:scale-95">
+                        <i class="ph-bold ph-check-circle mr-2"></i> 確 定 (停止)
+                    </button>
                 </div>
             </div>
 
@@ -253,6 +265,10 @@
         let noteRecognition = null;
         let voiceTimer = null;
         let initialInput = "";
+        
+        // --- NEW GLOBALS FOR ALARM ---
+        let alarmInterval = null;
+        let alarmAudioCtx = null;
 
         const appState = {
             currentModel: 'gemini', detectedGeminiModel: null,
@@ -944,6 +960,71 @@
             document.getElementById('doc-monitor-badge').classList.add('flex');
         }
         
+        // --- NEW ALARM FUNCTIONS ---
+        function playAlarmSound() {
+            try {
+                if (!alarmAudioCtx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) alarmAudioCtx = new AudioContext();
+                }
+                if (alarmAudioCtx && alarmAudioCtx.state === 'suspended') {
+                    alarmAudioCtx.resume();
+                }
+                if (alarmAudioCtx) {
+                    const osc = alarmAudioCtx.createOscillator();
+                    const gain = alarmAudioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(alarmAudioCtx.destination);
+                    
+                    // Alarm Beep
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(880, alarmAudioCtx.currentTime); 
+                    osc.frequency.linearRampToValueAtTime(440, alarmAudioCtx.currentTime + 0.1);
+                    osc.frequency.linearRampToValueAtTime(880, alarmAudioCtx.currentTime + 0.2);
+                    
+                    gain.gain.setValueAtTime(0.2, alarmAudioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, alarmAudioCtx.currentTime + 0.5);
+                    
+                    osc.start();
+                    osc.stop(alarmAudioCtx.currentTime + 0.5);
+                }
+            } catch(e) { console.error("Audio play failed", e); }
+        }
+
+        function triggerAlarm(text) {
+            const modal = document.getElementById('alarm-modal');
+            const textEl = document.getElementById('alarm-text');
+            if(modal && textEl) {
+                textEl.innerText = text;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                
+                // Immediate trigger
+                if(navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+                playAlarmSound();
+
+                // Loop
+                if(alarmInterval) clearInterval(alarmInterval);
+                alarmInterval = setInterval(() => {
+                    if(navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+                    playAlarmSound();
+                }, 2000); 
+            }
+        }
+
+        function stopAlarm() {
+            const modal = document.getElementById('alarm-modal');
+            if(modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            if(alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+            }
+            if(navigator.vibrate) navigator.vibrate(0);
+        }
+        
         // Check for reminders every few seconds
         function checkReminders() {
             const now = Date.now();
@@ -954,32 +1035,7 @@
                         todo.alerted = true;
                         changed = true;
                         addMessage(`⏰ 提醒時間到：${todo.text}`, 'system');
-                        
-                        // 1. Vibration (Longer pattern)
-                        if (navigator.vibrate) navigator.vibrate([500, 300, 500, 300, 1000]);
-                        
-                        // 2. Sound (Simple Oscillator Beep)
-                        try {
-                            const AudioContext = window.AudioContext || window.webkitAudioContext;
-                            if (AudioContext) {
-                                const ctx = new AudioContext();
-                                const osc = ctx.createOscillator();
-                                const gain = ctx.createGain();
-                                osc.connect(gain);
-                                gain.connect(ctx.destination);
-                                
-                                // Ding-Dong effect
-                                osc.type = 'sine';
-                                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-                                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5); // A4
-                                
-                                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1);
-                                
-                                osc.start();
-                                osc.stop(ctx.currentTime + 1);
-                            }
-                        } catch(e) { console.error("Audio play failed", e); }
+                        triggerAlarm(todo.text); // Trigger Persistent Alarm
                     }
                 }
             });
