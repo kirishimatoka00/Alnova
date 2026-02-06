@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.31 - Hybrid SerpApi</title>
+    <title>Nova 12.31 - Hybrid Ultimate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid SerpApi</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Ultimate</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -161,6 +161,9 @@
                     <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700"></div>
                     <div class="p-4 bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                         <div id="input-wrapper" class="flex items-center bg-slate-950 rounded-xl px-2 py-2 border border-slate-700 focus-within:border-blue-500 transition-colors">
+                            <!-- NEW: Continuous Mode Button -->
+                            <button id="continuous-btn" onclick="toggleContinuous()" class="p-3 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="連續語音對話 (6秒自動發送)"><i id="continuous-icon" class="ph-bold ph-infinity text-xl"></i></button>
+                            
                             <button id="search-toggle-btn" onclick="toggleSearch()" class="p-3 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-slate-800 transition-all flex-shrink-0 mr-1" title="切換搜尋 (Gemini Only)"><i id="search-icon" class="ph-bold ph-globe text-xl"></i></button>
                             <button id="voice-btn" onclick="toggleVoice()" class="p-3 mr-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95 flex-shrink-0"><i id="voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
                             <input type="text" id="user-input" placeholder="貼上網址自動分析，或輸入「搜尋：關鍵字」..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none h-full" onkeydown="handleEnter(event)">
@@ -293,6 +296,8 @@
                 serpapi: localStorage.getItem('nova_key_serpapi')||''
             },
             isThinking: false, isListening: false, isNoteListening: false, isSearchEnabled: false,
+            // NEW: Continuous Mode Flag
+            isContinuous: false,
             manualLocIndex: 0,
             manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}],
             // New state for reminder logic
@@ -448,6 +453,12 @@
         function toggleVoice() { 
             if (!recognition) { alert("瀏覽器不支援"); return; }
             if (appState.isListening) {
+                // Manual Stop: Turn off everything
+                appState.isContinuous = false; 
+                document.getElementById('continuous-btn').classList.remove('text-emerald-400', 'animate-pulse');
+                document.getElementById('continuous-btn').classList.add('text-slate-500');
+                document.getElementById('continuous-icon').classList.remove('animate-spin-slow'); // Ensure spin stops
+                
                 recognition.stop();
                 if(voiceTimer) clearTimeout(voiceTimer);
             } else {
@@ -456,6 +467,35 @@
                 recognition.start();
             }
         }
+        
+        function toggleContinuous() {
+            appState.isContinuous = !appState.isContinuous;
+            const btn = document.getElementById('continuous-btn');
+            const icon = document.getElementById('continuous-icon');
+            
+            if (appState.isContinuous) {
+                btn.classList.remove('text-slate-500');
+                btn.classList.add('text-emerald-400', 'bg-emerald-900/30', 'animate-pulse');
+                icon.classList.add('animate-spin-slow'); // Add visual feedback
+                addMessage("🔄 已開啟連續對話模式：說完話後6秒自動發送，麥克風將持續開啟。", "system");
+                
+                // If not listening, start listening automatically
+                if (!appState.isListening && recognition) {
+                    initialInput = document.getElementById('user-input').value;
+                    recognition.start();
+                }
+            } else {
+                btn.classList.add('text-slate-500');
+                btn.classList.remove('text-emerald-400', 'bg-emerald-900/30', 'animate-pulse');
+                icon.classList.remove('animate-spin-slow');
+                addMessage("⏹️ 已關閉連續對話模式。", "system");
+                // Stop listening if currently active
+                if (appState.isListening && recognition) {
+                    recognition.stop();
+                }
+            }
+        }
+
         function updateVoiceUI() { 
             const btn=document.getElementById('voice-btn'),icon=document.getElementById('voice-icon'); 
             if(appState.isListening){btn.classList.add('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone','ph-microphone-stage');}
@@ -833,7 +873,10 @@
                 
                 if (appState.isSearchEnabled) enableSearchTool = true;
 
-                const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]\s*(.+)/i);
+                // --- SEARCH LOGIC FIX ---
+                // New regex to allow "搜尋[keyword]" without space
+                const searchMatch = text.match(/^(?:搜尋|查詢|搜索|查|找|search|query)[:：\s]*(.+)/i);
+                
                 if (searchMatch) {
                     if (appState.keys.serpapi) {
                         const searchResult = await searchViaSerpApi(searchMatch[1]);
@@ -1155,6 +1198,12 @@
                              handleSendMessage();
                         }
                     }
+
+                    // --- NEW: Continuous Mode Loop Logic ---
+                    if (appState.isContinuous) {
+                        // Restart recognition immediately
+                        recognition.start();
+                    }
                 };
                 
                 recognition.onresult = (e) => {
@@ -1164,15 +1213,31 @@
                         transcript += e.results[i][0].transcript;
                     }
 
-                    // --- DUPLICATION FIX START ---
-                    // Check for "TextText" pattern often seen on mobile
-                    if (transcript.length > 0 && transcript.length % 2 === 0) {
-                        const mid = transcript.length / 2;
-                        if (transcript.substring(0, mid) === transcript.substring(mid)) {
-                            transcript = transcript.substring(0, mid);
-                        }
+                    // --- ENHANCED DUPLICATION FIX ---
+                    // 1. Remove exact full repetition "TextText"
+                    if (transcript.length > 0) {
+                         const len = transcript.length;
+                         // Check for A+A pattern
+                         if (len % 2 === 0) {
+                             if (transcript.substring(0, len/2) === transcript.substring(len/2)) {
+                                 transcript = transcript.substring(0, len/2);
+                             }
+                         }
+                         // Check for A+ A pattern (with space)
+                         // Often Android puts a space: "Hello Hello"
+                         const split = transcript.split(' ');
+                         if (split.length >= 2) {
+                             const half = split.length / 2;
+                             if (Number.isInteger(half)) {
+                                 const firstHalf = split.slice(0, half).join(' ');
+                                 const secondHalf = split.slice(half).join(' ');
+                                 if (firstHalf === secondHalf) {
+                                     transcript = firstHalf;
+                                 }
+                             }
+                         }
                     }
-                    // --- DUPLICATION FIX END ---
+                    // --- END FIX ---
                     
                     const input = document.getElementById('user-input');
                     // Combine initial state + current session transcript
@@ -1182,8 +1247,13 @@
                     if (voiceTimer) clearTimeout(voiceTimer);
                     voiceTimer = setTimeout(() => {
                         handleSendMessage(); // Send
-                        voiceTimer = null;   // Prevent onend from sending again
-                        recognition.stop();  // Stop mic
+                        
+                        voiceTimer = null;   // Prevent onend from sending again (handled here)
+                        
+                        // For Continuous Mode: We must STOP to flush the "final" results 
+                        // and clear the browser's internal text buffer.
+                        // onend will handle the restart because appState.isContinuous is true.
+                        recognition.stop(); 
                     }, 6000);
                 };
                 
