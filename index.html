@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nova 12.31 - Hybrid Ultimate</title>
+    <title>Nova 12.31 - Hybrid Ultimate Camera</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -40,6 +40,9 @@
         .slide-in { animation: slideIn 0.3s ease-out; }
         .msg-group:hover .msg-actions { opacity: 1; }
         .msg-actions { opacity: 0; transition: opacity 0.2s; }
+        /* Recording Pulse */
+        @keyframes recordPulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+        .recording-dot { animation: recordPulse 1.5s infinite; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30">
@@ -53,7 +56,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-white tracking-wide">NOVA</h1>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Ultimate</p>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider">Hybrid Ultimate Camera</p>
                 </div>
             </div>
             <nav class="flex-1 space-y-2">
@@ -99,12 +102,54 @@
                     <div class="space-y-4 max-h-[60vh] overflow-y-auto">
                         
                         <!-- Docs Monitor Section -->
-                        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner">
-                            <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-robot"></i> 系統代理 Google Doc (搜尋/爬蟲)</label>
-                            <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="Apps Script URL (for Agent)">
+                        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 p-4 rounded-xl border border-blue-500/50 shadow-inner space-y-4">
+                            <div>
+                                <label class="block text-xs text-blue-300 mb-2 font-bold flex items-center gap-2"><i class="ph-fill ph-robot"></i> 系統代理 Google Doc (搜尋/爬蟲)</label>
+                                <input type="text" id="key-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none mb-2" placeholder="Apps Script URL (for Agent)">
+                            </div>
                             
-                            <label class="block text-xs text-emerald-300 mb-2 mt-4 font-bold flex items-center gap-2"><i class="ph-fill ph-notebook"></i> 隨手記事本 Google Doc (寫入/閱讀)</label>
-                            <input type="text" id="key-note-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs focus:border-emerald-500 outline-none mb-2" placeholder="Apps Script URL (for Notes)">
+                            <div class="grid grid-cols-1 gap-2">
+                                <div>
+                                    <label class="block text-xs text-emerald-300 mb-1 font-bold"><i class="ph-fill ph-notebook"></i> 隨手記事本 A URL</label>
+                                    <input type="text" id="key-note-doc-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none" placeholder="Apps Script URL (Notebook A)">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-teal-300 mb-1 font-bold"><i class="ph-fill ph-notebook"></i> 隨手記事本 B URL</label>
+                                    <input type="text" id="key-note-doc-url-2" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-teal-500 outline-none" placeholder="Apps Script URL (Notebook B)">
+                                </div>
+                            </div>
+
+                            <div class="border-t border-white/10 pt-2">
+                                 <label class="block text-xs text-red-300 mb-1 font-bold"><i class="ph-fill ph-upload"></i> Google Drive 上傳 URL (錄音用)</label>
+                                 <input type="text" id="key-drive-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-red-500 outline-none" placeholder="Apps Script URL (Drive Upload)">
+                                 
+                                 <!-- SCRIPT HELPER -->
+                                 <details class="mt-2 p-2 bg-slate-950/50 rounded border border-slate-700/50">
+                                    <summary class="text-[10px] text-blue-400 cursor-pointer font-bold select-none hover:text-blue-300"><i class="ph-bold ph-code"></i> 如何建立 Google Drive 上傳腳本？(點擊展開)</summary>
+                                    <div class="mt-2 text-[10px] text-slate-400 leading-relaxed">
+                                        <p class="mb-1">1. 建立新的 Google Apps Script 專案。</p>
+                                        <p class="mb-1">2. 貼上以下程式碼 (覆蓋原本內容)：</p>
+                                        <pre class="bg-slate-900 p-2 rounded border border-slate-700 text-green-400 font-mono select-all overflow-x-auto whitespace-pre-wrap break-all">
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var filename = data.filename;
+    var mimeType = data.mimeType;
+    var base64 = data.data;
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, filename);
+    var file = DriveApp.createFile(blob);
+    return ContentService.createTextOutput(JSON.stringify({status: "success", fileId: file.getId(), url: file.getUrl()})).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: error.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+                                        </pre>
+                                        <p class="mt-2 mb-1">3. 點擊「部署」>「新增部署」。</p>
+                                        <p class="mb-1">4. 類型選「網頁應用程式」，執行身分「我」，<strong class="text-red-400">誰可以存取選「任何人」</strong>。</p>
+                                        <p>5. 複製產生的網頁應用程式網址，貼入上方欄位。</p>
+                                    </div>
+                                 </details>
+                            </div>
 
                             <div class="flex items-center justify-between">
                                 <span id="doc-monitor-status" class="text-[10px] text-slate-500">未設定</span>
@@ -147,6 +192,11 @@
                     <div class="p-3 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center shrink-0 overflow-x-auto no-scrollbar">
                          <div class="flex items-center space-x-2 mr-4">
                             <span id="web-search-badge" class="hidden md:flex items-center space-x-1 text-[10px] bg-blue-900/30 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full"><i class="ph-bold ph-globe"></i><span>連網搜尋</span></span>
+                            <!-- Recording Indicator -->
+                            <div id="recording-status" class="hidden items-center space-x-2 bg-red-900/50 border border-red-500/50 px-3 py-1 rounded-full animate-pulse mr-2">
+                                <div class="w-2 h-2 bg-red-500 rounded-full recording-dot"></div>
+                                <span class="text-xs text-red-200 font-bold">錄音中...</span>
+                            </div>
                             <span id="doc-monitor-badge" class="hidden items-center space-x-1 text-[10px] bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full animate-pulse"><i class="ph-bold ph-arrows-clockwise"></i><span>Docs 監控中</span></span>
                             <button onclick="clearChatHistory()" class="text-[10px] text-slate-500 hover:text-red-400 flex items-center space-x-1 border border-slate-700 px-2 py-0.5 rounded-lg transition-colors"><i class="ph-bold ph-trash"></i><span>清空對話</span></button>
                          </div>
@@ -207,8 +257,16 @@
                         <div class="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
                         <div class="relative z-10">
                             <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-notebook text-emerald-400"></i> 隨手記事本 (Notebook)</h3>
-                                <button onclick="openNoteDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-book-open"></i> 📖 閱讀筆記本</button>
+                                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-notebook text-emerald-400"></i> 隨手記事本</h3>
+                                <div class="flex gap-2">
+                                    <button onclick="openNoteDocViewer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 transition-colors"><i class="ph-bold ph-book-open"></i> 閱讀</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Notebook Switcher (New) -->
+                            <div class="flex space-x-2 mb-4 bg-slate-950/50 p-1 rounded-lg inline-flex">
+                                <button onclick="setActiveNotebook(1)" id="btn-nb-1" class="flex-1 text-xs px-4 py-1.5 rounded-md font-bold transition-all bg-emerald-600 text-white">筆記本 A</button>
+                                <button onclick="setActiveNotebook(2)" id="btn-nb-2" class="flex-1 text-xs px-4 py-1.5 rounded-md font-bold transition-all text-slate-400 hover:text-white">筆記本 B</button>
                             </div>
                             
                             <!-- Tabs -->
@@ -226,8 +284,17 @@
                                         <i class="ph-bold ph-image"></i> 圖片已就緒
                                     </div>
                                     <button onclick="clearNoteInput()" class="absolute right-3 bottom-3 text-slate-500 hover:text-red-400 p-1 bg-slate-900/50 rounded-full transition-colors" title="清除內容"><i class="ph-bold ph-trash"></i></button>
+                                    
+                                    <!-- GALLERY UPLOAD BTN (Renamed triggerPhotoUpload -> selectGallery) -->
+                                    <button onclick="triggerPhotoUpload()" class="absolute right-28 bottom-3 text-slate-500 hover:text-white p-1 bg-slate-900/50 rounded-full transition-colors" title="選擇圖片 (資料夾)"><i class="ph-bold ph-image text-xl"></i></button>
+                                    <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
+
+                                    <!-- CAMERA UPLOAD BTN -->
+                                    <button onclick="triggerCameraUpload()" class="absolute right-20 bottom-3 text-slate-500 hover:text-white p-1 bg-slate-900/50 rounded-full transition-colors" title="拍照上傳"><i class="ph-bold ph-camera text-xl"></i></button>
+                                    <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelect(event)">
+
                                     <!-- NOTE VOICE BTN -->
-                                    <button onclick="toggleNoteVoice()" id="note-voice-btn" class="absolute right-10 bottom-3 text-slate-500 hover:text-white p-1 bg-slate-900/50 rounded-full transition-colors" title="語音輸入"><i id="note-voice-icon" class="ph-bold ph-microphone"></i></button>
+                                    <button onclick="toggleNoteVoice()" id="note-voice-btn" class="absolute right-10 bottom-3 text-slate-500 hover:text-white p-1 bg-slate-900/50 rounded-full transition-colors" title="語音輸入"><i id="note-voice-icon" class="ph-bold ph-microphone text-xl"></i></button>
                                 </div>
                                 <input type="text" id="doc-input-sub" placeholder="輸入連結網址 (例如: https://...)" class="hidden w-full bg-slate-950/80 border border-slate-700 rounded-lg p-3 text-sm focus:border-blue-500 outline-none">
                                 
@@ -237,7 +304,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 opacity-80">* 寫入將發送至「隨手記事本」設定的 Google Doc。</p>
+                            <p id="active-notebook-label" class="text-[10px] text-slate-400 mt-2 opacity-80">* 目前寫入目標：筆記本 A</p>
                         </div>
                     </div>
 
@@ -251,7 +318,7 @@
                 <div class="flex justify-between items-center mb-4 shrink-0">
                     <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-fill ph-book-open text-blue-400"></i> 文件瀏覽器</h3>
                     <div class="flex gap-2">
-                        <button onclick="refreshDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
+                        <button onclick="refreshNoteDocView()" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-xs"><i class="ph-bold ph-arrows-clockwise"></i> 重新整理</button>
                         <button onclick="closeDocViewer()" class="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
                     </div>
                 </div>
@@ -270,15 +337,23 @@
         let voiceTimer = null;
         let initialInput = "";
         
-        // --- NEW GLOBALS FOR ALARM ---
+        // --- NEW GLOBALS FOR ALARM & RECORDING ---
         let alarmInterval = null;
         let alarmAudioCtx = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
 
         const appState = {
             currentModel: 'gemini', detectedGeminiModel: null,
-            openRouterModel: localStorage.getItem('nova_or_model') || 'deepseek/deepseek-r1:free',
+            openRouterModel: 'deepseek/deepseek-r1:free', // Default fallback, selector removed
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '',
             noteDocUrl: localStorage.getItem('nova_note_doc_url') || '', 
+            // New: Second Notebook
+            noteDocUrl2: localStorage.getItem('nova_note_doc_url_2') || '',
+            activeNotebook: 1, // 1 or 2
+            // New: Drive Upload
+            driveUrl: localStorage.getItem('nova_drive_url') || '',
+            
             zeaburUrl: localStorage.getItem('nova_key_zeabur_url') || '',
             zeaburKey: localStorage.getItem('nova_key_zeabur_key') || '',
             cseId: localStorage.getItem('nova_key_cse_id') || '',
@@ -301,7 +376,8 @@
             manualLocIndex: 0,
             manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}],
             // New state for reminder logic
-            pendingReminder: null 
+            pendingReminder: null,
+            reminderStage: 0 // 0: None, 1: Asked When, 2: Clarifying Date/AMPM
         };
         const MODEL_CONFIG = {
             gemini: { name: 'Gemini', color: 'text-blue-400', bg: 'bg-blue-600', icon: 'ph-globe' },
@@ -429,7 +505,7 @@
         function switchTab(id){ ['dashboard','schedule','notes'].forEach(t=>document.getElementById(`view-${t}`).classList.add('hidden')); document.getElementById(`view-${id}`).classList.remove('hidden'); document.getElementById(`view-${id}`).classList.add('flex'); document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; }
         function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
         function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.keys.serpapi=document.getElementById('key-serpapi').value.trim(); appState.openRouterModel=document.getElementById('model-openrouter-select').value; appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_key_serpapi',appState.keys.serpapi); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
+        function saveKeys(){ appState.keys.gemini=document.getElementById('key-gemini').value.trim(); appState.keys.cerebras=document.getElementById('key-cerebras').value.trim(); appState.keys.openrouter=document.getElementById('key-openrouter').value.trim(); appState.keys.openai=document.getElementById('key-openai').value.trim(); appState.keys.grok=document.getElementById('key-grok').value.trim(); appState.keys.serpapi=document.getElementById('key-serpapi').value.trim(); appState.docMonitorUrl=document.getElementById('key-doc-url').value.trim(); appState.noteDocUrl=document.getElementById('key-note-doc-url').value.trim(); appState.noteDocUrl2=document.getElementById('key-note-doc-url-2').value.trim(); appState.driveUrl=document.getElementById('key-drive-url').value.trim(); appState.zeaburUrl=document.getElementById('key-zeabur-url').value.trim(); appState.zeaburKey=document.getElementById('key-zeabur-key').value.trim(); localStorage.setItem('nova_key_gemini',appState.keys.gemini); localStorage.setItem('nova_key_cerebras',appState.keys.cerebras); localStorage.setItem('nova_key_openrouter',appState.keys.openrouter); localStorage.setItem('nova_key_openai',appState.keys.openai); localStorage.setItem('nova_key_grok',appState.keys.grok); localStorage.setItem('nova_key_serpapi',appState.keys.serpapi); localStorage.setItem('nova_or_model', appState.openRouterModel); localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_key_zeabur_url', appState.zeaburUrl); localStorage.setItem('nova_key_zeabur_key', appState.zeaburKey); localStorage.setItem('nova_note_doc_url', appState.noteDocUrl); localStorage.setItem('nova_note_doc_url_2', appState.noteDocUrl2); localStorage.setItem('nova_drive_url', appState.driveUrl); appState.detectedGeminiModel=null; updateModelUI(); startDocMonitor(); closeSettings(); addMessage("設定已儲存", 'system'); }
         function setModel(m){ appState.currentModel=m; updateModelUI(); }
         function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
         function updateSendButtonState(isLoading) { const btn=document.getElementById('send-btn'),icon=document.getElementById('send-icon'); if(isLoading){btn.classList.add('cursor-not-allowed','opacity-70');icon.classList.remove('ph-paper-plane-right');icon.classList.add('ph-spinner','animate-spin');}else{btn.classList.remove('cursor-not-allowed','opacity-70');icon.classList.remove('ph-spinner','animate-spin');icon.classList.add('ph-paper-plane-right');} }
@@ -457,7 +533,7 @@
                 appState.isContinuous = false; 
                 document.getElementById('continuous-btn').classList.remove('text-emerald-400', 'animate-pulse');
                 document.getElementById('continuous-btn').classList.add('text-slate-500');
-                document.getElementById('continuous-icon').classList.remove('animate-spin-slow'); // Ensure spin stops
+                document.getElementById('continuous-icon').classList.remove('animate-spin-slow'); 
                 
                 recognition.stop();
                 if(voiceTimer) clearTimeout(voiceTimer);
@@ -512,6 +588,129 @@
             else{btn.classList.remove('text-red-500','animate-pulse-fast');icon.classList.replace('ph-microphone-stage','ph-microphone');} 
         }
 
+        // --- NOTEBOOK 2 LOGIC ---
+        function setActiveNotebook(num) {
+            appState.activeNotebook = num;
+            const btn1 = document.getElementById('btn-nb-1');
+            const btn2 = document.getElementById('btn-nb-2');
+            const label = document.getElementById('active-notebook-label');
+            
+            if(num === 1) {
+                btn1.classList.add('bg-emerald-600', 'text-white');
+                btn1.classList.remove('text-slate-400', 'hover:text-white');
+                btn2.classList.remove('bg-teal-600', 'text-white');
+                btn2.classList.add('text-slate-400', 'hover:text-white');
+                label.innerText = '* 目前寫入目標：筆記本 A (URL 1)';
+            } else {
+                btn2.classList.add('bg-teal-600', 'text-white');
+                btn2.classList.remove('text-slate-400', 'hover:text-white');
+                btn1.classList.remove('bg-emerald-600', 'text-white');
+                btn1.classList.add('text-slate-400', 'hover:text-white');
+                label.innerText = '* 目前寫入目標：筆記本 B (URL 2)';
+            }
+        }
+
+        // --- PHOTO LOGIC ---
+        function triggerPhotoUpload() {
+            document.getElementById('photo-input').click();
+        }
+        
+        function triggerCameraUpload() {
+            document.getElementById('camera-input').click();
+        }
+        
+        function handlePhotoSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                appState.pastedImageBase64 = evt.target.result;
+                const indicator = document.getElementById('paste-indicator');
+                if(indicator) indicator.classList.remove('hidden');
+                const docInput = document.getElementById('doc-input-main');
+                docInput.value = "[已偵測到選擇的圖片，請點擊「發送寫入」按鈕上傳]";
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- AUDIO RECORDING ---
+        async function startAudioRecording() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                addMessage("⚠️ 您的瀏覽器不支援錄音功能", 'system');
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = uploadAudioRecording;
+                
+                mediaRecorder.start();
+                document.getElementById('recording-status').classList.remove('hidden');
+                document.getElementById('recording-status').classList.add('flex');
+                addMessage("🎙️ 開始錄音...", 'system');
+            } catch (err) {
+                console.error("Recording error:", err);
+                addMessage("⚠️ 無法啟動錄音，請檢查麥克風權限", 'system');
+            }
+        }
+
+        function stopAudioRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                document.getElementById('recording-status').classList.add('hidden');
+                document.getElementById('recording-status').classList.remove('flex');
+                addMessage("⏹️ 錄音結束，處理中...", 'system');
+            }
+        }
+
+        async function uploadAudioRecording() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const dateStr = new Date().toISOString().split('T')[0];
+            const filename = `${dateStr}-Audio.webm`;
+            
+            if (!appState.driveUrl) {
+                // No Drive URL? Offer Download
+                const url = URL.createObjectURL(audioBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+                addMessage(`⚠️ 未設定 Drive 上傳 URL，已自動下載檔案: ${filename}`, 'system');
+                return;
+            }
+
+            // Upload to GAS
+            addMessage(`☁️ 正在上傳 ${filename} 到 Google Drive...`, 'system');
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = async function() {
+                const base64data = reader.result.split(',')[1];
+                try {
+                    const res = await fetch(appState.driveUrl, {
+                        method: 'POST',
+                        mode: 'no-cors', // GAS simple post usually requires no-cors for simple implementation
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            filename: filename,
+                            mimeType: 'audio/webm',
+                            data: base64data
+                        })
+                    });
+                    // With no-cors we can't read response, assume success if no error
+                    addMessage(`✅ 錄音已發送至雲端硬碟排程 (若失敗請檢查 Apps Script 設定)`, 'system');
+                } catch (e) {
+                    addMessage(`❌ 上傳失敗: ${e.message}`, 'system');
+                }
+            };
+        }
+
         // --- WEB SCRAPER ---
         async function fetchUrlViaGas(url) {
             if (!appState.docMonitorUrl) return null;
@@ -534,34 +733,50 @@
             if (!appState.keys.serpapi) return null;
             addMessage(`🔍 正在透過 SerpApi (Google) 搜尋：${query}...`, 'system');
             
-            try {
-                // Use AllOrigins as a proxy to bypass CORS for client-side SerpApi calls
-                // Note: In production, API keys should be hidden on backend. This is for client-side demo.
-                const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=google`;
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-                
+            const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=google`;
+            
+            // Helper to try a fetch
+            const tryFetch = async (proxyUrl, isJsonContents = false) => {
                 const res = await fetch(proxyUrl);
+                if (!res.ok) throw new Error(`Status: ${res.status}`);
                 const data = await res.json();
-                
-                if (!data.contents) throw new Error("No contents from proxy");
-                const serpData = JSON.parse(data.contents);
-                
-                if (serpData.error) throw new Error(serpData.error);
-                
-                let resultText = "【SerpApi 搜尋結果】\n";
-                if (serpData.organic_results) {
-                    serpData.organic_results.slice(0, 5).forEach((item, index) => {
-                        resultText += `${index + 1}. [${item.title}](${item.link})\n   ${item.snippet || ''}\n`;
-                    });
-                } else {
-                    resultText += "未找到相關結果。";
+                // AllOrigins returns data in 'contents', CorsProxy returns direct JSON
+                return isJsonContents ? JSON.parse(data.contents) : data;
+            };
+
+            let serpData = null;
+            let usedProxy = "";
+
+            try {
+                // 1. Try corsproxy.io
+                usedProxy = "corsproxy.io";
+                serpData = await tryFetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, false);
+            } catch (e1) {
+                console.warn("SerpApi proxy 1 failed:", e1);
+                try {
+                    // 2. Try allorigins.win
+                    usedProxy = "allorigins";
+                    serpData = await tryFetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, true);
+                } catch (e2) {
+                    console.error("SerpApi proxy 2 failed:", e2);
+                    return `SerpApi 搜尋失敗 (連線錯誤): ${e2.message}`;
                 }
-                
-                return resultText;
-            } catch (e) {
-                console.error("SerpApi Error:", e);
-                return `SerpApi 搜尋錯誤: ${e.message}`;
             }
+
+            if (!serpData || serpData.error) {
+                return `SerpApi 回傳錯誤: ${serpData?.error || 'Unknown error'}`;
+            }
+            
+            let resultText = "【SerpApi 搜尋結果】\n";
+            if (serpData.organic_results) {
+                serpData.organic_results.slice(0, 5).forEach((item, index) => {
+                    resultText += `${index + 1}. [${item.title}](${item.link})\n   ${item.snippet || ''}\n`;
+                });
+            } else {
+                resultText += "未找到相關結果。";
+            }
+            
+            return resultText;
         }
         
         async function searchViaGas(query) {
@@ -661,7 +876,7 @@
             
             if (appState.pastedImageBase64) {
                  const docInput = document.getElementById('doc-input-main');
-                 if (docInput.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
+                 if (docInput.value === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]" || docInput.value === "[已偵測到選擇的圖片，請點擊「發送寫入」按鈕上傳]") {
                      appState.pastedImageBase64 = null;
                      document.getElementById('paste-indicator').classList.add('hidden');
                      docInput.value = "";
@@ -704,8 +919,10 @@
         }
 
         async function handleDocWriteBtn() {
-            const targetUrl = appState.noteDocUrl;
-            if(!targetUrl) return alert("請先至設定輸入「隨手記事本」的 Apps Script URL");
+            // Pick active URL based on toggle
+            const targetUrl = (appState.activeNotebook === 1) ? appState.noteDocUrl : appState.noteDocUrl2;
+            
+            if(!targetUrl) return alert(`請先至設定輸入「隨手記事本 ${appState.activeNotebook === 1 ? 'A' : 'B'}」的 Apps Script URL`);
             
             const mainVal = document.getElementById('doc-input-main').value.trim();
             const subVal = document.getElementById('doc-input-sub').value.trim();
@@ -719,7 +936,7 @@
                 currentMode = 'text';
             }
             
-            if (appState.pastedImageBase64 && mainVal === "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]") {
+            if (appState.pastedImageBase64 && (mainVal.includes("[已偵測到"))) {
                 payload = { type: 'image_base64', content: appState.pastedImageBase64 };
             } else {
                 if(!mainVal && appState.writeMode !== 'image_base64') return; 
@@ -744,7 +961,7 @@
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify(payload)
                     });
-                    addMessage(`📝 已寫入記事本`, 'system');
+                    addMessage(`📝 已寫入${appState.activeNotebook === 1 ? '筆記本 A' : '筆記本 B'}`, 'system');
                     clearNoteInput();
                 } catch(e) { alert("寫入失敗，請檢查 URL"); }
                 finally {
@@ -756,7 +973,10 @@
 
         // --- DOC VIEWER ---
         function openNoteDocViewer() { 
-            if(!appState.noteDocUrl) return alert("請先設定隨手記事本 URL");
+            // Use active notebook URL
+            const targetUrl = (appState.activeNotebook === 1) ? appState.noteDocUrl : appState.noteDocUrl2;
+            if(!targetUrl) return alert(`請先設定隨手記事本 ${appState.activeNotebook === 1 ? 'A' : 'B'} URL`);
+            
             document.getElementById('doc-viewer-modal').classList.remove('hidden'); 
             refreshNoteDocView(); 
         }
@@ -764,7 +984,7 @@
         
         async function refreshNoteDocView() {
             const area = document.getElementById('doc-content-area');
-            const targetUrl = appState.noteDocUrl;
+            const targetUrl = (appState.activeNotebook === 1) ? appState.noteDocUrl : appState.noteDocUrl2;
             
             area.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 gap-2"><div class="dot-flashing bg-slate-400"></div> 讀取中...</div>';
             try {
@@ -786,61 +1006,78 @@
         async function handleSendMessage() {
             if(appState.isThinking) return;
             const input = document.getElementById('user-input');
-            const text = input.value.trim();
+            let text = input.value.trim();
+            if (text.length > 4 && text.length % 2 === 0) {
+                 const mid = text.length / 2;
+                 if (text.substring(0, mid) === text.substring(mid)) { text = text.substring(0, mid); }
+            }
             if(!text) return;
+
+            // --- Voice Recording Commands ---
+            if (text.includes("開始錄音")) {
+                input.value = '';
+                initialInput = '';
+                addMessage(text, 'user');
+                startAudioRecording();
+                return;
+            }
+            if (text.includes("停止錄音")) {
+                input.value = '';
+                initialInput = '';
+                addMessage(text, 'user');
+                stopAudioRecording();
+                return;
+            }
 
             appState.isThinking = true;
             updateSendButtonState(true);
             addMessage(text, 'user');
+            
+            // --- CRITICAL FIX: Reset input & voice buffer immediately ---
             input.value = '';
+            initialInput = ''; // Reset base to prevent old transcript re-appearing
+            if (recognition && !appState.isContinuous) {
+                recognition.stop();
+            }
+            // -----------------------------------------------------------
+            
             renderThinkingState(true);
 
-            // --- REMINDER LOGIC (Priority) ---
-            if (appState.pendingReminder) {
-                const timeText = text;
+            // --- REMINDER LOGIC (Updated Smart Flow) ---
+            if (appState.pendingReminder && appState.reminderStage > 0) {
+                // We are in a follow-up stage
                 const todo = appState.todos.find(t => t.id === appState.pendingReminder);
                 if (todo) {
-                    todo.time = timeText;
+                    let combinedText = todo.tempTimeStr ? `${todo.tempTimeStr} ${text}` : text;
                     
-                    // Try to parse relative time or absolute time
-                    let targetTime = null;
-                    const relMatch = timeText.match(/(\d+)\s*(分鐘|min|minute|小時|hour|hr|秒|sec|second)後?/i);
+                    // Attempt to parse again with combined info
+                    const timeInfo = parseTimeNatural(combinedText);
                     
-                    if (relMatch) {
-                        const amount = parseInt(relMatch[1]);
-                        const unit = relMatch[2];
-                        const now = new Date();
-                        if (unit.includes('分') || unit.includes('min')) now.setMinutes(now.getMinutes() + amount);
-                        else if (unit.includes('小') || unit.includes('h')) now.setHours(now.getHours() + amount);
-                        else if (unit.includes('秒') || unit.includes('s')) now.setSeconds(now.getSeconds() + amount);
-                        targetTime = now.getTime();
-                        todo.time = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                    } else {
-                        // Try simple date parse
-                        const parsed = new Date(timeText);
-                        if (!isNaN(parsed.getTime())) {
-                            targetTime = parsed.getTime();
-                        } else if (timeText.match(/^\d{1,2}:\d{2}$/)) {
-                             // Handle HH:MM for today
-                             const [h, m] = timeText.split(':');
-                             const now = new Date();
-                             now.setHours(parseInt(h), parseInt(m), 0, 0);
-                             if(now < new Date()) now.setDate(now.getDate() + 1); // If time passed, assume tomorrow
-                             targetTime = now.getTime();
-                        }
-                    }
-                    
-                    if (targetTime) {
-                        todo.alertTime = targetTime;
+                    if (timeInfo.complete) {
+                        todo.time = new Date(timeInfo.timestamp).toLocaleString();
+                        todo.alertTime = timeInfo.timestamp;
                         todo.alerted = false;
+                        delete todo.tempTimeStr;
+                        appState.pendingReminder = null;
+                        appState.reminderStage = 0;
                         addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system');
+                    } else if (timeInfo.missing === 'date') {
+                        // Still missing date, but maybe have time
+                        todo.tempTimeStr = combinedText; // store what we have
+                        addMessage(`請問是「今天」、「明天」還是哪一天？`, 'system');
+                        appState.reminderStage = 2; // Stay in clarifying
+                    } else if (timeInfo.missing === 'ampm') {
+                        todo.tempTimeStr = combinedText;
+                        addMessage(`請問是「上午」還是「下午」？`, 'system');
+                        appState.reminderStage = 2;
                     } else {
-                        addMessage(`👌 已更新時間備註：${timeText}`, 'system');
+                        // Fallback if parsing failed completely
+                        addMessage(`無法識別時間，請重試 (例如: 明天下午3點)`, 'system');
                     }
                     saveData();
                     renderTodos();
                 }
-                appState.pendingReminder = null;
+                
                 appState.isThinking = false;
                 updateSendButtonState(false);
                 renderThinkingState(false);
@@ -853,10 +1090,11 @@
                 const newTodo = { id: Date.now(), text: content, done: false, time: '詢問中...', alerted: false };
                 appState.todos.push(newTodo);
                 appState.pendingReminder = newTodo.id;
+                appState.reminderStage = 1; // Start stage 1
                 saveData();
                 renderTodos();
                 
-                addMessage(`📝 已將「${content}」加入行程，請問預計什麼時候執行？(例如：10分鐘後、14:30)`, 'system');
+                addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？`, 'system');
                 
                 appState.isThinking = false;
                 updateSendButtonState(false);
@@ -935,6 +1173,90 @@
             }
         }
 
+        // --- NEW: Natural Language Time Parser ---
+        function parseTimeNatural(str) {
+            const now = new Date();
+            let result = { complete: false, timestamp: null, missing: null };
+            
+            // 1. Check relative "X hours/mins later"
+            const relMatch = str.match(/(\d+)\s*(分鐘|min|minute|小時|hour|hr|秒|sec|second)後?/i);
+            if (relMatch) {
+                const amount = parseInt(relMatch[1]);
+                const unit = relMatch[2];
+                if (unit.includes('分') || unit.includes('min')) now.setMinutes(now.getMinutes() + amount);
+                else if (unit.includes('小') || unit.includes('h')) now.setHours(now.getHours() + amount);
+                else if (unit.includes('秒') || unit.includes('s')) now.setSeconds(now.getSeconds() + amount);
+                return { complete: true, timestamp: now.getTime() };
+            }
+
+            // 2. Check "Tomorrow/Today"
+            let targetDate = new Date();
+            let hasDate = false;
+            if (str.includes('明天') || str.includes('tomorrow')) {
+                targetDate.setDate(targetDate.getDate() + 1);
+                hasDate = true;
+            } else if (str.includes('後天')) {
+                targetDate.setDate(targetDate.getDate() + 2);
+                hasDate = true;
+            } else if (str.match(/\d{1,2}月\d{1,2}日/)) {
+                // Simple date parse e.g. 2月15日
+                const dMatch = str.match(/(\d{1,2})月(\d{1,2})日/);
+                targetDate.setMonth(parseInt(dMatch[1]) - 1);
+                targetDate.setDate(parseInt(dMatch[2]));
+                hasDate = true;
+            } else if (str.includes('今天') || str.includes('today')) {
+                hasDate = true;
+            }
+
+            // 3. Check Time "HH:MM" or "X點"
+            let hour = -1, minute = 0;
+            const timeMatch = str.match(/(\d{1,2})[:：](\d{2})/); // 10:30
+            const hourMatch = str.match(/(\d{1,2})點(\d{1,2})?分?/); // 10點30
+            
+            if (timeMatch) {
+                hour = parseInt(timeMatch[1]);
+                minute = parseInt(timeMatch[2]);
+            } else if (hourMatch) {
+                hour = parseInt(hourMatch[1]);
+                if (hourMatch[2]) minute = parseInt(hourMatch[2]);
+            }
+
+            // 4. Check AM/PM
+            let isPM = str.includes('下午') || str.includes('晚上') || str.includes('pm') || str.includes('PM');
+            let isAM = str.includes('上午') || str.includes('早上') || str.includes('am') || str.includes('AM');
+
+            if (hour !== -1) {
+                // Ambiguity check
+                if (hour < 12 && !isPM && !isAM && !str.includes('24h')) {
+                    // Ambiguous if user just says "10:00" -> could be AM or PM
+                    // We need to ask. But if user typed 14:00, it's clear.
+                    // Simplified: If hour <= 12 and no AM/PM indicator, treat as ambiguous unless date is far future?
+                    // Actually, let's treat "10:00" as ambiguous. "14:00" as absolute.
+                    
+                    // But if this is a follow-up and we have Date but no AM/PM...
+                    return { complete: false, missing: 'ampm' }; 
+                }
+                
+                if (isPM && hour < 12) hour += 12;
+                if (isAM && hour === 12) hour = 0; // 12 AM is 00:00
+
+                targetDate.setHours(hour, minute, 0, 0);
+                
+                // If no date specified, assume today (or tomorrow if time passed)
+                if (!hasDate) {
+                    if (targetDate < new Date()) {
+                        // Time passed? Ask date? Or assume tomorrow?
+                        // Prompt requirement: "If only said HH:mm, ask Date and AM/PM"
+                        return { complete: false, missing: 'date' };
+                    }
+                }
+                
+                return { complete: true, timestamp: targetDate.getTime() };
+            }
+
+            return { complete: false, missing: 'time' };
+        }
+
         async function fetchAIResponse(userText, model, options = {}) {
             const fetchWithTimeout = async (url, options, timeout = 30000) => {
                 const controller = new AbortController();
@@ -945,7 +1267,13 @@
 
             try {
                 if(model === 'zeabur') {
-                    if(!appState.zeaburUrl) throw new Error("請設定 Zeabur API URL");
+                    // Fallback: Check DOM if state is empty (just in case user typed but didn't save, or state desynced)
+                    if (!appState.zeaburUrl) {
+                         const domVal = document.getElementById('key-zeabur-url')?.value.trim();
+                         if (domVal) appState.zeaburUrl = domVal;
+                    }
+                    
+                    if(!appState.zeaburUrl) throw new Error("請至 [設定] > [Zeabur API] 填入完整的 API URL");
                     const res = await fetchWithTimeout(appState.zeaburUrl, { method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${appState.zeaburKey}`}, body: JSON.stringify({ model: 'user-model', messages: [{ role: 'user', content: userText }] }) });
                     const data = await res.json(); return data.choices?.[0]?.message?.content || "無回應";
                 }
@@ -1148,10 +1476,11 @@
             safeSet('key-serpapi', appState.keys.serpapi);
             safeSet('key-doc-url', appState.docMonitorUrl);
             safeSet('key-note-doc-url', appState.noteDocUrl);
+            safeSet('key-note-doc-url-2', appState.noteDocUrl2);
+            safeSet('key-drive-url', appState.driveUrl);
             safeSet('key-zeabur-url', appState.zeaburUrl);
             safeSet('key-zeabur-key', appState.zeaburKey);
             safeSet('key-cse-id', appState.cseId);
-            safeSet('model-openrouter-select', appState.openRouterModel);
             
             // Paste Listener
             const inputMain = document.getElementById('doc-input-main');
