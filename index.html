@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 71</title>
+    <title>NOVA 72</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,7 +57,7 @@
         audio::-webkit-media-controls-panel { background-color: #1e293b; color: #fff; }
         audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display { color: #fff; }
 
-        /* Rich Text Editor Overrides to fit Dark Mode */
+        /* Rich Text Editor Overrides */
         .note-html-content, .note-html-content * { color: inherit !important; background-color: transparent !important; font-family: inherit !important; }
         .note-html-content img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 0.5rem 0; background-color: #f8fafc; }
         .note-html-content a { color: #60a5fa !important; text-decoration: underline !important; }
@@ -75,7 +75,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 71</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 72</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Edition</p>
                 </div>
             </div>
@@ -96,7 +96,7 @@
 
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 71</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 72</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -141,10 +141,22 @@
                             <div><label class="block text-xs text-violet-400 mb-1">Cohere API Key</label><input type="password" id="key-cohere" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-violet-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
                             <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-slate-500 outline-none"></div>
+                            
                             <div class="border-t border-slate-700 pt-3 mt-2">
                                 <label class="block text-xs text-amber-400 mb-1 font-bold"><i class="ph-fill ph-timer"></i> 連續語音等待秒數 (秒)</label>
                                 <input type="number" id="key-voice-timeout" min="1" max="60" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-amber-500 outline-none text-slate-300" placeholder="預設: 5">
                                 <p class="text-[10px] text-slate-500 mt-1">設定連續語音模式下，無聲多少秒後自動送出訊息。</p>
+                            </div>
+
+                            <div class="flex items-center justify-between border-t border-slate-700 pt-3 mt-2">
+                                <div>
+                                    <label class="block text-xs text-emerald-400 font-bold flex items-center gap-1"><i class="ph-fill ph-eye-slash"></i> 隱藏 LIVE 自動截圖訊息</label>
+                                    <p class="text-[10px] text-slate-500 mt-1">開啟後，聊天室將不顯示自動傳送的相片畫面，讓對話更自然流暢。</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer ml-3">
+                                    <input type="checkbox" id="key-hide-live-capture" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -170,7 +182,6 @@
                 </div>
             </div>
 
-            <!-- 時間選擇專用 Modal -->
             <div id="todo-time-modal" class="hidden fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl flex-col">
                     <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><i class="ph-bold ph-bell text-yellow-500"></i> 設定提醒時間</h3>
@@ -513,7 +524,9 @@
             recordingContext: 'default', currentAudioTranscript: '', editNoteImagesBase64: [], writeMode: 'text', pastedImageBase64: null,
             pendingAnalyzePrompt: "", pendingAnalyzeContextId: null, pendingAnalyzeType: "",
             activeMediaTracks: [], recordingAudioCtx: null,
-            voiceTimeout: parseInt(localStorage.getItem('nova_voice_timeout')) || 5
+            voiceTimeout: parseInt(localStorage.getItem('nova_voice_timeout')) || 5,
+            hideLiveCapture: localStorage.getItem('nova_hide_live_capture') === 'true',
+            isTTSPlaying: false
         };
         
         const MODEL_CONFIG = {
@@ -548,8 +561,16 @@
             setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
         }
 
-        function speakText(text) {
-            if (!appState.isLiveMode && !appState.isTranslateMode) return; 
+        window.playMessageAudio = function(id) {
+            const msg = appState.messages.find(m => String(m.id) === String(id));
+            if (!msg || !msg.text) return;
+            speakText(msg.text, true);
+        };
+
+        function speakText(text, force = false) {
+            const shouldAutoPlay = appState.isLiveMode || appState.isTranslateMode || appState.isContinuous;
+            if (!shouldAutoPlay && !force) return; 
+
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 let cleanText = text.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
@@ -561,7 +582,29 @@
                         utterance.lang = 'en-US';
                     }
                 }
+                
+                utterance.onstart = () => {
+                    appState.isTTSPlaying = true;
+                    if (recognition) { try { recognition.stop(); } catch(e){} }
+                };
+                
+                utterance.onend = () => {
+                    appState.isTTSPlaying = false;
+                    if (appState.isContinuous || appState.isLiveMode || appState.isTranslateMode) {
+                        setTimeout(() => { try { recognition.start(); } catch(e){} }, 300);
+                    }
+                };
+
+                utterance.onerror = () => {
+                    appState.isTTSPlaying = false;
+                    if (appState.isContinuous || appState.isLiveMode || appState.isTranslateMode) {
+                        setTimeout(() => { try { recognition.start(); } catch(e){} }, 300);
+                    }
+                };
+
                 window.speechSynthesis.speak(utterance);
+            } else if (force) {
+                showToast("❌ 您的瀏覽器不支援語音朗讀功能");
             }
         }
 
@@ -574,7 +617,7 @@
             document.body.removeChild(textArea);
         };
         
-        function copyMessageText(id) {
+        window.copyMessageText = function(id) {
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (!msg) return;
             const textArea = document.createElement("textarea");
@@ -584,7 +627,7 @@
             try { document.execCommand('copy'); showToast("✅ 訊息已複製到剪貼簿！"); } 
             catch (err) { showToast("❌ 複製失敗"); }
             document.body.removeChild(textArea);
-        }
+        };
 
         function base64ToBlob(base64URI) {
             const splitIndex = base64URI.indexOf(',');
@@ -636,11 +679,21 @@
         function renderMessages() { 
             const container = document.getElementById('chat-container'); if(!container) return;
             container.innerHTML = appState.messages.map(msg => { 
+                
+                // ★ LIVE 隱形模式防護邏輯
+                let displayMediaHTML = true;
+                if (appState.hideLiveCapture && msg.file && msg.file.name === 'Live_Capture.jpg') {
+                    if (!msg.text || msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔案/畫面: Live_Capture.jpg]`) {
+                        return ''; // 完全隱藏無意義的自動截圖對話
+                    }
+                    displayMediaHTML = false; // 僅隱藏附圖，保留使用者發言
+                }
+
                 const isUser = msg.sender === 'user'; const modelInfo = isUser ? null : MODEL_CONFIG[msg.model]; 
                 let sourcesHTML = msg.sources?.length ? `<div class="mt-3 pt-3 border-t border-slate-700/50"><p class="text-[10px] text-slate-400 mb-1 font-bold">來源：</p><div class="flex flex-wrap gap-2">${msg.sources.map((s,i)=>`<a href="${s.uri}" target="_blank" class="text-[10px] bg-slate-950/50 text-blue-400 px-2 py-1 rounded border border-slate-700/50 block truncate max-w-[150px]">${i+1}. ${s.title}</a>`).join('')}</div></div>` : ''; 
                 
                 let mediaHTML = '';
-                if (msg.file) {
+                if (msg.file && displayMediaHTML) {
                     if (msg.file.category === 'image' && msg.file.data) {
                         mediaHTML = `
                         <div class="relative group mb-3 max-w-sm w-full">
@@ -696,6 +749,7 @@
                         ${mediaHTML} <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div> ${actionCardHtml} ${sourcesHTML}
                         <p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p>
                         <div class="msg-actions absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="playMessageAudio(${msg.id})" class="p-1.5 text-slate-500 hover:text-purple-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="語音朗讀"><i class="ph-bold ph-speaker-high text-xs"></i></button>
                             <button onclick="copyMessageText(${msg.id})" class="p-1.5 text-slate-500 hover:text-white transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="複製文字"><i class="ph-bold ph-copy text-xs"></i></button>
                             <button onclick="favoriteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-yellow-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="收藏至筆記"><i class="ph-bold ph-star text-xs"></i></button>
                             <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="刪除"><i class="ph-bold ph-trash text-xs"></i></button>
@@ -737,14 +791,12 @@
                 let audioPlayerHtml = n.audioData ? `<div class="mt-3 mb-2"><audio controls src="${n.audioData}" class="w-full h-10 rounded-lg bg-slate-800 shadow-inner"></audio></div>` : '';
                 let linkHtml = (n.driveUrl && !n.driveUrl.startsWith('blob:')) ? `<div class="mt-2"><a href="${n.driveUrl}" target="_blank" class="text-xs text-blue-400 underline flex items-center gap-1"><i class="ph-bold ph-cloud"></i> 雲端備份音檔</a></div>` : '';
                 
-                // Rich Text support check
                 let renderedContent = n.isHtml ? n.content : formatMessage(n.content);
                 
                 return `<div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col relative overflow-hidden slide-in"><div class="flex justify-between items-start mb-2"><h3 class="text-lg font-bold text-white flex items-center gap-2 truncate pr-2">${icon} <span>${escapeHtml(n.title)}</span></h3><div class="flex space-x-1 shrink-0"><button onclick="openNoteEdit('${n.id}')" class="text-slate-500 hover:text-blue-400 p-1 bg-slate-950/50 rounded"><i class="ph-bold ph-pencil-simple"></i></button><button onclick="deleteNote('${n.id}')" class="text-slate-500 hover:text-red-400 p-1 bg-slate-950/50 rounded"><i class="ph-bold ph-trash"></i></button></div></div><span class="text-[10px] text-slate-500 mb-2">${n.date}</span>${imgHtml}${audioPlayerHtml}<div class="note-html-content text-slate-300 text-sm overflow-y-auto max-h-40 scrollbar-thin ${n.isHtml ? 'whitespace-normal' : 'whitespace-pre-wrap'}">${renderedContent}</div>${linkHtml}<div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800">${actionButtons}</div></div>`;
             }).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; 
             
             if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>{
-                // Strip HTML for mini view if rich text
                 let plainText = n.isHtml ? n.content.replace(/<[^>]+>/g, ' ') : n.content;
                 return `<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate flex items-center gap-1">${n.type==='audio'?'<i class="ph-fill ph-microphone text-purple-400"></i>':''}${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(plainText)}</p></div>`;
             }).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; 
@@ -964,7 +1016,6 @@
         
         function addTodoManually(){ const t=prompt("任務"); if(t){const n={id:Date.now(),text:t,done:false,time:'手動', alertEnabled: true}; appState.todos.push(n);saveToDB('todos', n);renderTodos();} }
         
-        // ★ 富文本新增筆記入口
         function addNoteManually() {
             document.getElementById('edit-note-id').value = Date.now();
             document.getElementById('edit-note-title').value = '新圖文筆記';
@@ -991,12 +1042,14 @@
             appState.docMonitorUrl = safeGetVal('key-doc-url'); appState.noteDocUrl = safeGetVal('key-note-doc-url'); appState.noteDocUrl2 = safeGetVal('key-note-doc-url-2'); appState.driveUrl = safeGetVal('key-drive-url'); 
             
             appState.voiceTimeout = parseInt(safeGetVal('key-voice-timeout')) || 5;
+            appState.hideLiveCapture = document.getElementById('key-hide-live-capture').checked;
 
             localStorage.setItem('nova_key_gemini', appState.keys.gemini); localStorage.setItem('nova_key_groq', appState.keys.groq); localStorage.setItem('nova_key_cohere', appState.keys.cohere); localStorage.setItem('nova_key_openai', appState.keys.openai); localStorage.setItem('nova_key_grok', appState.keys.grok); localStorage.setItem('nova_key_serpapi', appState.keys.serpapi); 
             localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_note_doc_url', appState.noteDocUrl); localStorage.setItem('nova_note_doc_url_2', appState.noteDocUrl2); localStorage.setItem('nova_drive_url', appState.driveUrl); 
             localStorage.setItem('nova_voice_timeout', appState.voiceTimeout);
+            localStorage.setItem('nova_hide_live_capture', appState.hideLiveCapture);
 
-            updateModelUI(); closeSettings(); addMessage("✅ 設定已儲存", 'system'); 
+            updateModelUI(); closeSettings(); renderMessages(); addMessage("✅ 設定已儲存", 'system'); 
         }
 
         function testDocConnection() {
@@ -1011,14 +1064,13 @@
             });
         }
         
-        // ★ 核心升級：全系統完整備份導出
         async function exportSettings() {
             addMessage("⏳ 正在打包所有系統資料與設定，這可能需要幾秒鐘...", "system");
             try {
                 const data = { 
                     keys: appState.keys, 
                     urls: { docMonitorUrl: appState.docMonitorUrl, noteDocUrl: appState.noteDocUrl, noteDocUrl2: appState.noteDocUrl2, driveUrl: appState.driveUrl }, 
-                    settings: { voiceTimeout: appState.voiceTimeout },
+                    settings: { voiceTimeout: appState.voiceTimeout, hideLiveCapture: appState.hideLiveCapture },
                     messages: await loadStoreFromDB('messages'),
                     notes: await loadStoreFromDB('notes'),
                     todos: await loadStoreFromDB('todos'),
@@ -1039,7 +1091,6 @@
             }
         }
         
-        // ★ 核心升級：全系統完整備份匯入
         async function importSettings(e) {
             const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -1050,14 +1101,19 @@
                     
                     if (data.keys) { appState.keys.gemini = data.keys.gemini || ''; appState.keys.groq = data.keys.groq || ''; appState.keys.cohere = data.keys.cohere || ''; appState.keys.openai = data.keys.openai || ''; appState.keys.grok = data.keys.grok || ''; appState.keys.serpapi = data.keys.serpapi || ''; }
                     if (data.urls) { appState.docMonitorUrl = data.urls.docMonitorUrl || ''; appState.noteDocUrl = data.urls.noteDocUrl || ''; appState.noteDocUrl2 = data.urls.noteDocUrl2 || ''; appState.driveUrl = data.urls.driveUrl || ''; }
-                    if (data.settings) { appState.voiceTimeout = data.settings.voiceTimeout || 5; }
+                    if (data.settings) { 
+                        appState.voiceTimeout = data.settings.voiceTimeout || 5; 
+                        appState.hideLiveCapture = !!data.settings.hideLiveCapture;
+                    }
 
                     const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
                     safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi);
                     safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-note-doc-url', appState.noteDocUrl); safeSet('key-note-doc-url-2', appState.noteDocUrl2); safeSet('key-drive-url', appState.driveUrl);
                     safeSet('key-voice-timeout', appState.voiceTimeout);
+                    
+                    const hideLiveCaptureEl = document.getElementById('key-hide-live-capture');
+                    if (hideLiveCaptureEl) hideLiveCaptureEl.checked = appState.hideLiveCapture;
 
-                    // Restore IndexedDB Data
                     if (data.messages && Array.isArray(data.messages)) {
                         clearStoreDB('messages'); appState.messages = data.messages;
                         for (const item of data.messages) saveToDB('messages', item);
@@ -1272,13 +1328,11 @@
             try { const res = await fetch(targetUrl); const text = await res.text(); area.innerHTML = text || '<div class="text-center text-slate-400">記事本是空的</div>'; } catch(e) { area.innerHTML = '<div class="text-center text-red-500">讀取失敗</div>'; }
         }
 
-        // Helper for formatting local date to datetime-local picker string
         function formatDateForPicker(d) {
             const tzOffset = d.getTimezoneOffset() * 60000;
             return (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
         }
 
-        // ★ 時間選擇器專用 Modal 操作
         function openTodoDatePicker(id) {
             const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
             document.getElementById('picker-todo-id').value = id;
@@ -1329,7 +1383,7 @@
             const id = document.getElementById('edit-todo-id').value; 
             const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
             const newText = document.getElementById('edit-todo-text').value.trim(); 
-            const newTimeStr = document.getElementById('edit-todo-time').value; // datetime-local format
+            const newTimeStr = document.getElementById('edit-todo-time').value; 
             if(newText) t.text = newText;
             
             if (newTimeStr) {
@@ -1348,7 +1402,6 @@
             document.getElementById('edit-note-title').value = n.title || ''; 
             document.getElementById('note-modal-title-text').innerText = '編輯筆記';
             
-            // ★ 富文本支援：讀取 HTML 或是將舊文字轉換為 HTML
             const editorContent = n.isHtml ? (n.content || '') : escapeHtml(n.content || '').replace(/\n/g, '<br>');
             document.getElementById('edit-note-content').innerHTML = editorContent;
             
@@ -1377,13 +1430,11 @@
             let n = appState.notes.find(x => String(x.id) === String(id)); 
             let isNew = false;
             if(!n) {
-                // 如果是透過「新增圖文筆記」建立的
                 n = { id: id || Date.now(), type: 'text', date: new Date().toLocaleDateString() };
                 isNew = true;
             }
             n.title = document.getElementById('edit-note-title').value.trim() || '未命名'; 
             
-            // ★ 富文本支援：儲存 HTML
             n.content = document.getElementById('edit-note-content').innerHTML; 
             n.isHtml = true; 
             
@@ -1400,7 +1451,6 @@
             let imgTags = ''; const displayImages = n.images || (n.image ? [n.image] : []);
             if (displayImages.length > 0) imgTags = displayImages.map(img => `<br><br><img src="${img}" style="max-width: 100%;">`).join('');
             
-            // ★ 富文本相容 Word 匯出
             const wordContent = n.isHtml ? n.content : n.content.replace(/\n/g, '<br>');
             
             let htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${n.title}</title></head><body><h1>${n.title}</h1><p style="color:gray; font-size:12px;">建立日期: ${n.date}</p><div style="margin-top:20px; font-family: sans-serif;">${wordContent}</div>${imgTags}</body></html>`;
@@ -1879,7 +1929,6 @@
                 
                 renderThinkingState(true);
 
-                // 原有的 AI 對話判斷提醒邏輯完美保留
                 if (appState.pendingReminder && appState.reminderStage > 0) {
                      const todo = appState.todos.find(t => t.id === appState.pendingReminder);
                      if (todo) {
@@ -1974,6 +2023,39 @@
                 updateSendButtonState(false); 
                 renderThinkingState(false);
             }
+        }
+
+        function parseTimeNatural(str) {
+            const now = new Date(); let result = { complete: false, timestamp: null, missing: null };
+            const relMatch = str.match(/(\d+)\s*(分鐘|min|minute|小時|hour|hr|秒|sec|second)後?/i);
+            if (relMatch) {
+                const amount = parseInt(relMatch[1]); const unit = relMatch[2];
+                if (unit.includes('分') || unit.includes('min')) now.setMinutes(now.getMinutes() + amount);
+                else if (unit.includes('小') || unit.includes('h')) now.setHours(now.getHours() + amount);
+                else if (unit.includes('秒') || unit.includes('s')) now.setSeconds(now.getSeconds() + amount);
+                return { complete: true, timestamp: now.getTime() };
+            }
+            let targetDate = new Date(); let hasDate = false;
+            if (str.includes('明天') || str.includes('tomorrow')) { targetDate.setDate(targetDate.getDate() + 1); hasDate = true; } 
+            else if (str.includes('後天')) { targetDate.setDate(targetDate.getDate() + 2); hasDate = true; } 
+            else if (str.match(/\d{1,2}月\d{1,2}日/)) { const dMatch = str.match(/(\d{1,2})月(\d{1,2})日/); targetDate.setMonth(parseInt(dMatch[1]) - 1); targetDate.setDate(parseInt(dMatch[2])); hasDate = true; } 
+            else if (str.includes('今天') || str.includes('today')) { hasDate = true; }
+
+            let hour = -1, minute = 0;
+            const timeMatch = str.match(/(\d{1,2})[:：](\d{2})/); const hourMatch = str.match(/(\d{1,2})點(\d{1,2})?分?/); 
+            if (timeMatch) { hour = parseInt(timeMatch[1]); minute = parseInt(timeMatch[2]); } else if (hourMatch) { hour = parseInt(hourMatch[1]); if (hourMatch[2]) minute = parseInt(hourMatch[2]); }
+
+            let isPM = str.includes('下午') || str.includes('晚上') || str.includes('pm') || str.includes('PM');
+            let isAM = str.includes('上午') || str.includes('早上') || str.includes('am') || str.includes('AM');
+
+            if (hour !== -1) {
+                if (hour < 12 && !isPM && !isAM && !str.includes('24h')) return { complete: false, missing: 'ampm' }; 
+                if (isPM && hour < 12) hour += 12; if (isAM && hour === 12) hour = 0; 
+                targetDate.setHours(hour, minute, 0, 0);
+                if (!hasDate) { if (targetDate < new Date()) return { complete: false, missing: 'date' }; }
+                return { complete: true, timestamp: targetDate.getTime() };
+            }
+            return { complete: false, missing: 'time' };
         }
 
         async function fetchAIResponse(userText, model, options = {}) {
@@ -2208,7 +2290,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 71 系統升級完畢！\n\n✅ **💾 全系統完整備份**：設定區新增「完整備份/還原」功能，對話、筆記、行程錄音一鍵無縫搬家！\n✅ **📋 快速複製功能**：對話區的每則訊息右上角新增「複製」按鈕，快速提取 AI 回答內容。\n✅ **🎨 圖文完整剪貼簿**：本地筆記的「新增圖文筆記」已換裝富文本編輯器，網頁圖文排版直接貼上不走鐘！\n✅ **⏰ 原生日曆選擇器**：行程管理的鈴鐺已結合原生日期時間滾輪，點選即可精準設定時間。', 
+                    text: 'NOVA 72 系統升級完畢！\n\n✅ **🔊 AI 語音朗讀系統**：對話區每一則訊息都加上了「語音播放」按鈕。在連續語音/LIVE/翻譯模式中，AI 回覆後會自動發聲，且具備防迴音干擾機制。\n✅ **👻 LIVE 隱形潔淨模式**：覺得 LIVE 的截圖一直跑出來很亂嗎？現在您可以到「設定」裡開啟隱藏自動截圖功能，讓對話保持原本的乾淨流暢！', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
@@ -2219,6 +2301,9 @@
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
             safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-note-doc-url', appState.noteDocUrl); safeSet('key-note-doc-url-2', appState.noteDocUrl2); safeSet('key-drive-url', appState.driveUrl);
             safeSet('key-voice-timeout', appState.voiceTimeout);
+            
+            const hideLiveCaptureEl = document.getElementById('key-hide-live-capture');
+            if (hideLiveCaptureEl) hideLiveCaptureEl.checked = appState.hideLiveCapture;
             
             const inputMain = document.getElementById('doc-input-main'); if(inputMain) inputMain.addEventListener('paste', handlePaste);
             const userInput = document.getElementById('user-input'); if(userInput) userInput.addEventListener('paste', handlePaste);
@@ -2231,7 +2316,8 @@
                 recognition.interimResults = true; 
                 
                 recognition.onend = () => { 
-                    if (appState.isContinuous || (mediaRecorder && mediaRecorder.state === 'recording')) { 
+                    // ★ 防迴音干擾保護：只有在沒講話時才重啟麥克風
+                    if ((appState.isContinuous || (mediaRecorder && mediaRecorder.state === 'recording')) && !appState.isTTSPlaying && !appState.isThinking) { 
                         setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); 
                     }
                 };
@@ -2345,4 +2431,4 @@
         };
     </script>
 </body>
-    </html>
+                                                                                                             </html>
