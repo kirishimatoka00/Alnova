@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 73</title>
+    <title>NOVA 74</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -75,7 +75,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 73</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 74</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Edition</p>
                 </div>
             </div>
@@ -96,7 +96,7 @@
 
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 73</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 74</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -262,7 +262,7 @@
                         <video id="live-video-preview" autoplay playsinline muted class="w-full h-full object-cover"></video>
                     </div>
 
-                    <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700"></div>
+                    <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700 relative"></div>
                     
                     <!-- Line Style Bottom Input Area -->
                     <div class="bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col relative w-full">
@@ -276,6 +276,11 @@
                         <input type="file" id="audio-analyze-input" accept="*/*" class="hidden" onchange="handleAudioAnalyzeSelect(event)">
                         
                         <div id="search-hint" class="text-[10px] text-blue-400 text-center hidden mt-1 absolute -top-5 w-full">🌐 已開啟連網搜尋 (支援各模型)</div>
+                        
+                        <!-- 語言聽取切換 Badge -->
+                        <div id="stt-lang-toggle" onclick="toggleListenLang()" class="hidden absolute -top-10 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg cursor-pointer flex items-center gap-1 z-50 hover:bg-indigo-500 transition-colors border border-indigo-400/50 active:scale-95">
+                            <i class="ph-bold ph-microphone-stage text-sm animate-pulse"></i> <span id="stt-lang-text">聽取: 中文 (點擊切換)</span>
+                        </div>
                         
                         <div id="plus-menu" class="hidden absolute bottom-full left-0 mb-1 w-full bg-slate-900 border-t border-slate-800 p-4 grid grid-cols-4 gap-4 z-40 rounded-t-2xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)] transition-all">
                             <label for="chat-file-input" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 cursor-pointer text-slate-300 transition-colors active:scale-95">
@@ -455,7 +460,6 @@
                                 <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1"><i class="ph-bold ph-image"></i> 加入圖片</label>
                                 <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="handleNoteEditImage(event)">
                             </label>
-                            <!-- Content Editable Div for Rich Text -->
                             <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接貼上網頁上的圖文內容..." class="note-html-content flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-sm text-white focus:border-emerald-500 outline-none overflow-y-auto min-h-[150px]"></div>
                             <div id="edit-note-img-preview-container" class="hidden mt-3 flex-wrap gap-2 shrink-0"></div>
                         </div>
@@ -519,7 +523,7 @@
             keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'' },
             isThinking: false, isListening: false, isNoteListening: false, noteVoiceActive: false, isSearchEnabled: false, isContinuous: false, manualLocIndex: 0,
             isLiveMode: false, isTranslateMode: false,
-            translateSetupStage: 0, translateTargetLang: '', 
+            translateSetupStage: 0, translateTargetLang: '', currentListenLang: 'zh-TW',
             manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}],
             pendingReminder: null, reminderStage: 0, countryCode: 'TW', lastLat: null, lastLon: null,
             recordingContext: 'default', currentAudioTranscript: '', editNoteImagesBase64: [], writeMode: 'text', pastedImageBase64: null,
@@ -577,16 +581,13 @@
                 let cleanText = text.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
                 let utterance = new SpeechSynthesisUtterance(cleanText);
                 
-                // ★ 語言精準鎖定與智慧偵測
+                // ★ AI 朗讀智慧語言判定
                 let lang = 'zh-TW'; 
                 let testChunk = cleanText.substring(0, 100);
                 
                 if (appState.isTranslateMode && appState.translateTargetLang) {
-                    if (/[\u4e00-\u9fff]/.test(testChunk)) {
-                        lang = 'zh-TW'; 
-                    } else {
-                        lang = appState.translateTargetLang; 
-                    }
+                    // 若當下聽取的是中文，AI回答就強制唸外文；若聽取的是外文，AI回答就強制唸中文
+                    lang = (appState.currentListenLang === 'zh-TW') ? appState.translateTargetLang : 'zh-TW';
                 } else {
                     if (/[\u3040-\u309F\u30A0-\u30FF]/.test(testChunk)) {
                         lang = 'ja-JP';
@@ -599,22 +600,31 @@
                 
                 utterance.lang = lang;
                 
+                // ★ 語音防迴音機制：強制切斷麥克風
                 utterance.onstart = () => {
                     appState.isTTSPlaying = true;
-                    if (recognition) { try { recognition.stop(); } catch(e){} }
+                    if (recognition) { try { recognition.abort(); } catch(e){} }
                 };
                 
                 utterance.onend = () => {
                     appState.isTTSPlaying = false;
                     if (appState.isContinuous || appState.isLiveMode || appState.isTranslateMode) {
-                        setTimeout(() => { try { recognition.start(); } catch(e){} }, 300);
+                        setTimeout(() => { 
+                            if(!appState.isTTSPlaying && !appState.isThinking) {
+                                try { recognition.start(); } catch(e){} 
+                            }
+                        }, 500);
                     }
                 };
 
                 utterance.onerror = () => {
                     appState.isTTSPlaying = false;
                     if (appState.isContinuous || appState.isLiveMode || appState.isTranslateMode) {
-                        setTimeout(() => { try { recognition.start(); } catch(e){} }, 300);
+                        setTimeout(() => { 
+                            if(!appState.isTTSPlaying && !appState.isThinking) {
+                                try { recognition.start(); } catch(e){} 
+                            }
+                        }, 500);
                     }
                 };
 
@@ -883,6 +893,28 @@
             }
         }
 
+        // ★ STT 語言切換邏輯
+        window.toggleListenLang = function() {
+            if(!appState.isTranslateMode || appState.translateSetupStage === 1) return;
+            
+            if(appState.currentListenLang === 'zh-TW') {
+                appState.currentListenLang = appState.translateTargetLang;
+                let langName = appState.translateTargetLang === 'en-US' ? '英文' : appState.translateTargetLang === 'ja-JP' ? '日文' : '韓文';
+                document.getElementById('stt-lang-text').innerText = `聽取: ${langName} (點擊切換)`;
+            } else {
+                appState.currentListenLang = 'zh-TW';
+                document.getElementById('stt-lang-text').innerText = `聽取: 中文 (點擊切換)`;
+            }
+            
+            if(recognition) {
+                try { recognition.abort(); } catch(e){}
+                recognition.lang = appState.currentListenLang;
+                if(appState.isContinuous || appState.isTranslateMode) {
+                    setTimeout(() => { if(!appState.isTTSPlaying && !appState.isThinking) { try{ recognition.start(); }catch(e){} } }, 300);
+                }
+            }
+        };
+
         async function getStandardBackCamera() {
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
@@ -955,10 +987,10 @@
             }
         }
 
-        // ★ 口譯模式更新：啟動時設定 Setup Stage
         function toggleTranslateMode(forceClose = false) {
             const btn = document.getElementById('translate-btn');
             const icon = document.getElementById('translate-icon');
+            const langToggle = document.getElementById('stt-lang-toggle');
             
             if (forceClose && !appState.isTranslateMode) return;
             
@@ -974,6 +1006,13 @@
                 appState.voiceTimeout = 2.5;
                 appState.translateSetupStage = 1;
                 appState.translateTargetLang = '';
+                appState.currentListenLang = 'zh-TW';
+                
+                if (recognition) {
+                    try{ recognition.abort(); }catch(e){}
+                    recognition.lang = 'zh-TW';
+                }
+                
                 addMessage("🌐 **即時口譯模式準備啟動！**\n請告訴我您要互譯的兩種語言 (例如：「中文和英文」、「中日」、「中韓」)。", 'system');
                 speakText("即時口譯模式準備啟動，請告訴我您要互譯的兩種語言", true);
                 
@@ -983,9 +1022,18 @@
                 btn.classList.remove('text-blue-400');
                 btn.classList.add('text-slate-300');
                 icon.classList.remove('animate-pulse', 'text-blue-400');
+                langToggle.classList.add('hidden');
                 
                 appState.voiceTimeout = parseInt(localStorage.getItem('nova_voice_timeout')) || 5;
                 appState.translateSetupStage = 0;
+                appState.currentListenLang = 'zh-TW';
+                
+                if (recognition) {
+                    try{ recognition.abort(); }catch(e){}
+                    recognition.lang = 'zh-TW';
+                    if (appState.isContinuous) setTimeout(()=>recognition.start(), 300);
+                }
+
                 if(!forceClose) addMessage("🌐 即時口譯模式已關閉。", 'system');
                 window.speechSynthesis.cancel();
             }
@@ -1273,7 +1321,8 @@
             reader.readAsDataURL(file);
         }
 
-        function handlePaste(e) {
+        // ★ 核心修復：隨手筆記本的 Paste 攔截
+        window.handlePaste = function(e) {
             if (e.target.id === 'user-input') {
                 const items = (e.clipboardData || window.clipboardData).items; if (!items) return;
                 for (let i = 0; i < items.length; i++) {
@@ -1284,20 +1333,22 @@
                     }
                 }
                 return;
-            }
-            const items = (e.clipboardData || window.clipboardData).items; if (!items) return;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf("image") !== -1) {
-                    const blob = items[i].getAsFile(); const reader = new FileReader();
-                    reader.onload = function(event) {
-                        appState.pastedImageBase64 = event.target.result;
-                        const indicator = document.getElementById('paste-indicator'); if(indicator) indicator.classList.remove('hidden');
-                        const docInput = document.getElementById('doc-input-main'); if(docInput) docInput.value = "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]";
-                    };
-                    reader.readAsDataURL(blob); e.preventDefault(); return;
+            } else if (e.target.id === 'doc-input-main') {
+                const items = (e.clipboardData || window.clipboardData).items; if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf("image") !== -1) {
+                        const blob = items[i].getAsFile(); const reader = new FileReader();
+                        reader.onload = function(event) {
+                            appState.pastedImageBase64 = event.target.result;
+                            const indicator = document.getElementById('paste-indicator'); if(indicator) indicator.classList.remove('hidden');
+                            e.target.value = "[已偵測到剪貼簿圖片，請點擊「發送寫入」按鈕上傳]";
+                        };
+                        reader.readAsDataURL(blob); e.preventDefault(); return;
+                    }
                 }
             }
-        }
+        };
+
         function handleNoteKeydown(e) {
             if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
             if (appState.pastedImageBase64) {
@@ -1905,7 +1956,6 @@
             
             if(!text && !hasChatFile && !appState.isLiveMode) return;
 
-            // ★ 處理口譯模式初始化的語音辨識
             if (appState.isTranslateMode && appState.translateSetupStage === 1) {
                 let target = '';
                 if (text.match(/英/)) target = 'en-US';
@@ -1921,6 +1971,8 @@
                     const confirmText = `✅ 已設定為 **中文 ↔ ${langName}** 雙向口譯。\n系統收到中文會輸出${langName}，收到${langName}會翻成中文。\n請直接對著麥克風說話。`;
                     addMessage(confirmText, 'system');
                     speakText(`已設定為中文與${langName}雙向口譯`, true);
+                    
+                    document.getElementById('stt-lang-toggle').classList.remove('hidden');
                 } else {
                     addMessage("⚠️ 目前系統主要支援「英文」、「日文」與「韓文」的完美語音輸出，請重新告訴我要互譯的語言。", 'system');
                     speakText("目前主要支援英文、日文與韓文，請重新告訴我要互譯的語言", true);
@@ -2021,7 +2073,6 @@
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
 
-                // ★ 強力語言指定
                 if (appState.isTranslateMode && modelToUse === 'gemini') {
                     const langName = appState.translateTargetLang === 'en-US' ? '英文' : appState.translateTargetLang === 'ja-JP' ? '日文' : appState.translateTargetLang === 'ko-KR' ? '韓文' : '英文';
                     systemPromptAddon += `\n\n【強制執行：即時同步口譯模式】\n你現在是一位專業、精準的口譯員。請對使用者的輸入進行直譯。\n規則：\n1. 若判定輸入為「中文」，請將其翻譯為最流暢的「${langName}」。\n2. 若判定輸入為「${langName}」或其他外語，請一律翻譯為「繁體中文」。\n3. 你的回應『只能』包含翻譯後的最終結果，絕對不允許加入任何解釋、引言、拼音標註或聊天回覆內容。\n4. 嚴格禁止重複輸出翻譯內容，翻譯結果僅能輸出一次，也絕對不可輸出原文。`;
@@ -2368,7 +2419,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 73 系統升級完畢！\n\n✅ **🌐 智慧口譯指定語言**：口譯模式啟動時會先詢問您需要的互譯語言，精準鎖定英、日、韓等專屬語音引擎！\n✅ **✂️ 無損圖文剪貼簿**：現在您可以從任何網頁複製包含圖片與排版的文章，直接貼入新增的圖文筆記中！\n✅ **🤖 筆記 AI 深度分析**：所有文字筆記下方皆新增了「AI 深度分析」按鈕，隨時為您抓出關鍵字並總結摘要。', 
+                    text: 'NOVA 74 系統升級完畢！\n\n✅ **🔇 絕對防迴音機制**：修復了語音朗讀時可能干擾麥克風的問題，AI 講話時麥克風將強制關閉。\n✅ **🗣️ 智慧雙向語音引擎**：口譯模式中，點擊輸入框上方可「手動切換聽取語言」，AI 回答將根據您選擇的語系自動反向朗讀，完美解決漢字與日韓文口音混淆的問題！\n✅ **📋 圖文剪貼徹底修復**：無論是「隨手筆記本」還是「本地富文本筆記」，現在皆已完美支援網頁圖文排版穿透，以及純截圖檔案的直接貼上！', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
@@ -2383,17 +2434,21 @@
             const hideLiveCaptureEl = document.getElementById('key-hide-live-capture');
             if (hideLiveCaptureEl) hideLiveCaptureEl.checked = appState.hideLiveCapture;
             
-            const inputMain = document.getElementById('doc-input-main'); if(inputMain) inputMain.addEventListener('paste', handlePaste);
-            const userInput = document.getElementById('user-input'); if(userInput) userInput.addEventListener('paste', handlePaste);
-            
-            // ★ 富文本專屬 Paste 攔截 (允許HTML穿透，攔截純圖檔)
+            // ★ 富文本與純圖檔雙支援 Paste 攔截
             const editNoteEl = document.getElementById('edit-note-content');
             if (editNoteEl) {
                 editNoteEl.addEventListener('paste', function(e) {
-                    const types = e.clipboardData.types;
-                    const hasHtml = Array.from(types).includes('text/html');
-                    if (!hasHtml) {
-                        const items = e.clipboardData.items;
+                    const clipboardData = e.clipboardData || window.clipboardData;
+                    const types = clipboardData.types;
+                    
+                    let hasHtmlOrText = false;
+                    for (let i = 0; i < types.length; i++) {
+                        if (types[i] === 'text/html' || types[i] === 'text/plain') hasHtmlOrText = true;
+                    }
+
+                    // 如果沒有富文本/純文字，但有圖片 (例如單純使用截圖快捷鍵)，則讀取 base64 插入
+                    if (!hasHtmlOrText) {
+                        const items = clipboardData.items;
                         for (let i = 0; i < items.length; i++) {
                             if (items[i].type.indexOf("image") !== -1) {
                                 e.preventDefault();
@@ -2407,6 +2462,7 @@
                             }
                         }
                     }
+                    // 若有富文本或文字，則直接放行，讓瀏覽器原生貼上保留圖文排版
                 });
             }
 
@@ -2428,6 +2484,9 @@
                 };
                 
                 recognition.onresult = (e) => {
+                    // ★ 嚴格防迴音機制：只要正在播放語音，就拒絕接收任何聲音
+                    if (appState.isTTSPlaying) return;
+
                     let finalT = "";
                     let interimT = "";
                     
@@ -2532,4 +2591,4 @@
         };
     </script>
 </body>
-    </html>
+                                                                                                                                                                                                                                                                         </html>
