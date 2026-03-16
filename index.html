@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 82</title>
+    <title>NOVA 83</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -97,7 +97,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 82</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 83</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Edition</p>
                 </div>
             </div>
@@ -122,7 +122,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 82</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 83</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -1908,7 +1908,7 @@
             
             appState.pendingAnalyzeContextId = id;
             appState.pendingAnalyzeType = 'audioRecord';
-            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出重點摘要與結構化的會議紀錄。`;
+            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出重點摘要與結構化的會議紀錄。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。`;
             
             if (r.audioData) {
                 if(!confirm(`即將對「${r.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) return;
@@ -1927,7 +1927,7 @@
             
             appState.pendingAnalyzeContextId = id;
             appState.pendingAnalyzeType = 'voiceNote';
-            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出條理分明的重點摘要。`;
+            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出條理分明的重點摘要。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。`;
             
             if (n.audioData) {
                 if(!confirm(`即將對「${n.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) return;
@@ -1946,7 +1946,7 @@
 
             appState.pendingAnalyzeContextId = id;
             appState.pendingAnalyzeType = 'textNote';
-            appState.pendingAnalyzePrompt = `請幫我深度分析並總結以下筆記內容，提取出最重要的關鍵字、結構化重點，並給出適當的建議。`;
+            appState.pendingAnalyzePrompt = `請幫我深度分析並總結以下筆記內容，提取出最重要的關鍵字與結構化重點。\n\n【嚴格約束】：請「絕對忠於提供的筆記內容」，只做客觀的整理，絕對不要給出任何額外的個人建議、評論，也不要自行腦補外部資訊。若筆記內容過短或無具體意義，請直接回覆「筆記內容不足以產生有效摘要」。`;
 
             if(!confirm(`即將對「${n.title}」進行 AI 深度分析。\n\n系統將自動為您提取重點摘要並附加於筆記底部！`)) return;
 
@@ -2526,7 +2526,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 82 系統升級完畢！\n\n✅ **「劇院級」筆記檢視模式**：新增【檢視與編輯】按鈕，點擊後會展開超大視窗，讓您舒適閱讀富文本排版與播放嵌入影片！\n✅ **雙管齊下防錯亂引擎**：我們在底層加入了強力的「專注最新問題」指令。同時，在對話列新增了 **「🧠 記憶上下文開關」**。若您要轉換全新話題，只需點擊關閉記憶(變灰)，AI 就不會再被歷史紀錄干擾囉！', 
+                    text: 'NOVA 83 系統升級完畢！\n\n✅ **精準 AI 分析引擎**：全面升級 AI 在分析筆記與錄音時的系統指令！現在 AI 將「絕對忠於原文」，只做客觀的重點摘要與逐字稿提取，不再隨意腦補或給出無關的個人建議。若內容不足，也會誠實告知，讓分析結果更純粹、更專業！\n✅ **「劇院級」筆記檢視**：支援原生網頁與 YouTube 連結無縫貼上預覽。\n✅ **🧠 記憶上下文開關**：可隨時關閉對話記憶，100% 防止舊話題干擾新問題。', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
