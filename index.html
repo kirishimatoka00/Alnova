@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 81</title>
+    <title>NOVA 82</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -97,7 +97,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 81</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 82</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Edition</p>
                 </div>
             </div>
@@ -122,7 +122,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 81</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 82</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -237,7 +237,6 @@
                             <div id="recording-status" onclick="stopAudioRecording()" class="hidden items-center space-x-2 bg-red-900/50 border border-red-500/50 px-3 py-1 rounded-full animate-pulse mr-2 cursor-pointer hover:bg-red-800/50 transition-colors" title="點擊停止錄音">
                                 <div class="w-2 h-2 bg-red-500 rounded-full recording-dot"></div><span class="text-xs text-red-200 font-bold">錄音中... (點擊停止)</span>
                             </div>
-                            <span id="doc-monitor-badge" class="hidden items-center space-x-1 text-[10px] bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full animate-pulse"><i class="ph-bold ph-arrows-clockwise"></i><span>Docs 監控中</span></span>
                             <button onclick="clearChatHistory()" class="text-[10px] text-slate-500 hover:text-red-400 flex items-center space-x-1 border border-slate-700 px-2 py-0.5 rounded-lg transition-colors"><i class="ph-bold ph-trash"></i><span>清空對話</span></button>
                          </div>
                          
@@ -360,6 +359,11 @@
                                 <i id="search-icon" class="ph-bold ph-globe text-xl"></i>
                             </button>
 
+                            <!-- 記憶上下文開關 -->
+                            <button id="context-toggle-btn" onclick="toggleContext()" class="p-2 mb-1 rounded-full bg-blue-600 text-white hover:bg-blue-500 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="記憶上下文：開啟 (維持連貫對話)">
+                                <i id="context-icon" class="ph-bold ph-brain text-xl"></i>
+                            </button>
+
                             <!-- 連續語音切換按鈕 -->
                             <button id="continuous-btn" onclick="toggleContinuous()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="連續語音">
                                 <i id="continuous-icon" class="ph-bold ph-microphone text-xl"></i>
@@ -457,29 +461,29 @@
                 </div>
             </div>
 
-            <!-- ================= 富文本筆記編輯器彈窗 (Note Edit Modal) ================= -->
-            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            <!-- ================= 富文本筆記劇院級編輯器彈窗 (Note Edit/View Modal) ================= -->
+            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-2 md:p-6">
+                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 md:p-6 w-[98vw] md:w-[85vw] max-w-7xl shadow-2xl flex flex-col h-[80vh] md:h-[75vh]">
                     <div class="flex justify-between items-center mb-4 shrink-0">
-                        <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-pencil-simple text-emerald-400"></i> <span id="note-modal-title-text">編輯筆記</span></h3>
-                        <button onclick="closeNoteEdit()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-corners-out text-emerald-400"></i> <span id="note-modal-title-text">檢視與編輯筆記</span></h3>
+                        <button onclick="closeNoteEdit()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg"><i class="ph-bold ph-x text-xl"></i></button>
                     </div>
                     <input type="hidden" id="edit-note-id">
                     <div class="space-y-4 overflow-y-auto flex-1 pr-2 scrollbar-thin scrollbar-thumb-slate-700 flex flex-col min-h-0">
-                        <div class="shrink-0"><label class="text-xs text-slate-400 mb-1 block">標題</label><input type="text" id="edit-note-title" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-emerald-500 outline-none"></div>
+                        <div class="shrink-0"><label class="text-xs text-slate-400 mb-1 block">標題</label><input type="text" id="edit-note-title" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-lg font-bold text-white focus:border-emerald-500 outline-none"></div>
                         <div class="flex-1 flex flex-col min-h-0">
                             <label class="text-xs text-slate-400 mb-1 flex justify-between shrink-0">
-                                內文 (支援網頁圖文完整複製貼上，或貼上 YouTube 網址)
-                                <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1"><i class="ph-bold ph-image"></i> 加入圖片</label>
+                                內文 (支援直接貼上網頁圖文排版、YouTube 網址)
+                                <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 bg-emerald-900/30 px-2 py-1 rounded"><i class="ph-bold ph-image"></i> 插入圖片</label>
                                 <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="handleNoteEditImage(event)">
                             </label>
-                            <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接貼上網頁圖文、YouTube連結..." class="note-html-content flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-sm text-white focus:border-emerald-500 outline-none overflow-y-auto min-h-[150px]"></div>
+                            <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接 Ctrl+V 貼上網頁圖文、YouTube連結..." class="note-html-content flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-base md:text-lg leading-relaxed text-slate-200 focus:border-emerald-500 outline-none overflow-y-auto"></div>
                             <div id="edit-note-img-preview-container" class="hidden mt-3 flex-wrap gap-2 shrink-0"></div>
                         </div>
                     </div>
                     <div class="flex justify-end space-x-3 mt-4 shrink-0 pt-4 border-t border-slate-800">
-                        <button onclick="closeNoteEdit()" class="px-4 py-2 text-slate-400 hover:text-white transition-colors">取消</button>
-                        <button onclick="saveNoteEdit()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-medium">儲存筆記</button>
+                        <button onclick="closeNoteEdit()" class="px-5 py-2.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium">取消</button>
+                        <button onclick="saveNoteEdit()" class="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-bold text-lg shadow-lg">儲存變更</button>
                     </div>
                 </div>
             </div>
@@ -548,7 +552,8 @@
             activeMediaTracks: [], recordingAudioCtx: null,
             voiceTimeout: parseInt(localStorage.getItem('nova_voice_timeout')) || 5,
             hideLiveCapture: localStorage.getItem('nova_hide_live_capture') === 'true',
-            isTTSPlaying: false
+            isTTSPlaying: false,
+            enableContext: true // 上下文記憶預設開啟
         };
         
         const MODEL_CONFIG = {
@@ -821,15 +826,18 @@
             if(el) el.innerHTML=appState.notes.map(n=>{
                 const isAudio = n.type === 'audio'; const icon = isAudio ? '<i class="ph-fill ph-microphone text-purple-400"></i>' : '<i class="ph-fill ph-notebook text-emerald-400"></i>';
                 
-                let actionButtons = `<button onclick="exportNoteWord('${n.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 transition-colors border border-slate-700" title="匯出為 Word"><i class="ph-bold ph-file-doc"></i> Word</button>`;
-                actionButtons += `<button onclick="exportNoteRichText('${n.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 transition-colors border border-slate-700" title="匯出為 RichText (HTML)"><i class="ph-bold ph-file-html"></i> RichText</button>`;
-                actionButtons += `<button id="btn-backup-${n.id}" onclick="backupNoteToDrive('${n.id}')" class="text-xs bg-blue-900/50 hover:bg-blue-800/50 border border-blue-500/50 px-2 py-1 rounded text-blue-200 transition-colors"><i class="ph-bold ph-cloud-arrow-up"></i> 雲端備份</button>`;
+                let actionButtons = `<button onclick="exportNoteWord('${n.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded text-slate-300 transition-colors border border-slate-700 flex items-center gap-1" title="匯出為 Word"><i class="ph-bold ph-file-doc"></i> Word</button>`;
+                actionButtons += `<button onclick="exportNoteRichText('${n.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded text-slate-300 transition-colors border border-slate-700 flex items-center gap-1" title="匯出為 HTML"><i class="ph-bold ph-file-html"></i> RichText</button>`;
+                actionButtons += `<button id="btn-backup-${n.id}" onclick="backupNoteToDrive('${n.id}')" class="text-xs bg-blue-900/50 hover:bg-blue-800/50 border border-blue-500/50 px-2 py-1.5 rounded text-blue-200 transition-colors flex items-center gap-1"><i class="ph-bold ph-cloud-arrow-up"></i> 雲端備份</button>`;
+                // 強調 檢視與編輯 按鈕
+                actionButtons += `<button onclick="openNoteEdit('${n.id}')" class="text-xs bg-emerald-900/50 hover:bg-emerald-800/50 border border-emerald-500/50 px-3 py-1.5 rounded text-emerald-200 transition-colors flex items-center gap-1 font-bold ml-auto"><i class="ph-bold ph-corners-out"></i> 檢視與編輯</button>`;
 
+                let extraAudioButtons = '';
                 if(isAudio) {
-                    actionButtons += `<button onclick="downloadLocalAudio('${n.id}', 'note')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 transition-colors border border-slate-700"><i class="ph-bold ph-download-simple"></i> 下載 .weba</button>`;
-                    actionButtons += `<button onclick="summarizeVoiceNote('${n.id}')" class="text-xs bg-purple-900/50 border border-purple-500/50 hover:bg-purple-800/50 px-2 py-1 rounded text-purple-200 transition-colors mt-2"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button>`;
+                    extraAudioButtons += `<button onclick="downloadLocalAudio('${n.id}', 'note')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded text-slate-300 transition-colors border border-slate-700 flex items-center gap-1"><i class="ph-bold ph-download-simple"></i> 下載 .weba</button>`;
+                    extraAudioButtons += `<button onclick="summarizeVoiceNote('${n.id}')" class="text-xs bg-purple-900/50 border border-purple-500/50 hover:bg-purple-800/50 px-2 py-1.5 rounded text-purple-200 transition-colors flex items-center gap-1"><i class="ph-bold ph-sparkle"></i> AI 分析</button>`;
                 } else {
-                    actionButtons += `<button onclick="summarizeTextNote('${n.id}')" class="text-xs bg-purple-900/50 border border-purple-500/50 hover:bg-purple-800/50 px-2 py-1 rounded text-purple-200 transition-colors mt-2"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button>`;
+                    extraAudioButtons += `<button onclick="summarizeTextNote('${n.id}')" class="text-xs bg-purple-900/50 border border-purple-500/50 hover:bg-purple-800/50 px-2 py-1.5 rounded text-purple-200 transition-colors flex items-center gap-1"><i class="ph-bold ph-sparkle"></i> AI 分析</button>`;
                 }
                 
                 let imgHtml = '';
@@ -843,7 +851,7 @@
                 
                 let renderedContent = n.isHtml ? n.content : formatMessage(n.content);
                 
-                return `<div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col relative overflow-hidden slide-in"><div class="flex justify-between items-start mb-2"><h3 class="text-lg font-bold text-white flex items-center gap-2 truncate pr-2">${icon} <span>${escapeHtml(n.title)}</span></h3><div class="flex space-x-1 shrink-0"><button onclick="openNoteEdit('${n.id}')" class="text-slate-500 hover:text-blue-400 p-1 bg-slate-950/50 rounded"><i class="ph-bold ph-pencil-simple"></i></button><button onclick="deleteNote('${n.id}')" class="text-slate-500 hover:text-red-400 p-1 bg-slate-950/50 rounded"><i class="ph-bold ph-trash"></i></button></div></div><span class="text-[10px] text-slate-500 mb-2">${n.date}</span>${imgHtml}${audioPlayerHtml}<div class="note-html-content text-slate-300 text-sm overflow-y-auto max-h-40 scrollbar-thin ${n.isHtml ? 'whitespace-normal' : 'whitespace-pre-wrap'}">${renderedContent}</div>${linkHtml}<div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800">${actionButtons}</div></div>`;
+                return `<div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col relative overflow-hidden slide-in"><div class="flex justify-between items-start mb-2"><h3 class="text-lg font-bold text-white flex items-center gap-2 truncate pr-2">${icon} <span>${escapeHtml(n.title)}</span></h3><div class="flex space-x-1 shrink-0"><button onclick="openNoteEdit('${n.id}')" class="text-slate-500 hover:text-blue-400 p-1 bg-slate-950/50 rounded" title="展開檢視"><i class="ph-bold ph-arrows-out-simple"></i></button><button onclick="deleteNote('${n.id}')" class="text-slate-500 hover:text-red-400 p-1 bg-slate-950/50 rounded"><i class="ph-bold ph-trash"></i></button></div></div><span class="text-[10px] text-slate-500 mb-2">${n.date}</span>${imgHtml}${audioPlayerHtml}<div class="note-html-content text-slate-300 text-sm overflow-y-auto max-h-40 scrollbar-thin ${n.isHtml ? 'whitespace-normal' : 'whitespace-pre-wrap'} relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-8 after:bg-gradient-to-t after:from-slate-900 after:to-transparent">${renderedContent}</div>${linkHtml}<div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800">${extraAudioButtons}</div><div class="flex flex-wrap items-center gap-2 mt-2">${actionButtons}</div></div>`;
             }).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">無筆記</p>'; 
             
             if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>{
@@ -1121,6 +1129,24 @@
                 
                 if (appState.isLiveMode) toggleLiveMode(true);
                 if (appState.isTranslateMode) toggleTranslateMode(true);
+            }
+        }
+        
+        // --- 聰明上下文控制 (切換記憶模式) ---
+        function toggleContext() {
+            appState.enableContext = !appState.enableContext;
+            const btn = document.getElementById('context-toggle-btn');
+            
+            if (appState.enableContext) {
+                btn.classList.add('bg-blue-600', 'text-white');
+                btn.classList.remove('bg-slate-800', 'text-slate-400');
+                btn.title = "記憶上下文：開啟 (維持連貫對話)";
+                showToast("🧠 已開啟上下文記憶模式");
+            } else {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-slate-800', 'text-slate-400');
+                btn.title = "記憶上下文：關閉 (獨立問答)";
+                showToast("🧠 已關閉上下文記憶模式 (完全獨立問答)");
             }
         }
 
@@ -1453,7 +1479,7 @@
             const n = appState.notes.find(x => String(x.id) === String(id)); if(!n) return;
             document.getElementById('edit-note-id').value = n.id; 
             document.getElementById('edit-note-title').value = n.title || ''; 
-            document.getElementById('note-modal-title-text').innerText = '編輯筆記';
+            document.getElementById('note-modal-title-text').innerText = '檢視與編輯筆記';
             
             const editorContent = n.isHtml ? (n.content || '') : escapeHtml(n.content || '').replace(/\n/g, '<br>');
             document.getElementById('edit-note-content').innerHTML = editorContent;
@@ -2142,7 +2168,11 @@
                     return;
                 }
 
-                let systemPromptAddon = ""; let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled;
+                // ====== 核心系統提示詞增強 ======
+                // 加入「優先且專注回答最新問題」的防錯亂指令
+                let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n"; 
+                let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled;
+                
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
@@ -2271,9 +2301,10 @@
             try {
                 const key = appState.keys[model]; if(!key) throw new Error(`未填寫 ${MODEL_CONFIG[model]?.name || model} API Key`);
                 
-                let chatHistory = appState.messages.filter(m => m.sender === 'user' || m.sender === 'ai').slice(-6);
-                if (appState.isTranslateMode) {
-                    chatHistory = []; 
+                let chatHistory = [];
+                // ✅ 聰明記憶控制：根據大腦按鈕決定是否帶入歷史，並縮減歷史抓取數量以降低錯亂率
+                if (appState.enableContext && !appState.isTranslateMode) {
+                    chatHistory = appState.messages.filter(m => m.sender === 'user' || m.sender === 'ai').slice(-4);
                 }
 
                 const isImageIntent = /^(畫|生成|產生|draw|generate)\s*(一張|一個|圖片|照片|圖|image|photo)/i.test(userText.trim());
@@ -2495,7 +2526,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 81 系統升級完畢！\n\n✅ **「隨手筆記本」正式退役**：將空間釋放給本地筆記本。介面更清爽。\n✅ **本地筆記本 終極進化**：現在支援強大的「原生網頁貼上」(保留原網站圖文與排版)！不僅如此，直接在筆記中貼上 YouTube 網址，系統還會自動幫您轉化為可播放的嵌入式影片！\n✅ **Google Drive 筆記備份支援**：您現在可以將本地的圖文筆記，一鍵安全備份到雲端，跨設備保留重要資料！', 
+                    text: 'NOVA 82 系統升級完畢！\n\n✅ **「劇院級」筆記檢視模式**：新增【檢視與編輯】按鈕，點擊後會展開超大視窗，讓您舒適閱讀富文本排版與播放嵌入影片！\n✅ **雙管齊下防錯亂引擎**：我們在底層加入了強力的「專注最新問題」指令。同時，在對話列新增了 **「🧠 記憶上下文開關」**。若您要轉換全新話題，只需點擊關閉記憶(變灰)，AI 就不會再被歷史紀錄干擾囉！', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
@@ -2510,7 +2541,6 @@
             const hideLiveCaptureEl = document.getElementById('key-hide-live-capture');
             if (hideLiveCaptureEl) hideLiveCaptureEl.checked = appState.hideLiveCapture;
             
-            // ★ 富文本與 YouTube 連結雙支援 Paste 攔截核心處理
             function attachRichPasteHandler(elementId) {
                 const el = document.getElementById(elementId);
                 if (!el) return;
@@ -2519,7 +2549,6 @@
                     if (!clipboardData) return;
                     
                     let plainText = clipboardData.getData('text/plain');
-                    // YouTube 網址攔截偵測
                     let ytMatch = plainText.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s\n]+)/);
                     if (ytMatch && ytMatch[1]) {
                         e.preventDefault();
@@ -2528,7 +2557,6 @@
                         return;
                     }
 
-                    // 檢查是否包含 HTML，讓瀏覽器原生接手排版處理
                     let hasHtmlOrText = false;
                     for (let i = 0; i < clipboardData.types.length; i++) {
                         if (clipboardData.types[i] === 'text/html' || clipboardData.types[i] === 'text/plain') hasHtmlOrText = true;
