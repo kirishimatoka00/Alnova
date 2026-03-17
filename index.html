@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 90</title>
+    <title>NOVA 91</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,7 +86,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 90</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 91</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Edition</p>
                 </div>
             </div>
@@ -109,7 +109,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 90</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 91</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -270,6 +270,14 @@
                          </div>
                          
                          <div class="flex space-x-2 ml-auto shrink-0">
+                             <!-- Grok 子模型選擇 (修復補回) -->
+                             <select id="grok-sub-model-select" onchange="setGrokModel(this.value)" class="hidden bg-slate-800 border border-slate-600 text-slate-100 text-xs rounded-lg px-2 py-1 outline-none focus:border-slate-400 font-medium max-w-[140px] md:max-w-none">
+                                 <option value="grok-multi">⚡ 智慧切換 (Auto)</option>
+                                 <option value="grok-3">Grok 3</option>
+                                 <option value="grok-2-1212">Grok 2</option>
+                                 <option value="grok-2-vision-1212">Grok 2 Vision</option>
+                                 <option value="grok-imagine-image-pro">Grok Imagine (繪圖)</option>
+                             </select>
                              <!-- Gemini 子模型選擇 -->
                              <select id="gemini-sub-model-select" onchange="setGeminiModel(this.value)" class="bg-blue-900 border border-blue-500/50 text-blue-100 text-xs rounded-lg px-2 py-1 outline-none focus:border-blue-400 font-medium max-w-[140px] md:max-w-none">
                                  <option value="gemini-multi">⚡ 智慧切換 (Auto)</option>
@@ -528,7 +536,9 @@
         let recognition = null; let noteRecognition = null; let voiceTimer = null; 
         let chatInitialInput = ""; let noteInitialInput = "";
         let alarmInterval = null; let alarmAudioCtx = null; let mediaRecorder = null; let audioChunks = [];
-        let liveVideoStream = null; let translateBSilenceTimer = null; let translateDiscardNext = false;
+        let liveVideoStream = null; 
+        let vadAudioCtx = null; let vadStream = null; let vadAnalyser = null; let vadInterval = null; 
+        let translateDiscardNext = false;
 
         // --- IndexedDB 資料庫初始化與操作 ---
         const DB_NAME = 'NovaDB'; const DB_VERSION = 2; let db;
@@ -579,11 +589,11 @@
             pendingAnalyzePrompt: "", pendingAnalyzeContextId: null, pendingAnalyzeType: "",
             activeMediaTracks: [], recordingAudioCtx: null,
             voiceTimeout: parseInt(localStorage.getItem('nova_voice_timeout')) || 5,
-            translateBTimeout: parseInt(localStorage.getItem('nova_trans_b_timeout')) || 2, // 預設 2 秒
+            translateBTimeout: parseInt(localStorage.getItem('nova_trans_b_timeout')) || 2,
             hideLiveCapture: localStorage.getItem('nova_hide_live_capture') === 'true',
             isTTSPlaying: false,
             playingMsgId: null,
-            enableContext: false, // 預設關閉
+            enableContext: false,
             replyLength: localStorage.getItem('nova_reply_length') || 'medium',
             ttsRate: localStorage.getItem('nova_tts_rate') || 1.0,
             ttsVoice: localStorage.getItem('nova_tts_voice') || '',
@@ -689,13 +699,28 @@
             reader.readAsText(file);
         };
 
-        // 修復 NOVA 85 定位功能 (確保如果沒有指定手動地點時，抓取真實 Geolocation)
+        async function getCityName(lat, lon) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+                if(!res.ok) return "目前位置";
+                const data = await res.json();
+                return data.address.city || data.address.town || data.address.county || data.address.state || "目前位置";
+            } catch(e) {
+                return "目前位置";
+            }
+        }
+
         function tryGetLocation(isInit = false) {
             if (navigator.geolocation && appState.manualLocIndex === 0) {
                 navigator.geolocation.getCurrentPosition(
-                    (pos) => { 
-                        appState.weather.loc = "目前位置";
-                        fetchWeather(pos.coords.latitude, pos.coords.longitude); 
+                    async (pos) => { 
+                        const lat = pos.coords.latitude;
+                        const lon = pos.coords.longitude;
+                        appState.weather.loc = "定位中...";
+                        renderWeather();
+                        const cityName = await getCityName(lat, lon);
+                        appState.weather.loc = cityName;
+                        fetchWeather(lat, lon);
                     },
                     (err) => { 
                         console.warn("Location error:", err); 
@@ -711,10 +736,14 @@
         }
 
         window.cycleManualLocation = function() {
-            const loc = appState.manualLocs[appState.manualLocIndex];
-            appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length;
-            appState.weather.loc = loc.name;
-            fetchWeather(loc.lat, loc.lon);
+            appState.manualLocIndex = (appState.manualLocIndex + 1) % (appState.manualLocs.length + 1);
+            if (appState.manualLocIndex === 0) {
+                tryGetLocation();
+            } else {
+                const loc = appState.manualLocs[appState.manualLocIndex - 1];
+                appState.weather.loc = loc.name;
+                fetchWeather(loc.lat, loc.lon);
+            }
         };
 
         async function fetchWeather(lat, lon) {
@@ -808,6 +837,7 @@
         window.toggleContext = function() { appState.enableContext = !appState.enableContext; updateModelUI(); showToast(appState.enableContext ? "🧠 已開啟上下文記憶" : "🧠 已關閉上下文記憶 (單次問答)"); };
         window.setModel = function(val) { appState.currentModel = val; updateModelUI(); };
         window.setGeminiModel = function(val) { appState.geminiModel = val; };
+        window.setGrokModel = function(val) { appState.grokModel = val; };
         
         window.updateSendButtonState = function(isThinking) {
             const btn = document.getElementById('send-btn'); const icon = document.getElementById('send-icon');
@@ -1045,6 +1075,13 @@
         function speakText(text, force = false, msgId = null) {
             const shouldAutoPlay = appState.isLiveMode || appState.translateMode !== 'off' || appState.isContinuous;
             if (!shouldAutoPlay && !force) return; 
+
+            if (!text || text.trim() === "") {
+                if (appState.translateMode === 'auto') {
+                     setTimeout(() => { startTranslateBAutoRecord(); }, 300);
+                }
+                return;
+            }
 
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -1457,8 +1494,8 @@
             const tempEl = document.getElementById('weather-temp'); if(tempEl) tempEl.innerText=`${temp}°`; 
             const descEl = document.getElementById('weather-desc'); if(descEl) descEl.innerText=desc; 
             const iconEl = document.getElementById('weather-icon'); if(iconEl) iconEl.className=`ph-fill ${icon} text-4xl ${color}`; 
-            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='未定位'?'定位':`${temp}°`; 
-            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
+            const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText=loc==='定位中...'?'定位中...':`${temp}°`; 
+            const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='定位中...'?'ph-navigation-arrow animate-pulse':icon} ${color}`; 
         }
 
         function updateModelUI(){ 
@@ -1638,8 +1675,8 @@
 
             if (appState.translateMode !== 'off' || forceOff) {
                 appState.translateMode = 'off';
-                btn.classList.remove('text-blue-400');
-                btn.classList.add('text-slate-300');
+                btn.classList.remove('text-blue-400', 'bg-blue-900/30', 'border-blue-500/30');
+                btn.classList.add('text-slate-300', 'bg-slate-800', 'border-slate-700');
                 icon.classList.remove('animate-pulse', 'text-blue-400');
                 textEl.innerText = "即時口譯";
                 
@@ -1655,18 +1692,18 @@
                 }
             } else {
                 if (appState.isLiveMode) toggleLiveMode(false);
-                if (appState.isContinuous) toggleContinuous(); // stop normal continuous
+                if (appState.isContinuous) toggleContinuous();
 
                 appState.translateMode = 'auto';
-                btn.classList.add('text-blue-400');
-                btn.classList.remove('text-slate-300');
+                btn.classList.add('text-blue-400', 'bg-blue-900/30', 'border-blue-500/30');
+                btn.classList.remove('text-slate-300', 'bg-slate-800', 'border-slate-700');
                 icon.classList.add('animate-pulse', 'text-blue-400');
                 textEl.innerText = "口譯中...";
                 
                 addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您說話完畢，等待設定秒數後立即送出翻譯。AI 回覆期間麥克風會自動關閉以防干擾。\n**👉 系統已啟動收音，請直接對著設備說話！**\n*(如需結束，請點擊上方紅燈或直接說出「結束口譯」)*", 'system');
                 speakText("全自動即時口譯已啟動", true);
                 
-                setTimeout(() => { startTranslateBAutoRecord(); }, 1500); // 啟動自動擷取迴圈
+                setTimeout(() => { startTranslateBAutoRecord(); }, 1500); 
                 
                 document.getElementById('plus-menu').classList.add('hidden');
                 document.getElementById('plus-icon').classList.remove('rotate-45');
@@ -1682,18 +1719,55 @@
                 audioChunks = [];
                 translateDiscardNext = false;
                 appState.activeMediaTracks = stream.getTracks();
-                
+
+                // 使用 AudioContext 進行音量靜音偵測 (Voice Activity Detection)
+                vadAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                vadStream = vadAudioCtx.createMediaStreamSource(stream);
+                vadAnalyser = vadAudioCtx.createAnalyser();
+                vadAnalyser.fftSize = 512;
+                vadStream.connect(vadAnalyser);
+                const bufferLength = vadAnalyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                let isSpeaking = false;
+                let silenceStart = Date.now();
+
+                vadInterval = setInterval(() => {
+                    if (appState.translateMode !== 'auto') {
+                        clearInterval(vadInterval);
+                        return;
+                    }
+                    vadAnalyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for(let i = 0; i < bufferLength; i++) { sum += dataArray[i]; }
+                    let avgVolume = sum / bufferLength;
+
+                    const THRESHOLD = 5; // 觸發音量門檻
+                    if (avgVolume > THRESHOLD) {
+                        isSpeaking = true;
+                        silenceStart = Date.now(); // 重置靜音計時
+                    } else {
+                        if (isSpeaking) {
+                            let silentDuration = (Date.now() - silenceStart) / 1000;
+                            if (silentDuration >= appState.translateBTimeout) {
+                                isSpeaking = false;
+                                clearInterval(vadInterval);
+                                stopTranslateBAndSend(false); // 觸發送出
+                            }
+                        } else {
+                            silenceStart = Date.now(); // 尚未開始說話，鎖住計時
+                        }
+                    }
+                }, 100);
+
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = processTranslateB;
                 mediaRecorder.start();
-                
+
                 document.getElementById('recording-status').classList.remove('hidden'); 
                 document.getElementById('recording-status').classList.add('flex');
-                document.getElementById('recording-status-text').innerText = "🔊 聆聽中... (自動擷取)";
+                document.getElementById('recording-status-text').innerText = "🔊 聆聽中... (說完自動翻譯)";
                 
-                if (recognition) {
-                    try { recognition.start(); } catch(e){}
-                }
             } catch (err) {
                 addMessage("⚠️ 無法啟動錄音麥克風，請檢查權限。", 'system');
                 toggleTranslateMode(true);
@@ -1702,6 +1776,10 @@
 
         function stopTranslateBAndSend(discard = false) {
             translateDiscardNext = discard;
+            
+            if (vadInterval) clearInterval(vadInterval);
+            if (vadAudioCtx) { vadAudioCtx.close().catch(e=>{}); vadAudioCtx = null; }
+
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
             }
@@ -1710,6 +1788,7 @@
                 appState.activeMediaTracks = [];
             }
             if (recognition) { try { recognition.abort(); } catch(e){} }
+            
             document.getElementById('recording-status').classList.add('hidden');
             document.getElementById('recording-status').classList.remove('flex');
         }
@@ -1717,10 +1796,9 @@
         async function processTranslateB() {
             if (audioChunks.length === 0 || translateDiscardNext) {
                 audioChunks = [];
-                return; // Discarded or empty
+                return; 
             }
             
-            // 麥克風此時已完全關閉
             const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
             audioChunks = [];
             
@@ -1910,7 +1988,6 @@
         }
 
         function stopAudioRecording() {
-            // Hijack the recording status click to also stop auto-translate
             if (appState.translateMode === 'auto') {
                 toggleTranslateMode(true);
                 return;
@@ -2276,7 +2353,7 @@
                 let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n"; 
                 let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled;
                 
-                if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位') {
+                if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
 
@@ -2597,7 +2674,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 90 系統升級完畢！\n\n✅ **全自動語音直譯專精**：已移除舊版繁瑣的文字模式，現在只要啟動即時口譯，系統即會全自動開關麥克風，無縫雙向互譯。\n✅ **定位修復**：天氣與所在地定位功能已恢復正常！\n✅ **快捷指令支援**：直接打字或說出「啟動即時口譯」、「結束口譯」即可立刻操作！', 
+                    text: 'NOVA 91 系統升級完畢！\n\n✅ **全自動語音直譯專精**：已移除舊版繁瑣的文字模式，現在只要啟動即時口譯，系統即會全自動開關麥克風，無縫雙向互譯。\n✅ **定位修復**：天氣與所在地定位功能已恢復正常！\n✅ **快捷指令支援**：直接打字或說出「啟動即時口譯」、「結束口譯」即可立刻操作！', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
@@ -2672,6 +2749,7 @@
                 };
                 
                 recognition.onresult = (e) => {
+                    if (appState.translateMode === 'auto') return; // 強制阻斷直譯模式下的語音轉文字
                     if (appState.isTTSPlaying) return;
 
                     let finalT = "";
@@ -2699,14 +2777,7 @@
                     input.value = (chatInitialInput + (interimT ? " " + interimT : "")).trim(); 
                     autoResizeInput(input);
 
-                    // 處理 Translate Mode 的全自動停頓送出
-                    if (appState.translateMode === 'auto') {
-                        document.getElementById('recording-status-text').innerText = "🔊 接收音訊中... (自動擷取)";
-                        clearTimeout(translateBSilenceTimer);
-                        translateBSilenceTimer = setTimeout(() => {
-                            stopTranslateBAndSend(false);
-                        }, appState.translateBTimeout * 1000);
-                    } else if (document.getElementById('recording-status').classList.contains('hidden')) { 
+                    if (document.getElementById('recording-status').classList.contains('hidden')) { 
                         if (voiceTimer) clearTimeout(voiceTimer); 
                         voiceTimer = setTimeout(() => { 
                             if(input.value.trim() !== '' && !appState.isThinking) handleSendMessage(); 
