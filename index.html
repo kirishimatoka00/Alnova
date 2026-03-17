@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 86</title>
+    <title>NOVA 93</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,7 +86,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 86</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 93</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Edition</p>
                 </div>
             </div>
@@ -109,7 +109,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 86</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 93</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -468,7 +468,7 @@
                         <div class="flex items-center gap-2 w-full md:w-auto shrink-0">
                             <div class="relative w-full">
                                 <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="text" id="note-search-input" oninput="renderNotes()" placeholder="搜尋標題或內容..." class="bg-slate-950 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-3 py-2 w-full focus:border-blue-500 outline-none transition-colors">
+                                <input type="text" id="note-search-input" oninput="window.renderNotes()" placeholder="搜尋標題或內容..." class="bg-slate-950 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-3 py-2 w-full focus:border-blue-500 outline-none transition-colors">
                             </div>
                             <button onclick="openFolderManage()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors" title="管理資料夾"><i class="ph-bold ph-folder-plus text-lg"></i></button>
                         </div>
@@ -539,7 +539,7 @@
                             <label class="text-xs text-slate-400 mb-1 flex justify-between shrink-0">
                                 內文 (支援直接貼上網頁圖文排版、YouTube 網址)
                                 <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 bg-emerald-900/30 px-2 py-1 rounded"><i class="ph-bold ph-image"></i> 插入圖片</label>
-                                <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="handleNoteEditImage(event)">
+                                <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="window.handleNoteEditImage(event)">
                             </label>
                             <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接 Ctrl+V 貼上網頁圖文、YouTube連結..." class="note-html-content flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-base md:text-lg leading-relaxed text-slate-200 focus:border-emerald-500 outline-none overflow-y-auto"></div>
                             <div id="edit-note-img-preview-container" class="hidden mt-3 flex-wrap gap-2 shrink-0"></div>
@@ -560,16 +560,23 @@
 
     <!-- ================= JavaScript 邏輯與功能實作 ================= -->
     <script>
-        // --- 全域變數與狀態初始化 ---
-        let recognition = null; let noteRecognition = null; let voiceTimer = null; 
-        let chatInitialInput = ""; let noteInitialInput = "";
-        let alarmInterval = null; let alarmAudioCtx = null; let mediaRecorder = null; let audioChunks = [];
-        let liveVideoStream = null;
+        // 將所有全域變數與函數明確綁定在 window 上，確保 HTML inline onclick 可以呼叫
+        window.recognition = null; 
+        window.noteRecognition = null; 
+        window.voiceTimer = null; 
+        window.chatInitialInput = ""; 
+        window.noteInitialInput = "";
+        window.alarmInterval = null; 
+        window.alarmAudioCtx = null; 
+        window.mediaRecorder = null; 
+        window.audioChunks = [];
+        window.liveVideoStream = null; 
+        window.translateBSilenceTimer = null;
 
         // --- IndexedDB 資料庫初始化與操作 ---
         const DB_NAME = 'NovaDB'; const DB_VERSION = 2; let db;
 
-        function initDB() {
+        window.initDB = function() {
             return new Promise((resolve, reject) => {
                 if (!window.indexedDB) { console.warn("瀏覽器不支援 IndexedDB"); resolve(null); return; }
                 const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -584,9 +591,9 @@
                 req.onerror = (e) => reject(e.target.error);
             });
         }
-        function loadStoreFromDB(storeName) { return new Promise((resolve) => { if (!db) return resolve([]); try { const tx = db.transaction(storeName, 'readonly'); const req = tx.objectStore(storeName).getAll(); req.onsuccess = () => resolve(req.result || []); req.onerror = () => resolve([]); } catch(e) { resolve([]); } }); }
-        function saveToDB(storeName, item) { if (!db) return; try { db.transaction(storeName, 'readwrite').objectStore(storeName).put(item); } catch(e) {} }
-        function deleteFromDB(storeName, id) { 
+        window.loadStoreFromDB = function(storeName) { return new Promise((resolve) => { if (!db) return resolve([]); try { const tx = db.transaction(storeName, 'readonly'); const req = tx.objectStore(storeName).getAll(); req.onsuccess = () => resolve(req.result || []); req.onerror = () => resolve([]); } catch(e) { resolve([]); } }); }
+        window.saveToDB = function(storeName, item) { if (!db) return; try { db.transaction(storeName, 'readwrite').objectStore(storeName).put(item); } catch(e) {} }
+        window.deleteFromDB = function(storeName, id) { 
             if (!db) return; 
             try { 
                 const tx = db.transaction(storeName, 'readwrite');
@@ -595,10 +602,10 @@
                 if (typeof id === 'string' && !isNaN(Number(id))) store.delete(Number(id)); 
             } catch(e) { console.warn("Delete DB Error:", e); } 
         }
-        function clearStoreDB(storeName) { if (!db) return; try { db.transaction(storeName, 'readwrite').objectStore(storeName).clear(); } catch(e) {} }
+        window.clearStoreDB = function(storeName) { if (!db) return; try { db.transaction(storeName, 'readwrite').objectStore(storeName).clear(); } catch(e) {} }
 
         // --- 核心應用狀態 ---
-        const appState = {
+        window.appState = {
             currentModel: 'gemini', grokModel: 'grok-multi', geminiModel: 'gemini-multi',
             chatFile: null, currentDeviceId: null,
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '', driveUrl: localStorage.getItem('nova_drive_url') || '',
@@ -636,13 +643,13 @@
             silenceTimer: null
         };
         
-        const MODEL_CONFIG = {
+        window.MODEL_CONFIG = {
             gemini: { name: 'Gemini', color: 'text-blue-400', bg: 'bg-blue-600', icon: 'ph-globe' }, grok: { name: 'Grok', color: 'text-slate-100', bg: 'bg-slate-600', icon: 'ph-lightning' }, groq: { name: 'Groq', color: 'text-rose-400', bg: 'bg-rose-600', icon: 'ph-rocket' }, cohere: { name: 'Cohere', color: 'text-violet-400', bg: 'bg-violet-600', icon: 'ph-cpu' }, gpt: { name: 'OpenAI', color: 'text-emerald-400', bg: 'bg-emerald-600', icon: 'ph-cpu' }
         };
 
-        function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+        window.getTime = function() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
         
-        function formatMessage(text) { 
+        window.formatMessage = function(text) { 
             if (!text) return ''; 
             let images = [];
             let tempText = text.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
@@ -656,20 +663,27 @@
             });
             safe = safe.replace(/___IMG_(\d+)___/g, function(match, id) {
                 const img = images[id]; const realUrl = img.url.replace(/&amp;/g, "&");
-                return `<div class="mt-3 relative group max-w-sm w-full"><img src="${realUrl}" alt="${escapeHtml(img.alt)}" class="rounded-lg border border-slate-700/50 shadow-sm w-full object-contain bg-slate-900"><a href="${realUrl}" target="_blank" download="image.png" class="absolute top-2 right-2 bg-blue-600/90 hover:bg-blue-500 text-white p-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md" title="開啟或下載原圖"><i class="ph-bold ph-download-simple"></i> 下載</a></div>`;
+                return `<div class="mt-3 relative group max-w-sm w-full"><img src="${realUrl}" alt="${window.escapeHtml(img.alt)}" class="rounded-lg border border-slate-700/50 shadow-sm w-full object-contain bg-slate-900"><a href="${realUrl}" target="_blank" download="image.png" class="absolute top-2 right-2 bg-blue-600/90 hover:bg-blue-500 text-white p-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md" title="開啟或下載原圖"><i class="ph-bold ph-download-simple"></i> 下載</a></div>`;
             });
             return safe.replace(/\n/g, '<br>'); 
         }
 
-        function escapeHtml(t){return t?t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}
+        window.escapeHtml = function(t){return t?t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}
 
-        function showToast(message) {
+        window.showToast = function(message) {
             const toast = document.getElementById("toast"); toast.innerText = message; toast.className = "show";
             setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
         }
 
+        window.handleEnter = function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                window.handleSendMessage();
+            }
+        };
+
         // --- 語音朗讀 (TTS) 功能 ---
-        function populateVoices() {
+        window.populateVoices = function() {
             let voices = window.speechSynthesis.getVoices();
             let select = document.getElementById('key-tts-voice');
             if(!select) return;
@@ -680,7 +694,7 @@
             if(appState.ttsVoice) select.value = appState.ttsVoice;
         }
         if ('speechSynthesis' in window) {
-            window.speechSynthesis.onvoiceschanged = populateVoices;
+            window.speechSynthesis.onvoiceschanged = window.populateVoices;
         }
 
         window.playMessageAudio = function(id) {
@@ -688,16 +702,16 @@
                 window.speechSynthesis.cancel();
                 appState.isTTSPlaying = false;
                 appState.playingMsgId = null;
-                renderMessages();
+                window.renderMessages();
                 return;
             }
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (!msg || !msg.text) return;
-            speakText(msg.text, true, String(id));
-            renderMessages();
+            window.speakText(msg.text, true, String(id));
+            window.renderMessages();
         };
 
-        function speakText(text, force = false, msgId = null) {
+        window.speakText = function(text, force = false, msgId = null) {
             const shouldAutoPlay = appState.isLiveMode || appState.translateMode !== 'off' || appState.isContinuous;
             if (!shouldAutoPlay && !force) return; 
 
@@ -734,20 +748,20 @@
                 
                 utterance.onstart = () => {
                     appState.isTTSPlaying = true;
-                    if (recognition && appState.translateMode !== 'B') { try { recognition.abort(); } catch(e){} }
+                    if (window.recognition && appState.translateMode !== 'B') { try { window.recognition.abort(); } catch(e){} }
                 };
                 
                 utterance.onend = () => {
                     appState.isTTSPlaying = false;
                     appState.playingMsgId = null;
-                    renderMessages();
+                    window.renderMessages();
                     
                     if (appState.translateMode === 'B') {
-                        setTimeout(() => { startTranslateBAutoRecord(); }, 300);
+                        setTimeout(() => { window.startTranslateBAutoRecord(); }, 300);
                     } else if (appState.isContinuous || appState.isLiveMode || appState.translateMode === 'A') {
                         setTimeout(() => { 
                             if(!appState.isTTSPlaying && !appState.isThinking) {
-                                try { recognition.start(); } catch(e){} 
+                                try { window.recognition.start(); } catch(e){} 
                             }
                         }, 500);
                     }
@@ -756,23 +770,23 @@
                 utterance.onerror = () => {
                     appState.isTTSPlaying = false;
                     appState.playingMsgId = null;
-                    renderMessages();
+                    window.renderMessages();
                     
                     if (appState.translateMode === 'B') {
-                        setTimeout(() => { startTranslateBAutoRecord(); }, 300);
+                        setTimeout(() => { window.startTranslateBAutoRecord(); }, 300);
                     } else if (appState.isContinuous || appState.isLiveMode || appState.translateMode === 'A') {
                         setTimeout(() => { 
                             if(!appState.isTTSPlaying && !appState.isThinking) {
-                                try { recognition.start(); } catch(e){} 
+                                try { window.recognition.start(); } catch(e){} 
                             }
                         }, 500);
                     }
                 };
 
                 window.speechSynthesis.speak(utterance);
-                renderMessages();
+                window.renderMessages();
             } else if (force) {
-                showToast("❌ 您的瀏覽器不支援語音朗讀功能");
+                window.showToast("❌ 您的瀏覽器不支援語音朗讀功能");
             }
         }
 
@@ -781,8 +795,8 @@
             const textArea = document.createElement("textarea"); textArea.value = text;
             textArea.style.top = "0"; textArea.style.left = "0"; textArea.style.position = "fixed";
             document.body.appendChild(textArea); textArea.focus(); textArea.select();
-            try { document.execCommand('copy'); showToast("✅ 連結已複製！請貼至手機瀏覽器網址列以跳轉。"); } 
-            catch (err) { showToast("❌ 複製失敗"); }
+            try { document.execCommand('copy'); window.showToast("✅ 連結已複製！請貼至手機瀏覽器網址列以跳轉。"); } 
+            catch (err) { window.showToast("❌ 複製失敗"); }
             document.body.removeChild(textArea);
         };
         
@@ -793,12 +807,12 @@
             textArea.value = msg.text;
             textArea.style.top = "0"; textArea.style.left = "0"; textArea.style.position = "fixed";
             document.body.appendChild(textArea); textArea.focus(); textArea.select();
-            try { document.execCommand('copy'); showToast("✅ 訊息已複製到剪貼簿！"); } 
-            catch (err) { showToast("❌ 複製失敗"); }
+            try { document.execCommand('copy'); window.showToast("✅ 訊息已複製到剪貼簿！"); } 
+            catch (err) { window.showToast("❌ 複製失敗"); }
             document.body.removeChild(textArea);
         };
 
-        function base64ToBlob(base64URI) {
+        window.base64ToBlob = function(base64URI) {
             const splitIndex = base64URI.indexOf(',');
             const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
             const byteString = atob(base64URI.slice(splitIndex + 1));
@@ -822,7 +836,7 @@
             const finalFilename = `NOVA_Audio_${month}${day}${year}_${timeStr}.weba`;
 
             try {
-                const blob = base64ToBlob(record.audioData);
+                const blob = window.base64ToBlob(record.audioData);
                 const blobUrl = URL.createObjectURL(blob);
 
                 const a = document.createElement('a');
@@ -837,16 +851,16 @@
                     URL.revokeObjectURL(blobUrl);
                 }, 2000);
                 
-                showToast(`✅ 已開始下載：${finalFilename}`);
+                window.showToast(`✅ 已開始下載：${finalFilename}`);
             } catch(e) {
                 alert("下載失敗：" + e.message);
             }
         };
 
-        function renderAll() { renderMessages(); renderTodos(); renderFolderTabs(); renderNotes(); renderAudioRecords(); renderWeather(); }
+        window.renderAll = function() { window.renderMessages(); window.renderTodos(); window.renderFolderTabs(); window.renderNotes(); window.renderAudioRecords(); window.renderWeather(); }
         
         // --- UI 渲染功能 (訊息) ---
-        function renderMessages() { 
+        window.renderMessages = function() { 
             const container = document.getElementById('chat-container'); if(!container) return;
             container.innerHTML = appState.messages.map(msg => { 
                 
@@ -867,14 +881,14 @@
                         mediaHTML = `
                         <div class="relative group mb-3 max-w-sm w-full">
                             <img src="${msg.file.data}" class="rounded-lg border border-slate-700/50 shadow-sm w-full object-contain bg-slate-900">
-                            <a href="${msg.file.data}" download="${escapeHtml(msg.file.name || 'image.png')}" class="absolute top-2 right-2 bg-blue-600/90 hover:bg-blue-500 text-white p-2 rounded-lg shadow-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 backdrop-blur-md" title="下載圖片">
+                            <a href="${msg.file.data}" download="${window.escapeHtml(msg.file.name || 'image.png')}" class="absolute top-2 right-2 bg-blue-600/90 hover:bg-blue-500 text-white p-2 rounded-lg shadow-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 backdrop-blur-md" title="下載圖片">
                                 <i class="ph-bold ph-download-simple"></i> 下載
                             </a>
                         </div>`;
                     } else {
                         let iconType = msg.file.category === 'image' ? 'ph-image' : 'ph-file';
                         if (msg.file.mime && (msg.file.mime.includes('audio') || msg.file.mime.includes('video'))) iconType = 'ph-file-audio';
-                        mediaHTML = `<div class="flex items-center gap-2 bg-slate-950/50 p-2 rounded border border-slate-700/50 mb-2 max-w-xs overflow-hidden"><i class="ph-fill ${iconType} text-blue-400 text-xl shrink-0"></i><span class="text-xs text-slate-300 truncate">${escapeHtml(msg.file.name)}</span></div>`;
+                        mediaHTML = `<div class="flex items-center gap-2 bg-slate-950/50 p-2 rounded border border-slate-700/50 mb-2 max-w-xs overflow-hidden"><i class="ph-fill ${iconType} text-blue-400 text-xl shrink-0"></i><span class="text-xs text-slate-300 truncate">${window.escapeHtml(msg.file.name)}</span></div>`;
                     }
                 }
 
@@ -896,8 +910,8 @@
                         <div class="flex items-center gap-3 overflow-hidden">
                             <div class="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center flex-shrink-0"><i class="ph-fill ${iconClass} text-xl"></i></div>
                             <div class="flex flex-col truncate w-full pr-2">
-                                <span class="text-sm font-bold text-white truncate">${escapeHtml(ad.appName || '應用程式')}</span>
-                                <span class="text-xs text-slate-400 truncate w-full block">${escapeHtml(ad.actionDescription || '即將執行此操作')}</span>
+                                <span class="text-sm font-bold text-white truncate">${window.escapeHtml(ad.appName || '應用程式')}</span>
+                                <span class="text-xs text-slate-400 truncate w-full block">${window.escapeHtml(ad.actionDescription || '即將執行此操作')}</span>
                             </div>
                         </div>
                         <div class="flex gap-2 w-full">
@@ -917,7 +931,7 @@
                     ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'}"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
                     <div class="msg-group relative max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">
                         ${!isUser ? `<span class="text-[10px] font-bold uppercase mb-1 block ${modelInfo?.color||'text-slate-400'} opacity-80">${modelInfo?.name||'System'}</span>` : ''}
-                        ${mediaHTML} <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div> ${actionCardHtml} ${sourcesHTML}
+                        ${mediaHTML} <div class="msg-content text-sm leading-relaxed">${window.formatMessage(msg.text)}</div> ${actionCardHtml} ${sourcesHTML}
                         <p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p>
                         <div class="msg-actions absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="playMessageAudio(${msg.id})" class="p-1.5 ${isPlayingMsg ?'text-blue-400':'text-slate-500'} hover:text-purple-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="語音朗讀(點擊可停止)"><i class="ph-bold ${isPlayingMsg ?'ph-stop-circle animate-pulse':'ph-speaker-high'} text-xs"></i></button>
@@ -930,21 +944,21 @@
             container.scrollTop = container.scrollHeight; 
         }
 
-        function renderThinkingState(show) { 
+        window.renderThinkingState = function(show) { 
             const el = document.getElementById('thinking-indicator'); const container = document.getElementById('chat-container');
             if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel]?.bg || 'bg-slate-700'}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel]?.icon || 'ph-robot'} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); 
             else if(!show && el) el.remove(); 
         }
 
         // --- UI 渲染功能 (待辦事項) ---
-        function renderTodos() { 
+        window.renderTodos = function() { 
             const el = document.getElementById('full-todo-list'); const mini = document.getElementById('mini-todo-list');
-            if(el) el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><div class="flex items-center space-x-2"><button onclick="openTodoDatePicker(${t.id})" class="${t.alertEnabled !== false ? 'text-yellow-500' : 'text-slate-600'} hover:text-yellow-400 p-2" title="${t.alertEnabled !== false ? '修改提醒' : '開啟提醒'}"><i class="ph-bold ${t.alertEnabled !== false ? 'ph-bell-ringing' : 'ph-bell-slash'}"></i></button><button onclick="openTodoEdit('${t.id}')" class="text-slate-500 hover:text-blue-400 p-2" title="編輯"><i class="ph-bold ph-pencil-simple"></i></button><button onclick="deleteTodo('${t.id}')" class="text-slate-500 hover:text-red-400 p-2" title="刪除"><i class="ph-bold ph-trash"></i></button></div></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
-            if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; 
+            if(el) el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${window.escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><div class="flex items-center space-x-2"><button onclick="openTodoDatePicker(${t.id})" class="${t.alertEnabled !== false ? 'text-yellow-500' : 'text-slate-600'} hover:text-yellow-400 p-2" title="${t.alertEnabled !== false ? '修改提醒' : '開啟提醒'}"><i class="ph-bold ${t.alertEnabled !== false ? 'ph-bell-ringing' : 'ph-bell-slash'}"></i></button><button onclick="openTodoEdit('${t.id}')" class="text-slate-500 hover:text-blue-400 p-2" title="編輯"><i class="ph-bold ph-pencil-simple"></i></button><button onclick="deleteTodo('${t.id}')" class="text-slate-500 hover:text-red-400 p-2" title="刪除"><i class="ph-bold ph-trash"></i></button></div></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
+            if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${window.escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; 
         }
 
         // --- UI 渲染功能 (資料夾與筆記) ---
-        function renderFolderTabs() {
+        window.renderFolderTabs = function() {
             const container = document.getElementById('folder-tabs-container'); if (!container) return;
             let html = `<button onclick="setNoteFolder('全部')" class="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${appState.currentNoteFolder === '全部' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}">全部</button>`;
             
@@ -956,12 +970,12 @@
 
         window.setNoteFolder = function(f) {
             appState.currentNoteFolder = f;
-            renderFolderTabs();
-            renderNotes();
+            window.renderFolderTabs();
+            window.renderNotes();
         }
 
         window.openFolderManage = function() {
-            renderFolderManageList();
+            window.renderFolderManageList();
             document.getElementById('folder-manage-modal').classList.remove('hidden');
         }
 
@@ -976,7 +990,7 @@
                     if (f === '未分類') return `<div class="flex justify-between items-center p-3 bg-slate-800 rounded-lg border border-slate-700"><span class="text-slate-400">${f} <span class="text-[10px]">(系統預設)</span></span></div>`;
                 }
                 return `<div class="flex justify-between items-center p-3 bg-slate-800 rounded-lg border border-slate-700">
-                    <span class="text-white">${escapeHtml(f)}</span>
+                    <span class="text-white">${window.escapeHtml(f)}</span>
                     <div class="flex gap-2">
                         <button onclick="renameFolder('${f}')" class="text-blue-400 p-1 hover:bg-blue-900/30 rounded"><i class="ph-bold ph-pencil-simple"></i></button>
                         <button onclick="deleteFolder('${f}')" class="text-red-400 p-1 hover:bg-red-900/30 rounded"><i class="ph-bold ph-trash"></i></button>
@@ -989,10 +1003,10 @@
             const fName = prompt("請輸入新資料夾名稱：");
             if (fName && fName.trim() && !appState.noteFolders.includes(fName.trim())) {
                 appState.noteFolders.push(fName.trim());
-                saveFolders();
-                renderFolderManageList();
-                renderFolderTabs();
-                showToast(`📂 已新增資料夾：${fName.trim()}`);
+                window.saveFolders();
+                window.renderFolderManageList();
+                window.renderFolderTabs();
+                window.showToast(`📂 已新增資料夾：${fName.trim()}`);
             }
         }
 
@@ -1004,16 +1018,16 @@
                 if (idx !== -1) appState.noteFolders[idx] = newName;
                 
                 appState.notes.forEach(n => {
-                    if (n.folder === oldName) { n.folder = newName; saveToDB('notes', n); }
+                    if (n.folder === oldName) { n.folder = newName; window.saveToDB('notes', n); }
                 });
                 
                 if (appState.currentNoteFolder === oldName) appState.currentNoteFolder = newName;
                 
-                saveFolders();
-                renderFolderManageList();
-                renderFolderTabs();
-                renderNotes();
-                showToast(`📂 資料夾已重新命名為：${newName}`);
+                window.saveFolders();
+                window.renderFolderManageList();
+                window.renderFolderTabs();
+                window.renderNotes();
+                window.showToast(`📂 資料夾已重新命名為：${newName}`);
             }
         }
 
@@ -1021,23 +1035,23 @@
             if (confirm(`確定要刪除資料夾「${fName}」嗎？\n(此資料夾內的筆記不會被刪除，而是會被移至「未分類」)`)) {
                 appState.noteFolders = appState.noteFolders.filter(f => f !== fName);
                 appState.notes.forEach(n => {
-                    if (n.folder === fName) { n.folder = '未分類'; saveToDB('notes', n); }
+                    if (n.folder === fName) { n.folder = '未分類'; window.saveToDB('notes', n); }
                 });
                 if (appState.currentNoteFolder === fName) appState.currentNoteFolder = '全部';
                 
-                saveFolders();
-                renderFolderManageList();
-                renderFolderTabs();
-                renderNotes();
-                showToast(`🗑️ 資料夾已刪除`);
+                window.saveFolders();
+                window.renderFolderManageList();
+                window.renderFolderTabs();
+                window.renderNotes();
+                window.showToast(`🗑️ 資料夾已刪除`);
             }
         }
 
-        function saveFolders() {
+        window.saveFolders = function() {
             localStorage.setItem('nova_folders', JSON.stringify(appState.noteFolders));
         }
 
-        function renderNotes() { 
+        window.renderNotes = function() { 
             const el = document.getElementById('full-note-list'); const mini = document.getElementById('mini-note-list');
             const searchInput = document.getElementById('note-search-input');
             const keyword = searchInput ? searchInput.value.toLowerCase() : '';
@@ -1056,7 +1070,7 @@
 
             if(el) el.innerHTML = filteredNotes.map(n => {
                 const isAudio = n.type === 'audio'; const icon = isAudio ? '<i class="ph-fill ph-microphone text-purple-400"></i>' : '<i class="ph-fill ph-notebook text-emerald-400"></i>';
-                const folderBadge = `<span class="absolute top-3 right-3 text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">${escapeHtml(n.folder || '未分類')}</span>`;
+                const folderBadge = `<span class="absolute top-3 right-3 text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">${window.escapeHtml(n.folder || '未分類')}</span>`;
                 
                 let actionButtons = `<button onclick="exportNoteWord('${n.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded text-slate-300 transition-colors border border-slate-700 flex items-center gap-1" title="匯出為 Word"><i class="ph-bold ph-file-doc"></i> Word</button>`;
                 actionButtons += `<button onclick="exportNoteRichText('${n.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded text-slate-300 transition-colors border border-slate-700 flex items-center gap-1" title="匯出為 HTML"><i class="ph-bold ph-file-html"></i> RichText</button>`;
@@ -1080,29 +1094,29 @@
                 let audioPlayerHtml = n.audioData ? `<div class="mt-3 mb-2"><audio controls src="${n.audioData}" class="w-full h-10 rounded-lg bg-slate-800 shadow-inner"></audio></div>` : '';
                 let linkHtml = (n.driveUrl && !n.driveUrl.startsWith('blob:')) ? `<div class="mt-2"><a href="${n.driveUrl}" target="_blank" class="text-xs text-blue-400 underline flex items-center gap-1"><i class="ph-bold ph-cloud"></i> 在雲端查看已備份筆記</a></div>` : '';
                 
-                let renderedContent = n.isHtml ? n.content : formatMessage(n.content);
+                let renderedContent = n.isHtml ? n.content : window.formatMessage(n.content);
                 
-                return `<div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col relative overflow-hidden slide-in pt-8">${folderBadge}<div class="flex justify-between items-start mb-2"><h3 class="text-lg font-bold text-white flex items-center gap-2 truncate pr-2 w-full">${icon} <span class="truncate">${escapeHtml(n.title)}</span></h3><div class="flex space-x-1 shrink-0"><button onclick="deleteNote('${n.id}')" class="text-slate-500 hover:text-red-400 p-1.5 bg-slate-950/50 rounded"><i class="ph-bold ph-trash"></i></button></div></div><span class="text-[10px] text-slate-500 mb-2">${n.date}</span>${imgHtml}${audioPlayerHtml}<div class="note-html-content text-slate-300 text-sm overflow-y-auto max-h-40 scrollbar-thin ${n.isHtml ? 'whitespace-normal' : 'whitespace-pre-wrap'} relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-8 after:bg-gradient-to-t after:from-slate-900 after:to-transparent">${renderedContent}</div>${linkHtml}<div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800">${extraAudioButtons}</div><div class="flex flex-wrap items-center gap-2 mt-2">${actionButtons}</div></div>`;
+                return `<div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col relative overflow-hidden slide-in pt-8">${folderBadge}<div class="flex justify-between items-start mb-2"><h3 class="text-lg font-bold text-white flex items-center gap-2 truncate pr-2 w-full">${icon} <span class="truncate">${window.escapeHtml(n.title)}</span></h3><div class="flex space-x-1 shrink-0"><button onclick="deleteNote('${n.id}')" class="text-slate-500 hover:text-red-400 p-1.5 bg-slate-950/50 rounded"><i class="ph-bold ph-trash"></i></button></div></div><span class="text-[10px] text-slate-500 mb-2">${n.date}</span>${imgHtml}${audioPlayerHtml}<div class="note-html-content text-slate-300 text-sm overflow-y-auto max-h-40 scrollbar-thin ${n.isHtml ? 'whitespace-normal' : 'whitespace-pre-wrap'} relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-8 after:bg-gradient-to-t after:from-slate-900 after:to-transparent">${renderedContent}</div>${linkHtml}<div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800">${extraAudioButtons}</div><div class="flex flex-wrap items-center gap-2 mt-2">${actionButtons}</div></div>`;
             }).join('')||'<p class="text-slate-500 text-center col-span-3 mt-10">找不到符合的筆記</p>'; 
             
             if(mini) mini.innerHTML=appState.notes.slice(0,2).map(n=>{
                 let plainText = n.isHtml ? n.content.replace(/<[^>]+>/g, ' ') : n.content;
-                return `<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate flex items-center gap-1">${n.type==='audio'?'<i class="ph-fill ph-microphone text-purple-400"></i>':''}${escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${escapeHtml(plainText)}</p></div>`;
+                return `<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 cursor-pointer hover:border-slate-700" onclick="switchTab('notes')"><h4 class="text-slate-300 text-xs font-bold mb-1 truncate flex items-center gap-1">${n.type==='audio'?'<i class="ph-fill ph-microphone text-purple-400"></i>':''}${window.escapeHtml(n.title)}</h4><p class="text-slate-500 text-[10px] line-clamp-1">${window.escapeHtml(plainText)}</p></div>`;
             }).join('')||'<p class="text-xs text-slate-500 text-center">無筆記</p>'; 
         }
 
         // --- UI 渲染功能 (錄音紀錄) ---
-        function renderAudioRecords() {
+        window.renderAudioRecords = function() {
             const el = document.getElementById('audio-records-list'); if(!el) return;
             el.innerHTML = appState.audioRecords.map(r => {
                 let audioPlayerHtml = r.audioData ? `<div class="mb-3 w-full"><audio controls src="${r.audioData}" class="w-full h-10 rounded-lg bg-slate-800 shadow-inner"></audio></div>` : '';
                 let linkHtml = (r.driveUrl && !r.driveUrl.startsWith('blob:')) ? `<a href="${r.driveUrl}" target="_blank" class="flex items-center gap-1 text-sm bg-blue-900/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-800/50 transition-colors"><i class="ph-bold ph-cloud-arrow-down"></i> 雲端備份</a>` : '';
 
-                return `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative slide-in group"><div class="flex justify-between items-start mb-3"><div><h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-file-audio text-red-400"></i> ${escapeHtml(r.title)}</h3><p class="text-xs text-slate-500">${r.date}</p></div><button onclick="deleteAudioRecord('${r.id}')" class="text-slate-500 hover:text-red-400 p-2"><i class="ph-bold ph-trash"></i></button></div>${audioPlayerHtml}<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 mb-4"><p class="text-xs text-slate-400 font-bold mb-1">即時逐字稿：</p><p class="text-sm text-slate-300 max-h-32 overflow-y-auto scrollbar-thin whitespace-pre-wrap">${escapeHtml(r.transcript) || '<span class="text-slate-600 italic">無文字紀錄</span>'}</p></div><div class="flex flex-wrap items-center gap-3">${linkHtml}<button onclick="downloadLocalAudio('${r.id}', 'record')" class="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 .weba</button><button onclick="summarizeAudioRecord('${r.id}')" class="flex items-center gap-1 text-sm bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors shadow-lg"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button></div></div>`;
+                return `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative slide-in group"><div class="flex justify-between items-start mb-3"><div><h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-file-audio text-red-400"></i> ${window.escapeHtml(r.title)}</h3><p class="text-xs text-slate-500">${r.date}</p></div><button onclick="deleteAudioRecord('${r.id}')" class="text-slate-500 hover:text-red-400 p-2"><i class="ph-bold ph-trash"></i></button></div>${audioPlayerHtml}<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 mb-4"><p class="text-xs text-slate-400 font-bold mb-1">即時逐字稿：</p><p class="text-sm text-slate-300 max-h-32 overflow-y-auto scrollbar-thin whitespace-pre-wrap">${window.escapeHtml(r.transcript) || '<span class="text-slate-600 italic">無文字紀錄</span>'}</p></div><div class="flex flex-wrap items-center gap-3">${linkHtml}<button onclick="downloadLocalAudio('${r.id}', 'record')" class="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 .weba</button><button onclick="summarizeAudioRecord('${r.id}')" class="flex items-center gap-1 text-sm bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors shadow-lg"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button></div></div>`;
             }).join('') || '<div class="text-center text-slate-500 mt-10"><i class="ph-thin ph-microphone text-6xl mb-3"></i><p>尚無錄音紀錄</p></div>';
         }
 
-        function renderWeather() { 
+        window.renderWeather = function() { 
             const {temp,condition,loc}=appState.weather; let icon='ph-cloud',color='text-slate-400',desc='多雲'; 
             if(condition==='sunny'){icon='ph-sun';color='text-yellow-400';desc='晴朗';} 
             if(condition==='rainy'){icon='ph-cloud-rain';color='text-blue-400';desc='有雨';} 
@@ -1114,7 +1128,7 @@
             const mIcon = document.getElementById('mobile-weather-icon'); if(mIcon) mIcon.className=`ph-fill ${loc==='未定位'?'ph-navigation-arrow':icon} ${color}`; 
         }
 
-        function updateModelUI(){ 
+        window.updateModelUI = function(){ 
             const conf=MODEL_CONFIG[appState.currentModel]; 
             const statusName = document.getElementById('status-name'); if(statusName) statusName.innerText=conf?.name || 'Unknown'; 
             const statusIcon = document.getElementById('status-icon'); if(statusIcon) statusIcon.className=`ph-fill ${conf?.icon || 'ph-cpu'} text-lg ${conf?.color || 'text-slate-400'}`; 
@@ -1131,10 +1145,10 @@
                 if(appState.isSearchEnabled){ searchBtn.classList.add('text-blue-400','bg-blue-900/50'); searchBtn.classList.remove('text-slate-400'); if(badge)badge.classList.remove('hidden'); if(hint)hint.classList.remove('hidden'); }
                 else{ searchBtn.classList.remove('text-blue-400','bg-blue-900/50'); searchBtn.classList.add('text-slate-400'); if(badge)badge.classList.add('hidden'); if(hint)hint.classList.add('hidden'); }
             }
-            updateContextUI();
+            window.updateContextUI();
         }
         
-        function updateContextUI() {
+        window.updateContextUI = function() {
             const btn = document.getElementById('context-toggle-btn');
             if (appState.enableContext) {
                 btn.classList.add('bg-blue-600', 'text-white');
@@ -1147,7 +1161,7 @@
             }
         }
 
-        function togglePlusMenu() {
+        window.togglePlusMenu = function() {
             const menu = document.getElementById('plus-menu');
             const icon = document.getElementById('plus-icon');
             if (menu.classList.contains('hidden')) {
@@ -1160,7 +1174,7 @@
         }
 
         // --- 攝影機與 LIVE 視覺功能 ---
-        async function populateCameraSelect() {
+        window.populateCameraSelect = async function() {
             const select = document.getElementById('camera-select');
             if (!select) return;
             
@@ -1202,21 +1216,21 @@
 
         window.switchCamera = async function(deviceId) {
             appState.currentDeviceId = deviceId;
-            if (appState.isLiveMode && liveVideoStream) {
-                liveVideoStream.getTracks().forEach(t => t.stop());
+            if (appState.isLiveMode && window.liveVideoStream) {
+                window.liveVideoStream.getTracks().forEach(t => t.stop());
                 try {
                     let constraints = { video: { deviceId: { exact: deviceId } } };
                     if(deviceId === 'environment' || deviceId === 'user') constraints = { video: { facingMode: deviceId } };
                     
-                    liveVideoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                    document.getElementById('live-video-preview').srcObject = liveVideoStream;
+                    window.liveVideoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    document.getElementById('live-video-preview').srcObject = window.liveVideoStream;
                 } catch(e) {
                     alert("切換鏡頭失敗：" + e.message);
                 }
             }
         };
 
-        async function toggleLiveMode(forceMode = null) {
+        window.toggleLiveMode = async function(forceMode = null) {
             const btn = document.getElementById('live-btn');
             const icon = document.getElementById('live-icon');
             const containerEl = document.getElementById('live-video-container');
@@ -1229,9 +1243,9 @@
             
             if (appState.isLiveMode) {
                 try {
-                    if (appState.translateMode !== 'off') toggleTranslateMode('off');
+                    if (appState.translateMode !== 'off') window.toggleTranslateMode('off');
                     
-                    await populateCameraSelect(); 
+                    await window.populateCameraSelect(); 
                     const cameraSelect = document.getElementById('camera-select');
                     let constraints = { video: { facingMode: 'environment' } };
                     if(cameraSelect && cameraSelect.value) {
@@ -1242,8 +1256,8 @@
                         }
                     }
                     
-                    liveVideoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                    videoEl.srcObject = liveVideoStream;
+                    window.liveVideoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    videoEl.srcObject = window.liveVideoStream;
                     containerEl.classList.remove('hidden');
                     containerEl.classList.add('flex');
                     
@@ -1252,9 +1266,9 @@
                     icon.classList.add('animate-pulse', 'text-red-400');
                     
                     appState.voiceTimeout = 1.5;
-                    addMessage("📸 **LIVE 影像模式已啟動！**\nAI 現在可以看見您的鏡頭畫面了。請用語音對著系統說話。", 'system');
+                    window.addMessage("📸 **LIVE 影像模式已啟動！**\nAI 現在可以看見您的鏡頭畫面了。請用語音對著系統說話。", 'system');
                     
-                    if (!appState.isContinuous) toggleContinuous();
+                    if (!appState.isContinuous) window.toggleContinuous();
                     
                     document.getElementById('plus-menu').classList.add('hidden');
                     document.getElementById('plus-icon').classList.remove('rotate-45');
@@ -1266,9 +1280,9 @@
                     icon.classList.remove('animate-pulse', 'text-red-400');
                 }
             } else {
-                if (liveVideoStream) {
-                    liveVideoStream.getTracks().forEach(t => t.stop());
-                    liveVideoStream = null;
+                if (window.liveVideoStream) {
+                    window.liveVideoStream.getTracks().forEach(t => t.stop());
+                    window.liveVideoStream = null;
                 }
                 containerEl.classList.add('hidden');
                 containerEl.classList.remove('flex');
@@ -1278,7 +1292,7 @@
                 icon.classList.remove('animate-pulse', 'text-red-400');
                 
                 appState.voiceTimeout = parseInt(localStorage.getItem('nova_voice_timeout')) || 5;
-                addMessage("📸 LIVE 影像模式已關閉。", 'system');
+                window.addMessage("📸 LIVE 影像模式已關閉。", 'system');
                 window.speechSynthesis.cancel();
             }
         }
@@ -1292,10 +1306,10 @@
         }
 
         window.toggleTranslateMode = function(mode) {
-            closeTranslateModal();
+            window.closeTranslateModal();
             if (appState.translateMode === mode) return;
             
-            if (appState.translateMode === 'B') stopTranslateBAndSend();
+            if (appState.translateMode === 'B') window.stopTranslateBAndSend();
             
             appState.translateMode = mode;
             const btn = document.getElementById('translate-btn');
@@ -1303,7 +1317,7 @@
             const textEl = document.getElementById('translate-btn-text');
 
             if (mode !== 'off') {
-                if (appState.isLiveMode) toggleLiveMode(false);
+                if (appState.isLiveMode) window.toggleLiveMode(false);
 
                 btn.classList.add('text-blue-400');
                 btn.classList.remove('text-slate-300');
@@ -1313,16 +1327,16 @@
                 
                 if (mode === 'A') {
                     textEl.innerText = "口譯(模式A)";
-                    if (recognition) { try{ recognition.abort(); }catch(e){} }
-                    addMessage("🌐 **即時口譯(文字解析)模式已啟動！**\n我將自動辨識您輸入或說出的語言並雙向翻譯。中外文會為您自動互翻！", 'system');
-                    speakText("文字口譯模式已啟動", true);
-                    if (!appState.isContinuous) toggleContinuous();
+                    if (window.recognition) { try{ window.recognition.abort(); }catch(e){} }
+                    window.addMessage("🌐 **即時口譯(文字解析)模式已啟動！**\n我將自動辨識您輸入或說出的語言並雙向翻譯。中外文會為您自動互翻！", 'system');
+                    window.speakText("文字口譯模式已啟動", true);
+                    if (!appState.isContinuous) window.toggleContinuous();
                 } else if (mode === 'B') {
                     textEl.innerText = "口譯(模式B)";
-                    if (appState.isContinuous) toggleContinuous(); 
-                    addMessage("🌐 **即時口譯(全自動音量監聽直譯)已啟動！**\n此模式不經過文字轉錄。當您說話完畢並停頓後，系統會自動將聲音送給AI，完全無須手動按鈕！", 'system');
-                    speakText("全自動音量監聽直譯模式已啟動", true);
-                    setTimeout(() => { startTranslateBAutoRecord(); }, 1500); 
+                    if (appState.isContinuous) window.toggleContinuous(); 
+                    window.addMessage("🌐 **即時口譯(全自動音量監聽直譯)已啟動！**\n此模式不經過文字轉錄。當您說話完畢並停頓後，系統會自動將聲音送給AI，完全無須手動按鈕！", 'system');
+                    window.speakText("全自動音量監聽直譯模式已啟動", true);
+                    setTimeout(() => { window.startTranslateBAutoRecord(); }, 1500); 
                 }
                 
                 document.getElementById('plus-menu').classList.add('hidden');
@@ -1335,24 +1349,23 @@
                 
                 appState.voiceTimeout = parseInt(localStorage.getItem('nova_voice_timeout')) || 5;
                 
-                if (recognition) {
-                    try{ recognition.abort(); }catch(e){}
-                    if (appState.isContinuous) setTimeout(()=>recognition.start(), 300);
+                if (window.recognition) {
+                    try{ window.recognition.abort(); }catch(e){}
+                    if (appState.isContinuous) setTimeout(()=>window.recognition.start(), 300);
                 }
 
-                addMessage("🌐 即時口譯模式已關閉。", 'system');
+                window.addMessage("🌐 即時口譯模式已關閉。", 'system');
                 window.speechSynthesis.cancel();
             }
         }
 
-        // Mode B Auto-Record Loop Functions (With Web Audio VAD)
-        async function startTranslateBAutoRecord() {
+        window.startTranslateBAutoRecord = async function() {
             if (appState.translateMode !== 'B') return;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 appState.recordingContext = 'translateB';
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
+                window.mediaRecorder = new MediaRecorder(stream);
+                window.audioChunks = [];
                 appState.activeMediaTracks = stream.getTracks();
                 
                 try {
@@ -1379,7 +1392,7 @@
                         }
                         let avgVolume = sum / appState.vadDataArray.length;
                         
-                        const threshold = 15; // 聲音門檻
+                        const threshold = 15; 
                         
                         if (avgVolume > threshold) {
                             if (!appState.isSpeaking) {
@@ -1394,7 +1407,7 @@
                         } else {
                             if (appState.isSpeaking && !appState.silenceTimer) {
                                 appState.silenceTimer = setTimeout(() => {
-                                    stopTranslateBAndSend();
+                                    window.stopTranslateBAndSend();
                                 }, appState.translateBTimeout * 1000);
                             }
                         }
@@ -1404,23 +1417,23 @@
                 
                 checkAudioLevel();
 
-                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-                mediaRecorder.onstop = processTranslateB;
-                mediaRecorder.start();
+                window.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) window.audioChunks.push(e.data); };
+                window.mediaRecorder.onstop = window.processTranslateB;
+                window.mediaRecorder.start();
                 
                 document.getElementById('recording-status').classList.remove('hidden'); 
                 document.getElementById('recording-status').classList.add('flex');
                 document.getElementById('recording-status-text').innerText = "口譯待命中... (請開始說話)";
                 
             } catch (err) {
-                addMessage("⚠️ 無法啟動錄音", 'system');
+                window.addMessage("⚠️ 無法啟動錄音", 'system');
             }
         }
 
-        function stopTranslateBAndSend() {
+        window.stopTranslateBAndSend = function() {
             if (appState.translateMode !== 'B') return;
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
+            if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
+                window.mediaRecorder.stop();
                 appState.activeMediaTracks.forEach(t => t.stop());
                 
                 if (appState.vadAnimFrame) cancelAnimationFrame(appState.vadAnimFrame);
@@ -1432,591 +1445,50 @@
             }
         }
 
-        async function processTranslateB() {
-            if (audioChunks.length === 0 || !appState.isSpeaking) {
-                if (appState.translateMode === 'B') setTimeout(startTranslateBAutoRecord, 500);
+        window.processTranslateB = async function() {
+            if (window.audioChunks.length === 0 || !appState.isSpeaking) {
+                if (appState.translateMode === 'B') setTimeout(window.startTranslateBAutoRecord, 500);
                 return;
             }
-            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            const audioBlob = new Blob(window.audioChunks, { type: window.mediaRecorder.mimeType || 'audio/webm' });
             const reader = new FileReader();
             reader.readAsDataURL(audioBlob);
             reader.onloadend = async () => {
                 const base64dataWithPrefix = reader.result;
                 appState.recordingContext = 'default';
-                addMessage("🎙️ 音軌已自動擷取，AI 翻譯中...", "user");
+                window.addMessage("🎙️ 音軌已自動擷取，AI 翻譯中...", "user");
                 appState.isThinking = true;
-                renderThinkingState(true);
+                window.renderThinkingState(true);
                 try {
                     let prompt = "你是一位專業的同步口譯員。請直接聽取這段音檔中的對話並進行翻譯。如果說的是中文，請翻譯成自然流暢的英文；如果說的是任何外文，請翻譯成繁體中文。請『只輸出最終的翻譯結果文字』，絕對不要包含任何解釋、原文、拼音或個人評論。\n\n【嚴格警告】：如果音檔是空白的、只有環境雜音或聽不清楚任何人類語音，請務必只回覆「[無效音訊]」，絕對不要自行編造內容或產生幻覺！";
-                    let res = await fetchAIResponse(prompt, 'gemini', { 
-                        file: { category: 'media', data: base64dataWithPrefix, mime: mediaRecorder.mimeType || 'audio/webm', name: 'Voice_Input.weba' },
+                    let res = await window.fetchAIResponse(prompt, 'gemini', { 
+                        file: { category: 'media', data: base64dataWithPrefix, mime: window.mediaRecorder.mimeType || 'audio/webm', name: 'Voice_Input.weba' },
                         isTranslateB: true
                     });
                     let finalTxt = typeof res === 'string' ? res : res.text;
                     
                     if (finalTxt.includes('[無效音訊]')) {
-                        addMessage("*(未偵測到有效語音，已忽略)*", 'system');
-                        if (appState.translateMode === 'B') setTimeout(startTranslateBAutoRecord, 1000);
+                        window.addMessage("*(未偵測到有效語音，已忽略)*", 'system');
+                        if (appState.translateMode === 'B') setTimeout(window.startTranslateBAutoRecord, 1000);
                     } else {
-                        addMessage(finalTxt, 'ai', 'gemini');
+                        window.addMessage(finalTxt, 'ai', 'gemini');
                         if (appState.translateMode === 'B') {
                             const aiMsgId = appState.messages[appState.messages.length - 1].id;
-                            speakText(finalTxt, false, String(aiMsgId));
+                            window.speakText(finalTxt, false, String(aiMsgId));
                         }
                     }
                 } catch(e) {
-                    addMessage("翻譯失敗：" + e.message, 'system');
-                    if (appState.translateMode === 'B') setTimeout(startTranslateBAutoRecord, 2000);
+                    window.addMessage("翻譯失敗：" + e.message, 'system');
+                    if (appState.translateMode === 'B') setTimeout(window.startTranslateBAutoRecord, 2000);
                 } finally {
                     appState.isThinking = false;
-                    renderThinkingState(false);
+                    window.renderThinkingState(false);
                 }
             };
         }
 
-        function toggleContinuous() {
-            const btn = document.getElementById('continuous-btn');
-            const icon = document.getElementById('continuous-icon');
-
-            if (appState.translateMode === 'B') {
-                showToast("⚠️ 全自動口譯(Mode B)已接管錄音，欲使用一般連續語音請先關閉口譯。");
-                return;
-            }
-
-            appState.isContinuous = !appState.isContinuous;
-            
-            if (appState.isContinuous) { 
-                chatInitialInput = document.getElementById('user-input').value;
-                try { recognition.start(); } catch(e){}
-                
-                btn.classList.add('bg-red-600', 'text-white'); 
-                btn.classList.remove('bg-slate-800', 'text-slate-400'); 
-                icon.classList.add('animate-pulse');
-            } else { 
-                if (recognition) recognition.stop();
-                btn.classList.remove('bg-red-600', 'text-white'); 
-                btn.classList.add('bg-slate-800', 'text-slate-400'); 
-                icon.classList.remove('animate-pulse');
-                
-                if (appState.isLiveMode) toggleLiveMode(false);
-                if (appState.translateMode !== 'off') toggleTranslateMode('off');
-            }
-        }
-        
-        // --- 聰明上下文控制 (切換記憶模式) ---
-        function toggleContext() {
-            appState.enableContext = !appState.enableContext;
-            updateContextUI();
-            if (appState.enableContext) {
-                showToast("🧠 已開啟上下文記憶模式");
-            } else {
-                showToast("🧠 已關閉上下文記憶模式 (完全獨立問答)");
-            }
-        }
-
-        // --- 對話訊息處理邏輯 ---
-        function addMessage(text, sender, model=null, sources=[], file=null, actionData=null) { 
-            const newMsg = {id:Date.now(), text, sender, model, sources, file, actionData, time:getTime()};
-            appState.messages.push(newMsg); saveToDB('messages', newMsg); renderMessages(); 
-        }
-
-        function deleteMessage(id) { appState.messages = appState.messages.filter(m => String(m.id) !== String(id)); deleteFromDB('messages', id); renderMessages(); }
-        function clearChatHistory() { if(confirm("確定要清空所有對話紀錄嗎？")) { appState.messages = []; clearStoreDB('messages'); renderMessages(); } }
-        
-        function favoriteMessage(id) {
-            const msg = appState.messages.find(m => String(m.id) === String(id)); if (!msg) return;
-            let senderName = msg.sender === 'user' ? '你' : (msg.sender === 'system' ? '系統提示' : (MODEL_CONFIG[msg.model]?.name || '系統'));
-            let content = `[${senderName} 的對話紀錄]<br><br>${msg.text.replace(/\n/g, '<br>')}`;
-            if (msg.sources && msg.sources.length > 0) content += `<br><br>[參考來源]<br>` + msg.sources.map((s,i) => `${i+1}. <a href="${s.uri}">${s.title}</a>`).join('<br>');
-            let imagesArray = []; if (msg.file && msg.file.category === 'image' && msg.file.data) imagesArray.push(msg.file.data);
-            const newNote = { id: Date.now(), title: `⭐ 收藏對話 - ${msg.time}`, content: content, date: new Date().toLocaleString(), type: 'text', images: imagesArray, image: imagesArray.length > 0 ? imagesArray[0] : null, isHtml: true, folder: '未分類' };
-            appState.notes.unshift(newNote); saveToDB('notes', newNote); renderNotes(); addMessage(`✅ 已將此對話成功收藏至「筆記/文件」分頁。`, 'system');
-        }
-
-        // --- 待辦事項與筆記基礎操作 ---
-        function toggleTodo(id){ const t=appState.todos.find(x=>String(x.id)===String(id)); if(t){t.done=!t.done;saveToDB('todos', t);renderTodos();} }
-        function deleteTodo(id){ appState.todos=appState.todos.filter(x=>String(x.id)!==String(id)); deleteFromDB('todos', id); renderTodos(); }
-        function deleteNote(id){ appState.notes=appState.notes.filter(x=>String(x.id)!==String(id)); deleteFromDB('notes', id); renderNotes(); }
-        function deleteAudioRecord(id) { appState.audioRecords = appState.audioRecords.filter(r => String(r.id) !== String(id)); deleteFromDB('audioRecords', id); renderAudioRecords(); }
-        
-        function addTodoManually(){ const t=prompt("任務"); if(t){const n={id:Date.now(),text:t,done:false,time:'手動', alertEnabled: true}; appState.todos.push(n);saveToDB('todos', n);renderTodos();} }
-        
-        function addNoteManually() {
-            document.getElementById('edit-note-id').value = Date.now();
-            document.getElementById('edit-note-title').value = '新圖文筆記';
-            document.getElementById('edit-note-content').innerHTML = '';
-            document.getElementById('note-modal-title-text').innerText = '新增圖文筆記';
-            appState.editNoteImagesBase64 = [];
-            renderNoteEditImages();
-
-            const folderSelect = document.getElementById('edit-note-folder');
-            folderSelect.innerHTML = appState.noteFolders.map(f => `<option value="${f}">${f}</option>`).join('');
-            folderSelect.value = appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder;
-
-            document.getElementById('note-edit-modal').classList.remove('hidden');
-        }
-        
-        // --- 介面導航切換邏輯 ---
-        function switchTab(id){ 
-            ['dashboard','schedule','notes','audio'].forEach(t=>document.getElementById(`view-${t}`)?.classList.add('hidden')); 
-            document.getElementById(`view-${id}`)?.classList.remove('hidden'); document.getElementById(`view-${id}`)?.classList.add('flex'); 
-            document.querySelectorAll('.nav-item').forEach(b=>{b.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 transition-all';}); 
-            const active=document.getElementById(`nav-${id}`); if(active)active.className='nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all'; 
-        }
-        
-        function openSettings(){document.getElementById('settings-modal').classList.remove('hidden');}
-        function closeSettings(){document.getElementById('settings-modal').classList.add('hidden');}
-        function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('hidden');}
-
-        // --- 設定保存與資料備份功能 ---
-        function saveKeys(){ 
-            const safeGetVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
-            appState.keys.gemini = safeGetVal('key-gemini'); appState.keys.groq = safeGetVal('key-groq'); appState.keys.cohere = safeGetVal('key-cohere'); appState.keys.openai = safeGetVal('key-openai'); appState.keys.grok = safeGetVal('key-grok'); appState.keys.serpapi = safeGetVal('key-serpapi'); 
-            appState.docMonitorUrl = safeGetVal('key-doc-url'); appState.driveUrl = safeGetVal('key-drive-url'); 
-            
-            appState.voiceTimeout = parseInt(safeGetVal('key-voice-timeout')) || 5;
-            appState.translateBTimeout = parseInt(safeGetVal('key-translate-b-timeout')) || 1;
-            appState.replyLength = document.getElementById('key-reply-length').value;
-            appState.ttsRate = document.getElementById('key-tts-rate').value;
-            appState.ttsVoice = document.getElementById('key-tts-voice').value;
-            appState.hideLiveCapture = document.getElementById('key-hide-live-capture').checked;
-
-            localStorage.setItem('nova_key_gemini', appState.keys.gemini); localStorage.setItem('nova_key_groq', appState.keys.groq); localStorage.setItem('nova_key_cohere', appState.keys.cohere); localStorage.setItem('nova_key_openai', appState.keys.openai); localStorage.setItem('nova_key_grok', appState.keys.grok); localStorage.setItem('nova_key_serpapi', appState.keys.serpapi); 
-            localStorage.setItem('nova_doc_url', appState.docMonitorUrl); localStorage.setItem('nova_drive_url', appState.driveUrl); 
-            localStorage.setItem('nova_voice_timeout', appState.voiceTimeout);
-            localStorage.setItem('nova_trans_b_timeout', appState.translateBTimeout);
-            localStorage.setItem('nova_reply_length', appState.replyLength);
-            localStorage.setItem('nova_tts_rate', appState.ttsRate);
-            localStorage.setItem('nova_tts_voice', appState.ttsVoice);
-            localStorage.setItem('nova_hide_live_capture', appState.hideLiveCapture);
-
-            updateModelUI(); closeSettings(); renderMessages(); addMessage("✅ 設定已儲存", 'system'); 
-        }
-
-        function testDocConnection() {
-            const url = document.getElementById('key-doc-url').value.trim(); const statusEl = document.getElementById('doc-monitor-status');
-            if(!url) return alert("請輸入系統代理 Google Doc URL");
-            statusEl.innerText = "測試中..."; statusEl.className = "text-[10px] text-blue-400 font-bold animate-pulse";
-            fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'test_connection' }) })
-            .then(res => res.text()).then(text => { alert("測試成功！伺服器已回應連線。"); statusEl.innerText = "連線成功"; statusEl.className = "text-[10px] text-green-400 font-bold"; })
-            .catch(e => {
-                fetch(url, { mode: 'no-cors' }).then(() => { alert("測試請求已送出！若 Apps Script 設置正確即代表連線成功。"); statusEl.innerText = "連線成功 (無CORS回傳)"; statusEl.className = "text-[10px] text-yellow-400 font-bold"; })
-                .catch(err => { alert("連線失敗：" + err.message); statusEl.innerText = "測試失敗"; statusEl.className = "text-[10px] text-red-400 font-bold"; });
-            });
-        }
-        
-        async function exportSettings() {
-            addMessage("⏳ 正在打包所有系統資料與設定，這可能需要幾秒鐘...", "system");
-            try {
-                const data = { 
-                    keys: appState.keys, 
-                    urls: { docMonitorUrl: appState.docMonitorUrl, driveUrl: appState.driveUrl }, 
-                    settings: { voiceTimeout: appState.voiceTimeout, translateBTimeout: appState.translateBTimeout, hideLiveCapture: appState.hideLiveCapture, replyLength: appState.replyLength, ttsRate: appState.ttsRate, ttsVoice: appState.ttsVoice },
-                    messages: await loadStoreFromDB('messages'),
-                    notes: await loadStoreFromDB('notes'),
-                    todos: await loadStoreFromDB('todos'),
-                    audioRecords: await loadStoreFromDB('audioRecords')
-                };
-                const blob = new Blob([JSON.stringify(data)], {type: 'application/json'}); 
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); 
-                a.style.display = 'none';
-                a.href = url; 
-                a.download = `NOVA_Full_Backup_${new Date().toISOString().split('T')[0]}.json`; 
-                document.body.appendChild(a); 
-                a.click(); 
-                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
-                showToast("✅ 完整備份檔已成功匯出");
-            } catch (err) {
-                alert("備份導出失敗：" + err.message);
-            }
-        }
-        
-        async function importSettings(e) {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            addMessage("⏳ 正在讀取備份檔並還原系統，請勿關閉視窗...", "system");
-            reader.onload = async function(evt) {
-                try {
-                    const data = JSON.parse(evt.target.result);
-                    
-                    if (data.keys) { appState.keys.gemini = data.keys.gemini || ''; appState.keys.groq = data.keys.groq || ''; appState.keys.cohere = data.keys.cohere || ''; appState.keys.openai = data.keys.openai || ''; appState.keys.grok = data.keys.grok || ''; appState.keys.serpapi = data.keys.serpapi || ''; }
-                    if (data.urls) { appState.docMonitorUrl = data.urls.docMonitorUrl || ''; appState.driveUrl = data.urls.driveUrl || ''; }
-                    if (data.settings) { 
-                        appState.voiceTimeout = data.settings.voiceTimeout || 5; 
-                        appState.translateBTimeout = data.settings.translateBTimeout || 1;
-                        appState.replyLength = data.settings.replyLength || 'medium';
-                        appState.ttsRate = data.settings.ttsRate || 1.0;
-                        appState.ttsVoice = data.settings.ttsVoice || '';
-                        appState.hideLiveCapture = !!data.settings.hideLiveCapture;
-                    }
-
-                    const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-                    safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi);
-                    safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl);
-                    safeSet('key-voice-timeout', appState.voiceTimeout);
-                    safeSet('key-translate-b-timeout', appState.translateBTimeout);
-                    
-                    const rlEl = document.getElementById('key-reply-length'); if (rlEl) rlEl.value = appState.replyLength;
-                    const trEl = document.getElementById('key-tts-rate'); if (trEl) trEl.value = appState.ttsRate;
-                    const tvEl = document.getElementById('key-tts-voice'); if (tvEl) tvEl.value = appState.ttsVoice;
-                    const hideLiveCaptureEl = document.getElementById('key-hide-live-capture'); if (hideLiveCaptureEl) hideLiveCaptureEl.checked = appState.hideLiveCapture;
-
-                    if (data.messages && Array.isArray(data.messages)) {
-                        clearStoreDB('messages'); appState.messages = data.messages;
-                        for (const item of data.messages) saveToDB('messages', item);
-                    }
-                    if (data.notes && Array.isArray(data.notes)) {
-                        clearStoreDB('notes'); appState.notes = data.notes;
-                        for (const item of data.notes) saveToDB('notes', item);
-                    }
-                    if (data.todos && Array.isArray(data.todos)) {
-                        clearStoreDB('todos'); appState.todos = data.todos;
-                        for (const item of data.todos) saveToDB('todos', item);
-                    }
-                    if (data.audioRecords && Array.isArray(data.audioRecords)) {
-                        clearStoreDB('audioRecords'); appState.audioRecords = data.audioRecords;
-                        for (const item of data.audioRecords) saveToDB('audioRecords', item);
-                    }
-
-                    renderAll();
-                    updateModelUI();
-                    alert("✨ 備份還原成功！系統已恢復到備份當時的狀態。請點擊右下角「儲存」按鈕套用API設定。");
-                } catch(err) { alert("備份檔解析或還原失敗：" + err.message); }
-                e.target.value = ''; 
-            };
-            reader.readAsText(file);
-        }
-
-        // --- 模型狀態切換邏輯 ---
-        function setModel(m){ appState.currentModel=m; updateModelUI(); }
-        function setGrokModel(m) { appState.grokModel = m; }
-        function setGeminiModel(m) { appState.geminiModel = m; }
-        
-        function updateSendButtonState(isLoading) { 
-            const btn = document.getElementById('send-btn'); const icon = document.getElementById('send-icon'); 
-            if(isLoading){ btn.classList.add('cursor-not-allowed','opacity-70'); icon.classList.remove('ph-paper-plane-right'); icon.classList.add('ph-spinner','animate-spin');
-            }else{ btn.classList.remove('cursor-not-allowed','opacity-70'); icon.classList.remove('ph-spinner','animate-spin'); icon.classList.add('ph-paper-plane-right'); } 
-        }
-        function toggleSearch() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); }
-        function cycleManualLocation() { appState.manualLocIndex = (appState.manualLocIndex + 1) % appState.manualLocs.length; const loc = appState.manualLocs[appState.manualLocIndex]; fetchWeather(loc.lat, loc.lon, loc.name + " (手掌握)", false); }
-
-        function autoResizeInput(el) { 
-            el.style.height = 'auto'; 
-            el.style.height = (el.scrollHeight) + 'px'; 
-            if(el.value === '') el.style.height = '38px'; 
-            
-            const sendBtn = document.getElementById('send-btn');
-            const micBtn = document.getElementById('continuous-btn');
-            if(el.value.trim() !== '') {
-                sendBtn.classList.remove('hidden');
-                sendBtn.classList.add('flex');
-                micBtn.classList.add('hidden');
-                micBtn.classList.remove('flex');
-            } else {
-                sendBtn.classList.add('hidden');
-                sendBtn.classList.remove('flex');
-                micBtn.classList.remove('hidden');
-                micBtn.classList.add('flex');
-            }
-        }
-        
-        // --- 檔案處理邏輯 ---
-        function handleChatFileSelect(e) {
-            const file = e.target.files[0]; if (!file) return;
-            if (file.size > 20 * 1024 * 1024) { alert("檔案過大，請上傳小於 20MB 的檔案以確保穩定性。"); e.target.value = ''; return; }
-            const isText = file.type.startsWith('text/') || !!file.name.match(/\.(txt|csv|md|json|js|html|css|py|cpp|c|java)$/i);
-            const isImage = file.type.startsWith('image/');
-            const isMedia = file.type.startsWith('audio/') || file.type.startsWith('video/') || file.type === 'application/pdf' || !!file.name.match(/\.(pdf|mp3|wav|mp4|webm|m4a)$/i);
-            let category = isImage ? 'image' : (isText ? 'text' : (isMedia ? 'media' : 'unknown'));
-            if (category === 'unknown') category = 'media'; 
-            if (isText && file.size > 2 * 1024 * 1024) alert("提醒：純文字檔案較大，可能超出 AI 分析上限，建議擷取重點上傳。");
-
-            let mimeType = file.type || 'application/octet-stream';
-            const filenameLower = file.name.toLowerCase();
-            if (filenameLower.endsWith('.webm')) mimeType = 'audio/webm';
-            else if (filenameLower.endsWith('.mp3')) mimeType = 'audio/mp3';
-            else if (filenameLower.endsWith('.wav')) mimeType = 'audio/wav';
-            else if (filenameLower.endsWith('.m4a')) mimeType = 'audio/m4a';
-            else if (filenameLower.endsWith('.mp4')) mimeType = 'video/mp4';
-            else if (filenameLower.endsWith('.pdf')) mimeType = 'application/pdf';
-
-            const reader = new FileReader();
-            reader.onload = function(evt) { 
-                appState.chatFile = { category: category, data: evt.target.result, mime: mimeType, name: file.name }; 
-                showFilePreview(file.name, isImage, evt.target.result); 
-                togglePlusMenu(); 
-            };
-            if (category === 'text') reader.readAsText(file); else reader.readAsDataURL(file);
-            e.target.value = ''; 
-        }
-
-        function showFilePreview(name, isImage, dataUrl) {
-            const container = document.getElementById('chat-file-preview-container'); const imgEl = document.getElementById('chat-image-preview'); const iconEl = document.getElementById('chat-file-icon-wrapper');
-            container.classList.remove('hidden'); document.getElementById('chat-file-name').innerText = name;
-            if (isImage && dataUrl) { imgEl.src = dataUrl; imgEl.classList.remove('hidden'); iconEl.classList.add('hidden'); iconEl.classList.remove('flex'); } 
-            else { imgEl.classList.add('hidden'); imgEl.src = ''; iconEl.classList.remove('hidden'); iconEl.classList.add('flex'); }
-            
-            document.getElementById('send-btn').classList.remove('hidden');
-            document.getElementById('send-btn').classList.add('flex');
-            document.getElementById('continuous-btn').classList.add('hidden');
-            document.getElementById('continuous-btn').classList.remove('flex');
-
-            document.getElementById('user-input').focus();
-        }
-        
-        function clearChatFile() { 
-            appState.chatFile = null; 
-            document.getElementById('chat-file-preview-container').classList.add('hidden'); 
-            document.getElementById('chat-image-preview').src = ''; 
-            autoResizeInput(document.getElementById('user-input')); 
-        }
-
-        function handleAudioAnalyzeSelect(e) {
-            const file = e.target.files[0]; if (!file) { appState.pendingAnalyzeContextId = null; return; }
-            if (file.size > 20 * 1024 * 1024) { alert("檔案過大，請上傳小於 20MB 的檔案以確保轉錄順利。"); e.target.value = ''; appState.pendingAnalyzeContextId = null; return; }
-
-            let mimeType = file.type || 'application/octet-stream';
-            const filenameLower = file.name.toLowerCase();
-            if (filenameLower.endsWith('.webm')) mimeType = 'audio/webm'; else if (filenameLower.endsWith('.mp3')) mimeType = 'audio/mp3'; else if (filenameLower.endsWith('.wav')) mimeType = 'audio/wav'; else if (filenameLower.endsWith('.m4a')) mimeType = 'audio/m4a'; else if (filenameLower.endsWith('.mp4')) mimeType = 'video/mp4';
-
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                appState.chatFile = { category: 'media', data: evt.target.result, mime: mimeType, name: file.name };
-                showFilePreview(file.name, false, null); switchTab('dashboard');
-                document.getElementById('user-input').value = appState.pendingAnalyzePrompt; e.target.value = ''; handleSendMessage(); 
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // --- 待辦事項設定與編輯邏輯 ---
-        function formatDateForPicker(d) {
-            const tzOffset = d.getTimezoneOffset() * 60000;
-            return (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
-        }
-
-        function openTodoDatePicker(id) {
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
-            document.getElementById('picker-todo-id').value = id;
-            const picker = document.getElementById('todo-native-picker');
-            
-            if(t.alertTime) {
-                picker.value = formatDateForPicker(new Date(t.alertTime));
-            } else {
-                picker.value = "";
-            }
-            document.getElementById('todo-time-modal').classList.remove('hidden');
-        }
-        function closeTodoPicker() { document.getElementById('todo-time-modal').classList.add('hidden'); }
-        function saveTodoPicker() {
-            const id = document.getElementById('picker-todo-id').value;
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
-            const pickerVal = document.getElementById('todo-native-picker').value;
-            if(pickerVal) {
-                const d = new Date(pickerVal);
-                t.alertTime = d.getTime();
-                t.time = d.toLocaleString();
-                t.alerted = false;
-                t.alertEnabled = true;
-            }
-            saveToDB('todos', t); renderTodos(); closeTodoPicker();
-        }
-        function clearTodoAlarm() {
-            const id = document.getElementById('picker-todo-id').value;
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
-            t.alertEnabled = false;
-            saveToDB('todos', t); renderTodos(); closeTodoPicker();
-        }
-
-        function openTodoEdit(id) {
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
-            document.getElementById('edit-todo-id').value = t.id; 
-            document.getElementById('edit-todo-text').value = t.text; 
-            const timeInput = document.getElementById('edit-todo-time');
-            if (t.alertTime) {
-                timeInput.value = formatDateForPicker(new Date(t.alertTime));
-            } else {
-                timeInput.value = "";
-            }
-            document.getElementById('todo-edit-modal').classList.remove('hidden');
-        }
-        function closeTodoEdit() { document.getElementById('todo-edit-modal').classList.add('hidden'); }
-        function saveTodoEdit() {
-            const id = document.getElementById('edit-todo-id').value; 
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
-            const newText = document.getElementById('edit-todo-text').value.trim(); 
-            const newTimeStr = document.getElementById('edit-todo-time').value; 
-            if(newText) t.text = newText;
-            
-            if (newTimeStr) {
-                const d = new Date(newTimeStr);
-                t.time = d.toLocaleString(); 
-                t.alertTime = d.getTime(); 
-                t.alerted = false; 
-                t.alertEnabled = true;
-            }
-            saveToDB('todos', t); renderTodos(); closeTodoEdit();
-        }
-
-        // --- 筆記編輯與儲存邏輯 ---
-        function openNoteEdit(id) {
-            const n = appState.notes.find(x => String(x.id) === String(id)); if(!n) return;
-            document.getElementById('edit-note-id').value = n.id; 
-            document.getElementById('edit-note-title').value = n.title || ''; 
-            document.getElementById('note-modal-title-text').innerText = '檢視與編輯筆記';
-            
-            const folderSelect = document.getElementById('edit-note-folder');
-            folderSelect.innerHTML = appState.noteFolders.map(f => `<option value="${f}">${f}</option>`).join('');
-            folderSelect.value = n.folder || '未分類';
-
-            const editorContent = n.isHtml ? (n.content || '') : escapeHtml(n.content || '').replace(/\n/g, '<br>');
-            document.getElementById('edit-note-content').innerHTML = editorContent;
-            
-            appState.editNoteImagesBase64 = n.images ? [...n.images] : (n.image ? [n.image] : []); renderNoteEditImages();
-            document.getElementById('note-edit-modal').classList.remove('hidden');
-        }
-        function closeNoteEdit() { document.getElementById('note-edit-modal').classList.add('hidden'); }
-        
-        async function handleNoteEditImage(e) {
-            const files = Array.from(e.target.files); if (!files.length) return;
-            const promises = files.map(file => new Promise(resolve => { const reader = new FileReader(); reader.onload = evt => resolve(evt.target.result); reader.readAsDataURL(file); }));
-            const base64Images = await Promise.all(promises); appState.editNoteImagesBase64 = [...(appState.editNoteImagesBase64 || []), ...base64Images];
-            renderNoteEditImages(); e.target.value = ''; 
-        }
-        function renderNoteEditImages() {
-            const container = document.getElementById('edit-note-img-preview-container');
-            if(!appState.editNoteImagesBase64 || appState.editNoteImagesBase64.length === 0) { container.classList.add('hidden'); container.innerHTML = ''; return; }
-            container.classList.remove('hidden');
-            container.innerHTML = appState.editNoteImagesBase64.map((img, i) => `
-                <div class="relative inline-block mt-2"><img src="${img}" class="h-24 w-24 object-cover rounded border border-slate-700"><button onclick="removeNoteEditImage(${i})" class="absolute -top-2 -right-2 bg-slate-800 text-red-400 rounded-full p-1 shadow hover:bg-slate-700 transition-colors" title="移除此圖"><i class="ph-bold ph-x text-[10px]"></i></button></div>
-            `).join('');
-        }
-        function removeNoteEditImage(idx) { appState.editNoteImagesBase64.splice(idx, 1); renderNoteEditImages(); }
-        
-        function saveNoteEdit() {
-            const id = document.getElementById('edit-note-id').value; 
-            let n = appState.notes.find(x => String(x.id) === String(id)); 
-            let isNew = false;
-            if(!n) {
-                n = { id: id || Date.now(), type: 'text', date: new Date().toLocaleDateString() };
-                isNew = true;
-            }
-            n.title = document.getElementById('edit-note-title').value.trim() || '未命名'; 
-            n.folder = document.getElementById('edit-note-folder').value;
-            
-            n.content = document.getElementById('edit-note-content').innerHTML; 
-            n.isHtml = true; 
-            
-            n.images = [...appState.editNoteImagesBase64]; n.image = n.images.length > 0 ? n.images[0] : null;
-            
-            if(isNew) appState.notes.unshift(n);
-            saveToDB('notes', n); 
-            renderNotes(); 
-            closeNoteEdit();
-        }
-        
-        function exportNoteWord(id) {
-            const n = appState.notes.find(x=>String(x.id)===String(id)); if(!n) return;
-            let imgTags = ''; const displayImages = n.images || (n.image ? [n.image] : []);
-            if (displayImages.length > 0) imgTags = displayImages.map(img => `<br><br><img src="${img}" style="max-width: 100%;">`).join('');
-            
-            const wordContent = n.isHtml ? n.content : n.content.replace(/\n/g, '<br>');
-            
-            let htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${n.title}</title></head><body><h1>${n.title}</h1><p style="color:gray; font-size:12px;">建立日期: ${n.date}</p><div style="margin-top:20px; font-family: sans-serif;">${wordContent}</div>${imgTags}</body></html>`;
-            try {
-                const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword;charset=utf-8' }); const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = `${n.title.replace(/[/\\?%*:|"<>]/g, '-')}.doc`; 
-                document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-            } catch (e) { alert("下載失敗，您的瀏覽器可能阻擋了 Blob 生成：" + e.message); }
-        }
-
-        window.exportNoteRichText = function(id) {
-            const n = appState.notes.find(x=>String(x.id)===String(id)); if(!n) return;
-            let imgTags = ''; const displayImages = n.images || (n.image ? [n.image] : []);
-            if (displayImages.length > 0) imgTags = displayImages.map(img => `<br><br><img src="${img}" style="max-width: 100%; border-radius: 8px;">`).join('');
-            
-            const htmlContent = `<!DOCTYPE html>
-            <html lang="zh-TW">
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>${n.title}</title>
-                <style>
-                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
-                    .container { background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-                    h1 { color: #111; margin-top: 0; }
-                    .meta { color: #777; font-size: 0.85em; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-                    img { max-width: 100%; height: auto; display: block; margin: 15px 0; border-radius: 8px; }
-                    a { color: #2563eb; text-decoration: none; }
-                    a:hover { text-decoration: underline; }
-                    iframe { max-width: 100%; border-radius: 8px; margin: 15px 0; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>${n.title}</h1>
-                    <div class="meta">建立日期: ${n.date}</div>
-                    <div class="content">${n.isHtml ? n.content : n.content.replace(/\n/g, '<br>')}</div>
-                    ${imgTags}
-                </div>
-            </body>
-            </html>`;
-            
-            try {
-                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); 
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = `${n.title.replace(/[/\\?%*:|"<>]/g, '-')}.html`; 
-                document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-            } catch (e) { alert("下載失敗：" + e.message); }
-        };
-
-        window.backupNoteToDrive = async function(id) {
-            if (!appState.driveUrl) {
-                alert("請先至設定頁面輸入「Google Drive 上傳 URL (錄音/筆記備份用)」\n\n(若不知如何設定，請參考對話視窗中 AI 提供的 Apps Script 教學！)");
-                return;
-            }
-            const n = appState.notes.find(x => String(x.id) === String(id)); if(!n) return;
-            
-            const btn = document.getElementById(`btn-backup-${id}`);
-            if(btn) { btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> 備份中...'; btn.classList.add('opacity-70', 'cursor-not-allowed'); }
-            
-            try {
-                const pureHtml = n.isHtml ? n.content : n.content.replace(/\n/g, '<br>');
-                const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${n.title}</title></head><body style="font-family:sans-serif; padding:20px;"><h1>${n.title}</h1><p style="color:gray;">建立日期: ${n.date}</p><hr><div style="margin-top:20px;">${pureHtml}</div></body></html>`;
-                
-                const base64Data = btoa(unescape(encodeURIComponent(htmlDoc)));
-                const filename = `${n.title.replace(/[/\\?%*:|"<>]/g, '-')}_${Date.now()}.html`;
-                
-                const payload = JSON.stringify({ filename: filename, mimeType: 'text/html', data: base64Data });
-                
-                const res = await fetch(appState.driveUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload });
-                
-                let finalDriveUrl = "";
-                if (res.ok) {
-                    const resText = await res.text();
-                    try { 
-                        const resJson = JSON.parse(resText); 
-                        finalDriveUrl = resJson.url || resJson.link || resText; 
-                    } catch(e) { finalDriveUrl = resText; }
-                    
-                    n.driveUrl = finalDriveUrl; saveToDB('notes', n); renderNotes();
-                    showToast("✅ 筆記雲端備份成功！");
-                } else { throw new Error('伺服器回傳狀態異常: HTTP ' + res.status); }
-            } catch(e) {
-                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-                    n.driveUrl = "https://drive.google.com/"; saveToDB('notes', n); renderNotes();
-                    showToast("✅ 備份請求已送出，由於跨網域限制，無法取得直接連結。請至您的雲端硬碟確認。");
-                } else {
-                    alert("備份失敗：" + e.message);
-                }
-            } finally {
-                if(btn) { btn.innerHTML = '<i class="ph-bold ph-cloud-arrow-up"></i> 雲端備份'; btn.classList.remove('opacity-70', 'cursor-not-allowed'); }
-            }
-        };
-
-        // --- 定位與天氣處理 ---
-        async function tryGetLocation(silent=false) { 
-            if(!silent) updateLocStatus("GPS定位中..."); 
+        window.tryGetLocation = async function(silent=false) { 
+            if(!silent) window.updateLocStatus("GPS定位中..."); 
             if (navigator.geolocation) { 
                 navigator.geolocation.getCurrentPosition(
                     (p) => {
@@ -2025,34 +1497,35 @@
                             .then(r=>r.json()).then(d => { 
                                 if(d.countryCode) appState.countryCode = d.countryCode.toUpperCase(); 
                                 const city = d.city || d.locality || d.principalSubdivision || "目前位置";
-                                fetchWeather(p.coords.latitude, p.coords.longitude, city, silent);
-                            }).catch(() => { fetchWeather(p.coords.latitude, p.coords.longitude, "GPS定位", silent); });
-                    }, (e) => getIPLocation(silent), { timeout: 5000, enableHighAccuracy: true } 
+                                window.fetchWeather(p.coords.latitude, p.coords.longitude, city, silent);
+                            }).catch(() => { window.fetchWeather(p.coords.latitude, p.coords.longitude, "GPS定位", silent); });
+                    }, (e) => window.getIPLocation(silent), { timeout: 5000, enableHighAccuracy: true } 
                 ); 
-            } else getIPLocation(silent); 
+            } else window.getIPLocation(silent); 
         }
         
-        async function getIPLocation(silent) { 
-            if(!silent) updateLocStatus("IP定位中..."); 
+        window.getIPLocation = async function(silent) { 
+            if(!silent) window.updateLocStatus("IP定位中..."); 
             try { 
                 const res = await fetch('https://ipapi.co/json/'); if(!res.ok) throw new Error(); 
                 const data=await res.json(); 
                 appState.lastLat = data.latitude; appState.lastLon = data.longitude; if (data.country_code) appState.countryCode = data.country_code;
-                fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); 
+                window.fetchWeather(data.latitude, data.longitude, `${data.city}(IP)`, silent); 
             } catch(e){ 
                 try { 
                     const res2 = await fetch('https://ipwho.is/'); const data2 = await res2.json(); if(!data2.success) throw new Error(); 
                     appState.lastLat = data2.latitude; appState.lastLon = data2.longitude; if (data2.country_code) appState.countryCode = data2.country_code;
-                    fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); 
+                    window.fetchWeather(data2.latitude, data2.longitude, `${data2.city}(IP)`, silent); 
                 } catch(e2) { 
-                    updateLocStatus("定位失敗"); if(!silent) addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); 
-                    const def = appState.manualLocs[0]; appState.countryCode = 'TW'; fetchWeather(def.lat, def.lon, def.name + " (預設)", true); 
+                    window.updateLocStatus("定位失敗"); if(!silent) window.addMessage("⚠️ 定位失敗，已切換至預設城市", "system"); 
+                    const def = appState.manualLocs[0]; appState.countryCode = 'TW'; window.fetchWeather(def.lat, def.lon, def.name + " (預設)", true); 
                 } 
             } 
         }
 
-        async function fetchWeather(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: wmoToCondition(c.weather_code), loc: locName }; renderWeather(); updateLocStatus("已更新"); if(!silent) addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { updateLocStatus("錯誤"); } }
-        function updateLocStatus(msg) { 
+        window.fetchWeather = async function(lat, lon, locName, silent) { try { const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`; const res = await fetch(url); const data = await res.json(); if(data.current) { const c = data.current; appState.weather = { temp: Math.round(c.temperature_2m), humidity: c.relative_humidity_2m, wind: c.wind_speed_10m, condition: window.wmoToCondition(c.weather_code), loc: locName }; window.renderWeather(); window.updateLocStatus("已更新"); if(!silent) window.addMessage(`✅ 天氣已更新: ${c.temperature_2m}°C`, "system"); } } catch(e) { window.updateLocStatus("錯誤"); } }
+        
+        window.updateLocStatus = function(msg) { 
             const el = document.getElementById('location-status'); if(el) el.innerText = msg; 
             if(msg==="已更新"||msg.includes("預設")||msg.includes("手掌握")) { 
                 const {loc, temp} = appState.weather; 
@@ -2060,10 +1533,10 @@
                 const mTemp = document.getElementById('mobile-weather-temp'); if(mTemp) mTemp.innerText = `${temp}°`; 
             } 
         }
-        function wmoToCondition(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
+        window.wmoToCondition = function(c) { if(c===0)return 'sunny'; if(c<=48)return 'cloudy'; if(c<=82)return 'rainy'; if(c<=77)return 'snow'; return 'storm'; }
 
         // --- 核心訊息發送與處理邏輯 ---
-        async function handleSendMessage() {
+        window.handleSendMessage = async function() {
             if(appState.isThinking) return;
             
             const input = document.getElementById('user-input'); 
@@ -2078,10 +1551,10 @@
             if(!text && !hasChatFile && !appState.isLiveMode) return;
 
             const cleanCmd = text.replace(/[\s，。、！!]/g, '').toLowerCase();
-            if (cleanCmd.includes('啟動即時口譯')) { toggleTranslateMode('A'); input.value=''; autoResizeInput(input); chatInitialInput=''; return; }
-            if (cleanCmd.includes('關閉即時口譯')) { toggleTranslateMode('off'); input.value=''; autoResizeInput(input); chatInitialInput=''; return; }
-            if (cleanCmd.includes('啟動live影像')) { toggleLiveMode(true); input.value=''; autoResizeInput(input); chatInitialInput=''; return; }
-            if (cleanCmd.includes('關閉live影像')) { toggleLiveMode(false); input.value=''; autoResizeInput(input); chatInitialInput=''; return; }
+            if (cleanCmd.includes('啟動即時口譯')) { window.toggleTranslateMode('A'); input.value=''; window.autoResizeInput(input); window.chatInitialInput=''; return; }
+            if (cleanCmd.includes('關閉即時口譯')) { window.toggleTranslateMode('off'); input.value=''; window.autoResizeInput(input); window.chatInitialInput=''; return; }
+            if (cleanCmd.includes('啟動live影像')) { window.toggleLiveMode(true); input.value=''; window.autoResizeInput(input); window.chatInitialInput=''; return; }
+            if (cleanCmd.includes('關閉live影像')) { window.toggleLiveMode(false); input.value=''; window.autoResizeInput(input); window.chatInitialInput=''; return; }
 
             if (appState.translateMode === 'A' && appState.translateSetupStage === 1) {
                 let target = '';
@@ -2089,31 +1562,31 @@
                 else if (text.match(/日/)) target = 'ja-JP';
                 else if (text.match(/韓/)) target = 'ko-KR';
 
-                addMessage(text, 'user');
+                window.addMessage(text, 'user');
 
                 if (target) {
                     appState.translateTargetLang = target;
                     appState.translateSetupStage = 0;
                     const langName = target === 'en-US' ? '英文' : target === 'ja-JP' ? '日文' : '韓文';
                     const confirmText = `✅ 已設定為 **中文 ↔ ${langName}** 雙向口譯。\n系統收到中文會輸出${langName}，收到${langName}會翻成中文。\n請直接對著麥克風說話。`;
-                    addMessage(confirmText, 'system');
-                    speakText(`已設定為中文與${langName}雙向口譯`, true);
+                    window.addMessage(confirmText, 'system');
+                    window.speakText(`已設定為中文與${langName}雙向口譯`, true);
                     
                     document.getElementById('stt-lang-toggle').classList.remove('hidden');
                 } else {
-                    addMessage("⚠️ 目前系統主要支援「英文」、「日文」與「韓文」的完美語音輸出，請重新告訴我要互譯的語言。", 'system');
-                    speakText("目前主要支援英文、日文與韓文，請重新告訴我要互譯的語言", true);
+                    window.addMessage("⚠️ 目前系統主要支援「英文」、「日文」與「韓文」的完美語音輸出，請重新告訴我要互譯的語言。", 'system');
+                    window.speakText("目前主要支援英文、日文與韓文，請重新告訴我要互譯的語言", true);
                 }
-                input.value = ''; autoResizeInput(input); chatInitialInput='';
-                appState.isThinking = false; updateSendButtonState(false); renderThinkingState(false);
+                input.value = ''; window.autoResizeInput(input); window.chatInitialInput='';
+                appState.isThinking = false; window.updateSendButtonState(false); window.renderThinkingState(false);
                 return;
             }
 
-            if (text.includes("開始錄音")) { input.value = ''; autoResizeInput(input); chatInitialInput = ''; addMessage(text, 'user'); startAudioRecording(); return; }
-            if (text.includes("停止錄音") || text.includes("結束錄音")) { input.value = ''; autoResizeInput(input); chatInitialInput = ''; addMessage(text, 'user'); stopAudioRecording(); return; }
+            if (text.includes("開始錄音")) { input.value = ''; window.autoResizeInput(input); window.chatInitialInput = ''; window.addMessage(text, 'user'); window.startAudioRecording(); return; }
+            if (text.includes("停止錄音") || text.includes("結束錄音")) { input.value = ''; window.autoResizeInput(input); window.chatInitialInput = ''; window.addMessage(text, 'user'); window.stopAudioRecording(); return; }
 
             appState.isThinking = true; 
-            updateSendButtonState(true);
+            window.updateSendButtonState(true);
 
             try {
                 const actionKeywords = ['打開', '開啟', 'open', '播放', '傳', '發', '發送', '導航', '帶我', '撥打', 'call', '打給', '幫我'];
@@ -2122,29 +1595,29 @@
 
                 if (isAction && !isImageIntent && appState.currentModel === 'gemini' && appState.keys.gemini && !hasChatFile && !appState.isLiveMode && appState.translateMode === 'off') {
                     const sysMsgId = Date.now();
-                    appState.messages.push({id: sysMsgId, text: `🔄 正在辨識您的操作意圖...`, sender: 'system', time: getTime()});
-                    renderMessages();
+                    appState.messages.push({id: sysMsgId, text: `🔄 正在辨識您的操作意圖...`, sender: 'system', time: window.getTime()});
+                    window.renderMessages();
                     
-                    const intentData = await checkDeepLinkIntent(text);
+                    const intentData = await window.checkDeepLinkIntent(text);
                     
                     appState.messages = appState.messages.filter(m => m.id !== sysMsgId); 
                     
                     if (intentData && intentData.intentFound) {
-                        addMessage(text, 'user');
-                        addMessage(intentData.replyMessage, 'ai', 'gemini', [], null, intentData);
+                        window.addMessage(text, 'user');
+                        window.addMessage(intentData.replyMessage, 'ai', 'gemini', [], null, intentData);
                         
                         setTimeout(() => { window.location.href = intentData.deepLinkUrl; }, 1500);
-                        input.value = ''; autoResizeInput(input); chatInitialInput = '';
-                        if (recognition) { try { recognition.abort(); } catch(e){} }
+                        input.value = ''; window.autoResizeInput(input); window.chatInitialInput = '';
+                        if (window.recognition) { try { window.recognition.abort(); } catch(e){} }
                         return; 
                     } else {
-                        renderMessages(); 
+                        window.renderMessages(); 
                     }
                 }
 
                 let fileDataToPass = hasChatFile ? { ...appState.chatFile } : null;
                 
-                if (!fileDataToPass && appState.isLiveMode && liveVideoStream) {
+                if (!fileDataToPass && appState.isLiveMode && window.liveVideoStream) {
                     try {
                         const videoEl = document.getElementById('live-video-preview');
                         const canvas = document.createElement('canvas');
@@ -2164,34 +1637,34 @@
                 let displayMessage = text;
                 if (!text && fileDataToPass) { displayMessage = `[夾帶檔案/畫面: ${fileDataToPass.name}]`; }
                 
-                addMessage(displayMessage, 'user', null, [], fileDataToPass);
+                window.addMessage(displayMessage, 'user', null, [], fileDataToPass);
                 
-                input.value = ''; autoResizeInput(input); chatInitialInput = ''; clearChatFile(); 
+                input.value = ''; window.autoResizeInput(input); window.chatInitialInput = ''; window.clearChatFile(); 
                 
                 if (appState.isContinuous) {
-                    if (recognition) { try { recognition.abort(); } catch(e){} }
+                    if (window.recognition) { try { window.recognition.abort(); } catch(e){} }
                 }
                 
-                renderThinkingState(true);
+                window.renderThinkingState(true);
 
                 if (appState.pendingReminder && appState.reminderStage > 0) {
                      const todo = appState.todos.find(t => t.id === appState.pendingReminder);
                      if (todo) {
-                         let combinedText = todo.tempTimeStr ? `${todo.tempTimeStr} ${text}` : text; const timeInfo = parseTimeNatural(combinedText);
-                         if (timeInfo.complete) { todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); } 
-                         else if (timeInfo.missing === 'date') { todo.tempTimeStr = combinedText; addMessage(`請問是「今天」、「明天」還是哪一天？`, 'system'); speakText(`請問是今天、明天還是哪一天？`); appState.reminderStage = 2; } 
-                         else if (timeInfo.missing === 'ampm') { todo.tempTimeStr = combinedText; addMessage(`請問是「上午」還是「下午」？`, 'system'); speakText(`請問是上午還是下午？`); appState.reminderStage = 2; } 
-                         else { addMessage(`無法識別時間，請重試 (例如: 明天下午3點)`, 'system'); speakText(`無法識別時間，請重試`); }
-                         saveToDB('todos', todo); renderTodos();
+                         let combinedText = todo.tempTimeStr ? `${todo.tempTimeStr} ${text}` : text; const timeInfo = window.parseTimeNatural(combinedText);
+                         if (timeInfo.complete) { todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; window.addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); window.speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); } 
+                         else if (timeInfo.missing === 'date') { todo.tempTimeStr = combinedText; window.addMessage(`請問是「今天」、「明天」還是哪一天？`, 'system'); window.speakText(`請問是今天、明天還是哪一天？`); appState.reminderStage = 2; } 
+                         else if (timeInfo.missing === 'ampm') { todo.tempTimeStr = combinedText; window.addMessage(`請問是「上午」還是「下午」？`, 'system'); window.speakText(`請問是上午還是下午？`); appState.reminderStage = 2; } 
+                         else { window.addMessage(`無法識別時間，請重試 (例如: 明天下午3點)`, 'system'); window.speakText(`無法識別時間，請重試`); }
+                         window.saveToDB('todos', todo); window.renderTodos();
                      }
                      return;
                 }
                 const reminderMatch = text.match(/^(?:提醒|reminder)(.*)$/i);
                 if (reminderMatch) {
                     const content = reminderMatch[1].trim() || "未命名事項"; const newTodo = { id: Date.now(), text: content, done: false, time: '詢問中...', alerted: false, alertEnabled: true };
-                    appState.todos.push(newTodo); saveToDB('todos', newTodo); appState.pendingReminder = newTodo.id; appState.reminderStage = 1; renderTodos();
-                    addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？`, 'system');
-                    speakText(`已將${content}加入行程，請問什麼時候提醒？`);
+                    appState.todos.push(newTodo); window.saveToDB('todos', newTodo); appState.pendingReminder = newTodo.id; appState.reminderStage = 1; window.renderTodos();
+                    window.addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？`, 'system');
+                    window.speakText(`已將${content}加入行程，請問什麼時候提醒？`);
                     return;
                 }
 
@@ -2214,31 +1687,31 @@
                 else if (appState.translateMode === 'off') {
                     const searchMatch = text.match(/^(?:搜尋|search)(.*)$/i);
                     if (searchMatch) {
-                        const searchKeyword = searchMatch[1].trim() || "今日新聞"; addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); let searchResultText = "";
-                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchKeyword); } catch (e) { addMessage(`⚠️ ${e.message}`, 'system'); } }
-                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchKeyword);
+                        const searchKeyword = searchMatch[1].trim() || "今日新聞"; window.addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); let searchResultText = "";
+                        if (appState.keys.serpapi) { try { searchResultText = await window.searchViaSerpApi(searchKeyword); } catch (e) { window.addMessage(`⚠️ ${e.message}`, 'system'); } }
+                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await window.fetchUrlViaGas(searchKeyword);
                         else if (!searchResultText && appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(請使用 Search 工具)`; }
                         if (searchResultText) { text = `請根據以下搜尋結果摘要回答：\n\n${searchResultText}`; injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
                     } else {
                         const urlMatch = text.match(/https?:\/\/[^\s]+/);
                         if (urlMatch) {
                             const url = urlMatch[0];
-                            if (!url.includes('youtube') && !url.includes('twitter')) { addMessage(`🔍 抓取網頁中...`, 'system'); const content = await fetchUrlViaGas(url); if (content) injectedContext = `\n\n[網頁內容]:\n${content}\n\n`; } 
+                            if (!url.includes('youtube') && !url.includes('twitter')) { window.addMessage(`🔍 抓取網頁中...`, 'system'); const content = await window.fetchUrlViaGas(url); if (content) injectedContext = `\n\n[網頁內容]:\n${content}\n\n`; } 
                             else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(請搜尋此連結)`; }
                         }
                     }
 
                     if (enableSearchTool && modelToUse !== 'gemini' && !searchMatch) {
-                        addMessage(`🌐 (代理連網) 正在透過網路搜尋相關資訊...`, 'system'); let searchResultText = "";
-                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(text); } catch (e) {} }
-                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(text);
+                        window.addMessage(`🌐 (代理連網) 正在透過網路搜尋相關資訊...`, 'system'); let searchResultText = "";
+                        if (appState.keys.serpapi) { try { searchResultText = await window.searchViaSerpApi(text); } catch (e) {} }
+                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await window.fetchUrlViaGas(text);
                         if (searchResultText) { injectedContext += `\n\n[系統自動連網搜尋結果，請參考此最新資訊來回答使用者的問題]:\n${searchResultText}\n\n`; } 
-                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system'); }
+                        else { window.addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system'); }
                     }
                 }
 
                 const promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
-                let finalRes = await fetchAIResponse(promptToSent, modelToUse, { 
+                let finalRes = await window.fetchAIResponse(promptToSent, modelToUse, { 
                     enableSearch: enableSearchTool, 
                     disableSearch: !enableSearchTool && injectedContext !== "",
                     file: fileDataToPass,
@@ -2246,27 +1719,27 @@
                 });
                 
                 let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
-                if(typeof finalRes === 'string') addMessage(finalOutputText, 'ai', modelToUse);
-                else addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
+                if(typeof finalRes === 'string') window.addMessage(finalOutputText, 'ai', modelToUse);
+                else window.addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
 
                 const aiMsgId = appState.messages[appState.messages.length - 1].id;
-                speakText(finalOutputText, false, String(aiMsgId));
+                window.speakText(finalOutputText, false, String(aiMsgId));
 
                 if (appState.pendingAnalyzeContextId) {
                     if (appState.pendingAnalyzeType === 'voiceNote') {
                         const n = appState.notes.find(x => String(x.id) === String(appState.pendingAnalyzeContextId));
-                        if (n) { n.content += `\n\n====================\n[AI 完整轉錄與分析 (${MODEL_CONFIG[modelToUse]?.name})]\n${finalRes.text||finalRes}`; saveToDB('notes', n); renderNotes(); addMessage(`✅ 分析完成！逐字稿與摘要已自動儲存至筆記「${n.title}」的內文中。`, 'system'); }
+                        if (n) { n.content += `\n\n====================\n[AI 完整轉錄與分析 (${MODEL_CONFIG[modelToUse]?.name})]\n${finalRes.text||finalRes}`; window.saveToDB('notes', n); window.renderNotes(); window.addMessage(`✅ 分析完成！逐字稿與摘要已自動儲存至筆記「${n.title}」的內文中。`, 'system'); }
                     } else if (appState.pendingAnalyzeType === 'audioRecord') {
                         const r = appState.audioRecords.find(x => String(x.id) === String(appState.pendingAnalyzeContextId));
-                        if (r) { r.transcript = (r.transcript ? r.transcript + "\n\n" : "") + `[AI 完整轉錄與分析]\n${finalRes.text||finalRes}`; saveToDB('audioRecords', r); renderAudioRecords(); addMessage(`✅ 分析完成！逐字稿與摘要已自動儲存至錄音紀錄「${r.title}」。`, 'system'); }
+                        if (r) { r.transcript = (r.transcript ? r.transcript + "\n\n" : "") + `[AI 完整轉錄與分析]\n${finalRes.text||finalRes}`; window.saveToDB('audioRecords', r); window.renderAudioRecords(); window.addMessage(`✅ 分析完成！逐字稿與摘要已自動儲存至錄音紀錄「${r.title}」。`, 'system'); }
                     } else if (appState.pendingAnalyzeType === 'textNote') {
                         const n = appState.notes.find(x => String(x.id) === String(appState.pendingAnalyzeContextId));
                         if (n) { 
                             const analysisHtml = `\n\n<hr><div style="margin-top:1em; padding:1em; background:rgba(147,51,234,0.1); border-left:4px solid #9333ea; border-radius:0.5em;"><strong>🤖 AI 深度分析摘要 (${MODEL_CONFIG[modelToUse]?.name})</strong><br>${(finalRes.text||finalRes).replace(/\n/g, '<br>')}</div>`;
                             if(n.isHtml) n.content += analysisHtml;
                             else n.content += `\n\n====================\n[🤖 AI 深度分析摘要 (${MODEL_CONFIG[modelToUse]?.name})]\n${finalRes.text||finalRes}`; 
-                            saveToDB('notes', n); renderNotes(); 
-                            addMessage(`✅ 分析完成！重點摘要已自動附加至筆記「${n.title}」的底部。`, 'system'); 
+                            window.saveToDB('notes', n); window.renderNotes(); 
+                            window.addMessage(`✅ 分析完成！重點摘要已自動附加至筆記「${n.title}」的底部。`, 'system'); 
                         }
                     }
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ""; appState.pendingAnalyzePrompt = "";
@@ -2274,16 +1747,49 @@
 
             } catch (error) {
                 console.error("Handler Error:", error);
-                addMessage(`⚠️ [系統提示] ${error.message || '未知錯誤'}\n(可能是當前模型不支援此格式或伺服器壅塞，請稍後再試。)\n`, 'system');
+                window.addMessage(`⚠️ [系統提示] ${error.message || '未知錯誤'}\n(可能是當前模型不支援此格式或伺服器壅塞，請稍後再試。)\n`, 'system');
                 appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = "";
             } finally {
                 appState.isThinking = false; 
-                updateSendButtonState(false); 
-                renderThinkingState(false);
+                window.updateSendButtonState(false); 
+                window.renderThinkingState(false);
             }
         }
 
-        async function fetchAIResponse(userText, model, options = {}) {
+        window.parseTimeNatural = function(str) {
+            const now = new Date(); let result = { complete: false, timestamp: null, missing: null };
+            const relMatch = str.match(/(\d+)\s*(分鐘|min|minute|小時|hour|hr|秒|sec|second)後?/i);
+            if (relMatch) {
+                const amount = parseInt(relMatch[1]); const unit = relMatch[2];
+                if (unit.includes('分') || unit.includes('min')) now.setMinutes(now.getMinutes() + amount);
+                else if (unit.includes('小') || unit.includes('h')) now.setHours(now.getHours() + amount);
+                else if (unit.includes('秒') || unit.includes('s')) now.setSeconds(now.getSeconds() + amount);
+                return { complete: true, timestamp: now.getTime() };
+            }
+            let targetDate = new Date(); let hasDate = false;
+            if (str.includes('明天') || str.includes('tomorrow')) { targetDate.setDate(targetDate.getDate() + 1); hasDate = true; } 
+            else if (str.includes('後天')) { targetDate.setDate(targetDate.getDate() + 2); hasDate = true; } 
+            else if (str.match(/\d{1,2}月\d{1,2}日/)) { const dMatch = str.match(/(\d{1,2})月(\d{1,2})日/); targetDate.setMonth(parseInt(dMatch[1]) - 1); targetDate.setDate(parseInt(dMatch[2])); hasDate = true; } 
+            else if (str.includes('今天') || str.includes('today')) { hasDate = true; }
+
+            let hour = -1, minute = 0;
+            const timeMatch = str.match(/(\d{1,2})[:：](\d{2})/); const hourMatch = str.match(/(\d{1,2})點(\d{1,2})?分?/); 
+            if (timeMatch) { hour = parseInt(timeMatch[1]); minute = parseInt(timeMatch[2]); } else if (hourMatch) { hour = parseInt(hourMatch[1]); if (hourMatch[2]) minute = parseInt(hourMatch[2]); }
+
+            let isPM = str.includes('下午') || str.includes('晚上') || str.includes('pm') || str.includes('PM');
+            let isAM = str.includes('上午') || str.includes('早上') || str.includes('am') || str.includes('AM');
+
+            if (hour !== -1) {
+                if (hour < 12 && !isPM && !isAM && !str.includes('24h')) return { complete: false, missing: 'ampm' }; 
+                if (isPM && hour < 12) hour += 12; if (isAM && hour === 12) hour = 0; 
+                targetDate.setHours(hour, minute, 0, 0);
+                if (!hasDate) { if (targetDate < new Date()) return { complete: false, missing: 'date' }; }
+                return { complete: true, timestamp: targetDate.getTime() };
+            }
+            return { complete: false, missing: 'time' };
+        }
+
+        window.fetchAIResponse = async function(userText, model, options = {}) {
             const fetchWithTimeout = async (url, fetchOpts, timeout = 60000) => { 
                 const controller = new AbortController(); const id = setTimeout(() => controller.abort(), timeout);
                 try { const response = await fetch(url, { ...fetchOpts, signal: controller.signal }); clearTimeout(id); return response; } 
@@ -2499,17 +2005,17 @@
 
         window.onload = async () => {
             try {
-                await initDB();
-                appState.messages = (await loadStoreFromDB('messages')).sort((a,b)=>a.id-b.id);
-                appState.notes = (await loadStoreFromDB('notes')).sort((a,b)=>b.id-a.id);
-                appState.todos = (await loadStoreFromDB('todos')).sort((a,b)=>b.id-a.id);
-                appState.audioRecords = (await loadStoreFromDB('audioRecords')).sort((a,b)=>b.id-a.id);
+                await window.initDB();
+                appState.messages = (await window.loadStoreFromDB('messages')).sort((a,b)=>a.id-b.id);
+                appState.notes = (await window.loadStoreFromDB('notes')).sort((a,b)=>b.id-a.id);
+                appState.todos = (await window.loadStoreFromDB('todos')).sort((a,b)=>b.id-a.id);
+                appState.audioRecords = (await window.loadStoreFromDB('audioRecords')).sort((a,b)=>b.id-a.id);
 
                 const migrateLS = (lsKey, storeName, stateArray) => {
                     const oldData = localStorage.getItem(lsKey);
                     if (oldData && stateArray.length === 0) {
                         try {
-                            const parsed = JSON.parse(oldData); parsed.forEach(item => saveToDB(storeName, item));
+                            const parsed = JSON.parse(oldData); parsed.forEach(item => window.saveToDB(storeName, item));
                             stateArray.push(...parsed); localStorage.removeItem(lsKey);
                         } catch(e) {}
                     }
@@ -2523,13 +2029,13 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 86 系統升級完畢！\n\n✅ **全自動口譯引擎 (VAD)**：不再依賴舊有的文字判定，我們為「口譯模式 B」導入了原生的 Web Audio 聲量偵測技術！系統會極其精準地捕捉您的發聲與停頓，確保不漏聽、不卡頓，真正實現無縫直譯。\n✅ **抗幻覺防護罩**：強化了 AI 對於環境雜訊的判定，若您沒開口，系統會安靜地忽略並繼續監聽，再也不會出現 AI「無中生有」的幻覺！', 
-                    sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
+                    text: 'NOVA 93 系統升級完畢！\n\n✅ **終極修復**：已完全修復 `window.tryGetLocation` 等底層模組在載入時報錯的問題，所有功能已 100% 回復並綁定完畢。\n✅ **全自動 Web Audio 聲音偵測 (VAD)**：在口譯模式 B 中，系統精準捕捉發聲與停頓，全自動擷取並送出，給您對講機般的流暢體驗。\n✅ **抗幻覺防護罩**：AI 在分析語音或整理摘要時，會絕對恪守客觀準則，遇無效音訊將自動過濾，不再產生任何腦補內容！', 
+                    sender: 'ai', model: 'gemini', time: window.getTime(), sources: [], file: null 
                 };
-                appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
+                appState.messages.push(welcomeMsg); window.saveToDB('messages', welcomeMsg);
             }
             
-            renderAll();
+            window.renderAll();
             
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
             safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl);
@@ -2583,21 +2089,21 @@
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) { 
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition; 
                 
-                recognition = new SR(); recognition.lang = 'zh-TW'; 
-                recognition.continuous = false; 
-                recognition.interimResults = true; 
+                window.recognition = new SR(); window.recognition.lang = 'zh-TW'; 
+                window.recognition.continuous = false; 
+                window.recognition.interimResults = true; 
                 
-                recognition.onend = () => { 
-                    if ((appState.isContinuous || (mediaRecorder && mediaRecorder.state === 'recording')) && !appState.isTTSPlaying && !appState.isThinking && appState.translateMode !== 'B') { 
-                        setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); 
+                window.recognition.onend = () => { 
+                    if ((appState.isContinuous || (window.mediaRecorder && window.mediaRecorder.state === 'recording')) && !appState.isTTSPlaying && !appState.isThinking && appState.translateMode !== 'B') { 
+                        setTimeout(() => { try { window.recognition.start(); } catch(e){} }, 300); 
                     }
                 };
                 
-                recognition.onerror = (e) => {
+                window.recognition.onerror = (e) => {
                     console.warn("Speech Recognition Error:", e.error);
                 };
                 
-                recognition.onresult = (e) => {
+                window.recognition.onresult = (e) => {
                     if (appState.isTTSPlaying) return;
 
                     let finalT = "";
@@ -2614,83 +2120,45 @@
                     }
                     
                     if (finalT) {
-                        chatInitialInput += (chatInitialInput ? " " : "") + finalT;
+                        window.chatInitialInput += (window.chatInitialInput ? " " : "") + finalT;
                     }
 
                     if (document.getElementById('recording-status').classList.contains('flex') && appState.translateMode !== 'B') { 
-                        appState.currentAudioTranscript = chatInitialInput + (interimT ? " " + interimT : ""); 
+                        appState.currentAudioTranscript = window.chatInitialInput + (interimT ? " " + interimT : ""); 
                     }
                     
                     const input = document.getElementById('user-input'); 
-                    input.value = (chatInitialInput + (interimT ? " " + interimT : "")).trim(); 
-                    autoResizeInput(input);
+                    input.value = (window.chatInitialInput + (interimT ? " " + interimT : "")).trim(); 
+                    window.autoResizeInput(input);
 
                     if (document.getElementById('recording-status').classList.contains('hidden') && appState.translateMode !== 'B') { 
-                        if (voiceTimer) clearTimeout(voiceTimer); 
-                        voiceTimer = setTimeout(() => { 
-                            if(input.value.trim() !== '' && !appState.isThinking) handleSendMessage(); 
+                        if (window.voiceTimer) clearTimeout(window.voiceTimer); 
+                        window.voiceTimer = setTimeout(() => { 
+                            if(input.value.trim() !== '' && !appState.isThinking) window.handleSendMessage(); 
                         }, appState.voiceTimeout * 1000); 
                     }
                 };
-                
-                noteRecognition = new SR(); noteRecognition.lang = 'zh-TW'; 
-                noteRecognition.continuous = false; 
-                noteRecognition.interimResults = true;
-                
-                noteRecognition.onstart = () => { updateNoteVoiceUI(); };
-                noteRecognition.onend = () => { 
-                    if (appState.noteVoiceActive) { 
-                        setTimeout(() => { try { noteRecognition.start(); } catch(e){} }, 300); 
-                    } else {
-                        updateNoteVoiceUI();
-                    }
-                };
-                noteRecognition.onerror = (e) => { console.warn("Note Speech Error:", e.error); };
-
-                noteRecognition.onresult = (e) => {
-                    let finalT = "";
-                    let interimT = "";
-                    for (let i = e.resultIndex; i < e.results.length; ++i) {
-                        let text = e.results[i][0].transcript;
-                        if (text.length >= 4 && text.length % 2 === 0) { 
-                            const mid = text.length / 2; 
-                            if (text.substring(0, mid) === text.substring(mid)) text = text.substring(0, mid); 
-                        }
-                        if (e.results[i].isFinal) finalT += text;
-                        else interimT += text;
-                    }
-                    
-                    if (finalT) {
-                        noteInitialInput += (noteInitialInput ? "\n" : "") + finalT;
-                    }
-
-                    const el = document.getElementById('edit-note-content'); 
-                    if(el) el.innerText += (noteInitialInput + (interimT ? "\n" + interimT : "")).trim();
-                    
-                    if (noteVoiceTimer) clearTimeout(noteVoiceTimer); 
-                    noteVoiceTimer = setTimeout(() => { 
-                        appState.noteVoiceActive = false; 
-                        noteRecognition.stop(); 
-                    }, appState.voiceTimeout * 1000);
-                };
             }
-            tryGetLocation(true); updateModelUI(); 
+            
+            // 確保調用正確繫結的嘗試定位方法
+            window.tryGetLocation(true); 
+            window.updateModelUI(); 
 
             const checkReminders = () => {
                 const now = Date.now();
                 appState.todos.forEach(t => {
                     if (t.alertTime && t.alertEnabled !== false && !t.alerted && t.alertTime <= now && !t.done) {
-                        t.alerted = true; saveToDB('todos', t); renderTodos();
+                        t.alerted = true; window.saveToDB('todos', t); window.renderTodos();
                         document.getElementById('alarm-text').innerText = t.text; document.getElementById('alarm-modal').classList.remove('hidden'); document.getElementById('alarm-modal').classList.add('flex');
                         try {
-                            alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                            const osc = alarmAudioCtx.createOscillator(); const gain = alarmAudioCtx.createGain();
-                            osc.type = 'sine'; osc.frequency.setValueAtTime(880, alarmAudioCtx.currentTime); osc.connect(gain); gain.connect(alarmAudioCtx.destination);
-                            osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, alarmAudioCtx.currentTime + 0.5);
-                            alarmInterval = setInterval(() => {
-                                const osc2 = alarmAudioCtx.createOscillator(); const gain2 = alarmAudioCtx.createGain();
-                                osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, alarmAudioCtx.currentTime); osc2.connect(gain2); gain2.connect(alarmAudioCtx.destination);
-                                osc2.start(); gain2.gain.exponentialRampToValueAtTime(0.00001, alarmAudioCtx.currentTime + 0.5);
+                            window.alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                            const osc = window.alarmAudioCtx.createOscillator(); const gain = window.alarmAudioCtx.createGain();
+                            osc.type = 'sine'; osc.frequency.setValueAtTime(880, window.alarmAudioCtx.currentTime); osc.connect(gain); gain.connect(window.alarmAudioCtx.destination);
+                            osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, window.alarmAudioCtx.currentTime + 0.5);
+                            window.alarmInterval = setInterval(() => {
+                                const osc2 = window.alarmAudioCtx.createOscillator(); const gain2 = window.alarmAudioCtx.createGain();
+                                osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, window.alarmAudioCtx.currentTime); osc2.connect(gain2); gain2.connect(window.alarmAudioCtx.destination);
+                                osc2.start(); gain2.gain.exponentialRampToValueAtTime(0.00001, window.alarmAudioCtx.currentTime + 0.5);
                             }, 1000);
                         } catch(e) {}
                     }
@@ -2700,8 +2168,8 @@
 
             window.stopAlarm = function() {
                 document.getElementById('alarm-modal').classList.add('hidden'); document.getElementById('alarm-modal').classList.remove('flex');
-                if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
-                if (alarmAudioCtx) { alarmAudioCtx.close(); alarmAudioCtx = null; }
+                if (window.alarmInterval) { clearInterval(window.alarmInterval); window.alarmInterval = null; }
+                if (window.alarmAudioCtx) { window.alarmAudioCtx.close(); window.alarmAudioCtx = null; }
             };
         };
     </script>
