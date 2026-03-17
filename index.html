@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 91</title>
+    <title>NOVA 92</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,7 +86,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 91</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 92</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">Ultimate Edition</p>
                 </div>
             </div>
@@ -109,7 +109,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 91</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 92</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -270,13 +270,16 @@
                          </div>
                          
                          <div class="flex space-x-2 ml-auto shrink-0">
-                             <!-- Grok 子模型選擇 (修復補回) -->
+                             <!-- Grok 子模型選擇 (更新 API list) -->
                              <select id="grok-sub-model-select" onchange="setGrokModel(this.value)" class="hidden bg-slate-800 border border-slate-600 text-slate-100 text-xs rounded-lg px-2 py-1 outline-none focus:border-slate-400 font-medium max-w-[140px] md:max-w-none">
                                  <option value="grok-multi">⚡ 智慧切換 (Auto)</option>
-                                 <option value="grok-3">Grok 3</option>
-                                 <option value="grok-2-1212">Grok 2</option>
-                                 <option value="grok-2-vision-1212">Grok 2 Vision</option>
-                                 <option value="grok-imagine-image-pro">Grok Imagine (繪圖)</option>
+                                 <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning</option>
+                                 <option value="grok-4-1-fast-non-reasoning">Grok 4.1 Fast Non-Reasoning</option>
+                                 <option value="grok-code-fast-1">Grok Code Fast 1</option>
+                                 <option value="grok-4-fast-reasoning">Grok 4 Fast Reasoning</option>
+                                 <option value="grok-4-fast-non-reasoning">Grok 4 Fast Non-Reasoning</option>
+                                 <option value="grok-imagine-image-pro">Grok Imagine Pro (繪圖)</option>
+                                 <option value="grok-imagine-image">Grok Imagine (繪圖)</option>
                              </select>
                              <!-- Gemini 子模型選擇 -->
                              <select id="gemini-sub-model-select" onchange="setGeminiModel(this.value)" class="bg-blue-900 border border-blue-500/50 text-blue-100 text-xs rounded-lg px-2 py-1 outline-none focus:border-blue-400 font-medium max-w-[140px] md:max-w-none">
@@ -2674,7 +2677,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 91 系統升級完畢！\n\n✅ **全自動語音直譯專精**：已移除舊版繁瑣的文字模式，現在只要啟動即時口譯，系統即會全自動開關麥克風，無縫雙向互譯。\n✅ **定位修復**：天氣與所在地定位功能已恢復正常！\n✅ **快捷指令支援**：直接打字或說出「啟動即時口譯」、「結束口譯」即可立刻操作！', 
+                    text: 'NOVA 92 系統升級完畢！\n\n✅ **Grok API 更新**：已全面升級並同步至最新 Grok 4 系列與專屬模型選單！\n✅ **全自動語音直譯專精**：已移除舊版繁瑣的文字模式，現在只要啟動即時口譯，系統即會全自動開關麥克風，無縫雙向互譯。\n✅ **定位修復**：天氣與所在地定位功能已恢復正常！\n✅ **快捷指令支援**：直接打字或說出「啟動即時口譯」、「結束口譯」即可立刻操作！', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
