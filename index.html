@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 101 SP</title>
+    <title>NOVA 102 SP</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,7 +86,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 101</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 102</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">SP Edition</p>
                 </div>
             </div>
@@ -109,7 +109,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 101 SP</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 102 SP</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -1080,10 +1080,19 @@
                     const base64data = n.audioData.split(',')[1];
                     payloadObj = { filename: n.filename || `NOVA_VoiceNote_${n.id}.weba`, mimeType: n.mimeType || 'audio/webm', data: base64data };
                 } else {
-                    let textContent = n.isHtml ? n.content.replace(/<br\s*[\/]?>/gi, '\n').replace(/<[^>]+>/g, '') : n.content;
-                    textContent = `${n.title}\n\n${textContent}`;
-                    const base64Text = btoa(unescape(encodeURIComponent(textContent)));
-                    payloadObj = { filename: `${n.title}.txt`, mimeType: 'text/plain', data: base64Text };
+                    let htmlContent = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>${n.title}</title></head><body style="font-family: sans-serif; padding: 20px;"><h1>${n.title}</h1><p style="color: gray;">${n.date}</p><hr><div style="line-height: 1.6;">${n.isHtml ? n.content : n.content.replace(/\n/g, '<br>')}</div>`;
+                    const displayImages = n.images || (n.image ? [n.image] : []);
+                    if (displayImages.length > 0) {
+                        htmlContent += `<div style="margin-top: 20px;">`;
+                        displayImages.forEach(img => {
+                            htmlContent += `<img src="${img}" style="max-width: 100%; border-radius: 8px; margin-top: 10px;"><br>`;
+                        });
+                        htmlContent += `</div>`;
+                    }
+                    htmlContent += `</body></html>`;
+                    
+                    const base64Text = btoa(unescape(encodeURIComponent(htmlContent)));
+                    payloadObj = { filename: `${n.title}.html`, mimeType: 'text/html', data: base64Text };
                 }
                 
                 const payload = JSON.stringify(payloadObj);
@@ -2884,7 +2893,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 101 SP 系統升級完畢！\n\n✅ **筆記雲端備份修復**：修正「筆記/文件」區塊中手動備份至 Google Drive 失效的問題。現在文字筆記將自動轉換編碼，語音筆記則會自動上傳原始音檔，確保全格式完美相容！', 
+                    text: 'NOVA 102 SP 系統升級完畢！\n\n✅ **圖文筆記雲端備份強化**：現在將筆記上傳至 Google Drive 備份時，不再侷限於純文字。系統會自動生成並上傳內含「完整排版與圖片」的豐富圖文網頁檔 (.html)，完美保留所有重點截圖與筆記細節！', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
