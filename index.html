@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 100 SP</title>
+    <title>NOVA 101 SP</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,7 +86,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 100</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 101</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">SP Edition</p>
                 </div>
             </div>
@@ -109,7 +109,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 100 SP</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 101 SP</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -1075,9 +1075,20 @@
             if(btn) { btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> 備份中...'; btn.disabled = true; }
             
             try {
-                let textContent = n.isHtml ? n.content.replace(/<[^>]+>/g, '\n') : n.content;
-                const payload = JSON.stringify({ filename: `${n.title}.txt`, mimeType: 'text/plain', content: textContent });
+                let payloadObj = {};
+                if (n.type === 'audio' && n.audioData) {
+                    const base64data = n.audioData.split(',')[1];
+                    payloadObj = { filename: n.filename || `NOVA_VoiceNote_${n.id}.weba`, mimeType: n.mimeType || 'audio/webm', data: base64data };
+                } else {
+                    let textContent = n.isHtml ? n.content.replace(/<br\s*[\/]?>/gi, '\n').replace(/<[^>]+>/g, '') : n.content;
+                    textContent = `${n.title}\n\n${textContent}`;
+                    const base64Text = btoa(unescape(encodeURIComponent(textContent)));
+                    payloadObj = { filename: `${n.title}.txt`, mimeType: 'text/plain', data: base64Text };
+                }
+                
+                const payload = JSON.stringify(payloadObj);
                 const res = await fetch(appState.driveUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload });
+                
                 if(!res.ok) throw new Error("Server error");
                 const resText = await res.text();
                 let finalUrl = resText; try { const j = JSON.parse(resText); finalUrl = j.url || j.link || resText; } catch(e){}
@@ -1151,7 +1162,7 @@
                 }
             };
 
-            // 【NOVA 100 SP】防呆鎖：如果在全自動翻譯模式的第一次收音前，強制忽略所有語音播報
+            // 【NOVA 101 SP】防呆鎖：如果在全自動翻譯模式的第一次收音前，強制忽略所有語音播報
             if (!force && appState.translateMode === 'auto' && appState.translateMuteUntilFirstCapture) {
                 continueLoop();
                 return;
@@ -1774,7 +1785,7 @@
                 
                 addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您說話完畢，等待設定秒數後立即送出翻譯。AI 回覆期間麥克風會自動完全關閉以防干擾。\n**👉 系統已啟動收音，請直接對著設備說話！**\n*(如需結束，您可以直接點選上方閃爍的紅燈，或是直接對麥克風說出「結束口譯」或「停止翻譯」)*", 'system');
                 
-                // 【NOVA 100 SP】防呆鎖：設定為 true，確保第一次收音前，絕對不會有任何系統聲音發出
+                // 【NOVA 101 SP】防呆鎖：設定為 true，確保第一次收音前，絕對不會有任何系統聲音發出
                 appState.translateMuteUntilFirstCapture = true;
                 
                 setTimeout(() => { startTranslateBAutoRecord(); }, 1500); 
@@ -1970,7 +1981,7 @@
                 return; 
             }
             
-            // 【NOVA 100 SP】防呆鎖解除：只要有成功抓到音檔送出，就代表第一次收音完成，可以解鎖語音了
+            // 【NOVA 101 SP】防呆鎖解除：只要有成功抓到音檔送出，就代表第一次收音完成，可以解鎖語音了
             appState.translateMuteUntilFirstCapture = false;
             
             const audioBlob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
@@ -2873,7 +2884,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 100 SP 系統升級完畢！\n\n✅ **開場語音靜默控制**：即時口譯模式啟動時，將徹底禁用開場語音提示，確保麥克風啟動的瞬間絕對安靜。\n✅ **首次收音防呆鎖 (First-Capture TTS Lock)**：在啟動口譯且您尚未進行第一次發言前，系統將強制鎖定語音播放功能，直到成功完成第一次收音後才會解除，確保絕對不會因為各種意外被觸發迴圈。', 
+                    text: 'NOVA 101 SP 系統升級完畢！\n\n✅ **筆記雲端備份修復**：修正「筆記/文件」區塊中手動備份至 Google Drive 失效的問題。現在文字筆記將自動轉換編碼，語音筆記則會自動上傳原始音檔，確保全格式完美相容！', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
