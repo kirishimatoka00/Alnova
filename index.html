@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 102 SP</title>
+    <title>NOVA 105 SP</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,7 +86,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 102</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 105</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">SP Edition</p>
                 </div>
             </div>
@@ -109,7 +109,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 102 SP</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 105 SP</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -556,8 +556,52 @@
         let chatInitialInput = ""; let noteInitialInput = "";
         let alarmInterval = null; let alarmAudioCtx = null; let mediaRecorder = null; let audioChunks = [];
         let liveVideoStream = null; 
-        let vadAudioCtx = null; let vadStream = null; let vadAnalyser = null; let vadInterval = null; 
+        let vadAudioCtx = null; let vadStream = null; let vadAnalyser = null; 
         let translateDiscardNext = false;
+        
+        // 【NOVA 105 SP】Web Worker 獨立心跳執行緒與背景保活
+        let bgAudioCtx = null;
+        let bgOscillator = null;
+        let bgGainNode = null;
+        let vadTimerWorker = null;
+        
+        try {
+            const workerCode = `
+                let t = null;
+                self.onmessage = function(e) {
+                    if (e.data === 'start') {
+                        if(!t) t = setInterval(() => self.postMessage('tick'), 100);
+                    } else if (e.data === 'stop') {
+                        clearInterval(t);
+                        t = null;
+                    }
+                };
+            `;
+            const blob = new Blob([workerCode], {type: 'application/javascript'});
+            vadTimerWorker = new Worker(URL.createObjectURL(blob));
+        } catch(e) { console.warn("Worker creation failed", e); }
+
+        function enableBackgroundMode() {
+            try {
+                if (!bgAudioCtx) bgAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (bgAudioCtx.state === 'suspended') bgAudioCtx.resume();
+                if (!bgOscillator) {
+                    bgOscillator = bgAudioCtx.createOscillator();
+                    bgGainNode = bgAudioCtx.createGain();
+                    bgGainNode.gain.value = 0.00001; // 近乎無聲，騙過作業系統
+                    bgOscillator.connect(bgGainNode);
+                    bgGainNode.connect(bgAudioCtx.destination);
+                    bgOscillator.start();
+                }
+            } catch(e) { console.warn("BG audio fail", e); }
+        }
+
+        function disableBackgroundMode() {
+            if (bgOscillator) {
+                try { bgOscillator.stop(); bgOscillator.disconnect(); } catch(e){}
+                bgOscillator = null;
+            }
+        }
 
         // --- IndexedDB 資料庫初始化與操作 ---
         const DB_NAME = 'NovaDB'; const DB_VERSION = 2; let db;
@@ -601,7 +645,7 @@
             isThinking: false, isListening: false, isNoteListening: false, noteVoiceActive: false, isSearchEnabled: false, isContinuous: false, manualLocIndex: 0,
             isLiveMode: false, 
             translateMode: 'off', 
-            translateMuteUntilFirstCapture: false, // NEW FLAG: First-Capture TTS Lock
+            translateMuteUntilFirstCapture: false, 
             currentListenLang: 'zh-TW',
             manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}],
             pendingReminder: null, reminderStage: 0, countryCode: 'TW', lastLat: null, lastLon: null,
@@ -899,7 +943,9 @@
 
         // --- 強制硬體釋放與防佔用系統 ---
         window.releaseMicrophone = function() {
-            if (vadInterval) { clearInterval(vadInterval); vadInterval = null; }
+            disableBackgroundMode();
+            
+            if (vadTimerWorker) { vadTimerWorker.postMessage('stop'); }
             if (vadStream) { try{vadStream.disconnect();}catch(e){} vadStream = null; }
             if (vadAnalyser) { try{vadAnalyser.disconnect();}catch(e){} vadAnalyser = null; }
             if (vadAudioCtx && vadAudioCtx.state !== 'closed') {
@@ -1831,6 +1877,8 @@
                     return;
                 }
 
+                enableBackgroundMode();
+
                 appState.recordingContext = 'translateB';
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
@@ -1858,7 +1906,7 @@
                 let baselineSamples = [];
                 let isBaselineCalculated = false;
 
-                vadInterval = setInterval(() => {
+                const vadTick = () => {
                     if (appState.translateMode !== 'auto') {
                         releaseMicrophone();
                         return;
@@ -1902,7 +1950,6 @@
                         
                         const statusText = document.getElementById('recording-status-text');
                         if (statusText) statusText.innerText = `等待語音中 (底噪基準: ${baselineVolume.toFixed(1)})`;
-                        console.log(`[NOVA VAD] 環境底噪: ${baselineVolume.toFixed(1)}, 門檻倍數: ${appState.vadMultiplier}x, 觸發閥值: ${(baselineVolume * appState.vadMultiplier).toFixed(1)}`);
                     }
 
                     // 計算當下觸發的動態門檻 = 基底噪音 x 設定的倍數
@@ -1960,7 +2007,14 @@
                             }
                         }
                     }
-                }, 100);
+                };
+
+                if (vadTimerWorker) {
+                    vadTimerWorker.onmessage = vadTick;
+                    vadTimerWorker.postMessage('start');
+                } else {
+                    vadInterval = setInterval(vadTick, 100);
+                }
 
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = processTranslateB;
@@ -2156,6 +2210,8 @@
                     addMessage(titleMsg, 'system');
                 }
 
+                enableBackgroundMode();
+
                 let actualMimeType = 'audio/webm';
                 if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) actualMimeType = 'audio/webm;codecs=opus';
                 else if (MediaRecorder.isTypeSupported('audio/mp4')) actualMimeType = 'audio/mp4';
@@ -2190,6 +2246,8 @@
 
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 appState.activeMediaTracks.push(...stream.getTracks());
+
+                enableBackgroundMode();
 
                 mediaRecorder = new MediaRecorder(stream); audioChunks = []; appState.currentAudioTranscript = ""; 
                 
@@ -2275,9 +2333,29 @@
             if (appState.driveUrl) {
                 addMessage(`☁️ 正在與 Google Drive 同步中，請稍候...`, 'system');
                 try {
-                    const base64data = base64dataWithPrefix.split(',')[1];
-                    const payload = JSON.stringify({ filename: filename, mimeType: actualMimeType, data: base64data });
+                    let payloadObj = {};
+                    if (appState.recordingContext === 'note' && newNote && newNote.type === 'audio') {
+                        const base64data = base64dataWithPrefix.split(',')[1];
+                        payloadObj = { filename: filename, mimeType: actualMimeType, data: base64data };
+                    } else if (appState.recordingContext === 'note' && newNote && newNote.type !== 'audio') {
+                        let htmlContent = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>${newNote.title}</title></head><body style="font-family: sans-serif; padding: 20px;"><h1>${newNote.title}</h1><p style="color: gray;">${newNote.date}</p><hr><div style="line-height: 1.6;">${newNote.isHtml ? newNote.content : newNote.content.replace(/\n/g, '<br>')}</div>`;
+                        const displayImages = newNote.images || (newNote.image ? [newNote.image] : []);
+                        if (displayImages.length > 0) {
+                            htmlContent += `<div style="margin-top: 20px;">`;
+                            displayImages.forEach(img => {
+                                htmlContent += `<img src="${img}" style="max-width: 100%; border-radius: 8px; margin-top: 10px;"><br>`;
+                            });
+                            htmlContent += `</div>`;
+                        }
+                        htmlContent += `</body></html>`;
+                        const base64Text = btoa(unescape(encodeURIComponent(htmlContent)));
+                        payloadObj = { filename: `${newNote.title}.html`, mimeType: 'text/html', data: base64Text };
+                    } else {
+                        const base64data = base64dataWithPrefix.split(',')[1];
+                        payloadObj = { filename: filename, mimeType: actualMimeType, data: base64data };
+                    }
                     
+                    const payload = JSON.stringify(payloadObj);
                     const res = await fetch(appState.driveUrl, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'text/plain' },
@@ -2893,7 +2971,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 102 SP 系統升級完畢！\n\n✅ **圖文筆記雲端備份強化**：現在將筆記上傳至 Google Drive 備份時，不再侷限於純文字。系統會自動生成並上傳內含「完整排版與圖片」的豐富圖文網頁檔 (.html)，完美保留所有重點截圖與筆記細節！', 
+                    text: 'NOVA 105 SP 系統升級完畢！\n\n✅ **背景錄音保活技術 (Background Recording)**：現在就算您將手機螢幕關閉、或是切換到其他 APP，錄音與即時口譯功能依然會持續在背景穩定運作！\n*(技術說明：系統導入了「Web Worker 獨立執行緒」與「超微量音訊欺騙防休眠機制」，騙過手機作業系統將此網頁視為通話/音樂播放器，強制系統在背景不中斷收音)*', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
@@ -3115,4 +3193,4 @@
         };
     </script>
 </body>
-</html>
+                                                                                                                      </html>
