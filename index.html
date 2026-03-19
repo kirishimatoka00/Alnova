@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 105 SP</title>
+    <title>NOVA 106 SP</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -78,6 +78,9 @@
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30">
 
+    <!-- 隱形背景保活無聲引擎 (騙過手機 OS 以防麥克風休眠) -->
+    <audio id="bg-keeper" loop playsinline src="data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEwAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"></audio>
+
     <div class="flex h-[100dvh] w-full relative">
         <!-- ================= 左側邊欄 ================= -->
         <aside class="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-6 flex-shrink-0 z-10">
@@ -86,7 +89,7 @@
                     <i class="ph-bold ph-infinity text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 105</h1>
+                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 106</h1>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wider">SP Edition</p>
                 </div>
             </div>
@@ -109,7 +112,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 105 SP</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 106 SP</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -558,8 +561,9 @@
         let liveVideoStream = null; 
         let vadAudioCtx = null; let vadStream = null; let vadAnalyser = null; 
         let translateDiscardNext = false;
+        let wakeLock = null; // 防休眠鎖
         
-        // 【NOVA 105 SP】Web Worker 獨立心跳執行緒與背景保活
+        // 【NOVA 106 SP】雙重背景保活防線 (HTML5 Loop Audio + Web Audio Oscillator + Timeslice)
         let bgAudioCtx = null;
         let bgOscillator = null;
         let bgGainNode = null;
@@ -583,6 +587,17 @@
 
         function enableBackgroundMode() {
             try {
+                // 1. HTML5 無聲背景音軌 (騙取作業系統背景多媒體權限)
+                const bgKeeper = document.getElementById('bg-keeper');
+                if (bgKeeper) {
+                    bgKeeper.volume = 0.01;
+                    let playPromise = bgKeeper.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(e => console.warn('HTML5 Background Keeper fail', e));
+                    }
+                }
+                
+                // 2. Web Audio API 震盪器防線
                 if (!bgAudioCtx) bgAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (bgAudioCtx.state === 'suspended') bgAudioCtx.resume();
                 if (!bgOscillator) {
@@ -593,14 +608,28 @@
                     bgGainNode.connect(bgAudioCtx.destination);
                     bgOscillator.start();
                 }
+                
+                // 3. Screen Wake Lock (避免閒置時螢幕主動關閉)
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(()=>{});
+                }
             } catch(e) { console.warn("BG audio fail", e); }
         }
 
         function disableBackgroundMode() {
-            if (bgOscillator) {
-                try { bgOscillator.stop(); bgOscillator.disconnect(); } catch(e){}
-                bgOscillator = null;
-            }
+            try {
+                const bgKeeper = document.getElementById('bg-keeper');
+                if (bgKeeper) bgKeeper.pause();
+                
+                if (bgOscillator) {
+                    try { bgOscillator.stop(); bgOscillator.disconnect(); } catch(e){}
+                    bgOscillator = null;
+                }
+                
+                if (wakeLock) {
+                    wakeLock.release().then(() => { wakeLock = null; }).catch(()=>{});
+                }
+            } catch(e) {}
         }
 
         // --- IndexedDB 資料庫初始化與操作 ---
@@ -1840,7 +1869,7 @@
                 
                 addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您說話完畢，等待設定秒數後立即送出翻譯。AI 回覆期間麥克風會自動完全關閉以防干擾。\n**👉 系統已啟動收音，請直接對著設備說話！**\n*(如需結束，您可以直接點選上方閃爍的紅燈，或是直接對麥克風說出「結束口譯」或「停止翻譯」)*", 'system');
                 
-                // 【NOVA 101 SP】防呆鎖：設定為 true，確保第一次收音前，絕對不會有任何系統聲音發出
+                // 防呆鎖：設定為 true，確保第一次收音前，絕對不會有任何系統聲音發出
                 appState.translateMuteUntilFirstCapture = true;
                 
                 setTimeout(() => { startTranslateBAutoRecord(); }, 1500); 
@@ -1987,7 +2016,7 @@
                                                 if (appState.translateMode === 'auto') {
                                                     mediaRecorder.onstop = processTranslateB; // 還原正常的處理函數
                                                     translateDiscardNext = false;
-                                                    try { mediaRecorder.start(); } catch(e){}
+                                                    try { mediaRecorder.start(500); } catch(e){}
                                                 }
                                             };
                                             mediaRecorder.stop();
@@ -2018,7 +2047,7 @@
 
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = processTranslateB;
-                mediaRecorder.start();
+                mediaRecorder.start(500);
 
                 document.getElementById('recording-status').classList.remove('hidden'); 
                 document.getElementById('recording-status').classList.add('flex');
@@ -2044,7 +2073,7 @@
                 return; 
             }
             
-            // 【NOVA 101 SP】防呆鎖解除：只要有成功抓到音檔送出，就代表第一次收音完成，可以解鎖語音了
+            // 防呆鎖解除：只要有成功抓到音檔送出，就代表第一次收音完成，可以解鎖語音了
             appState.translateMuteUntilFirstCapture = false;
             
             const audioBlob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
@@ -2220,7 +2249,7 @@
                 audioChunks = [];
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = uploadAudioRecording; 
-                mediaRecorder.start();
+                mediaRecorder.start(1000);
                 
                 document.getElementById('recording-status').classList.remove('hidden'); 
                 document.getElementById('recording-status').classList.add('flex');
@@ -2253,7 +2282,7 @@
                 
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = uploadAudioRecording; 
-                mediaRecorder.start();
+                mediaRecorder.start(1000);
                 
                 document.getElementById('recording-status').classList.remove('hidden'); document.getElementById('recording-status').classList.add('flex');
                 
@@ -2971,7 +3000,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 105 SP 系統升級完畢！\n\n✅ **背景錄音保活技術 (Background Recording)**：現在就算您將手機螢幕關閉、或是切換到其他 APP，錄音與即時口譯功能依然會持續在背景穩定運作！\n*(技術說明：系統導入了「Web Worker 獨立執行緒」與「超微量音訊欺騙防休眠機制」，騙過手機作業系統將此網頁視為通話/音樂播放器，強制系統在背景不中斷收音)*', 
+                    text: 'NOVA 106 SP 系統升級完畢！\n\n✅ **終極背景錄音保活技術**：現在就算您將手機螢幕關閉、或是切換到其他 APP (例如回覆 LINE)，錄音與即時口譯功能依然會持續在背景穩定收音！\n\n*(技術說明：系統同時啟用了「Web Worker 獨立心跳執行緒」、「Timeslice 強制音軌輸出」與「無聲音樂播放欺騙防休眠機制」，徹底繞過手機作業系統對背景網頁的嚴格限制！)*', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
@@ -3193,4 +3222,4 @@
         };
     </script>
 </body>
-                                                                                                                      </html>
+                            </html>
