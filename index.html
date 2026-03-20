@@ -239,6 +239,56 @@
                 </div>
             </div>
 
+            <!-- ================= 雙 AI 協作設定彈窗 (Dual AI Modal) ================= -->
+            <div id="dual-ai-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+                <div class="bg-slate-900 border border-emerald-500/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(16,185,129,0.15)] flex flex-col">
+                    <div class="flex justify-between items-center mb-6 shrink-0">
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-users-three text-emerald-400"></i> 雙 AI 協作研究</h3>
+                        <button onclick="closeDualAIModal()"><i class="ph ph-x text-2xl text-slate-400 hover:text-white"></i></button>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-slate-300 mb-2 font-bold"><i class="ph-fill ph-target"></i> 研究主題或目標任務</label>
+                            <textarea id="dual-ai-topic" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-emerald-500 outline-none resize-none" placeholder="例如：分析量子計算的最新進展與未來五年應用，並整理出具體的產業建議。"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-blue-400 mb-1 font-bold"><i class="ph-fill ph-user-circle"></i> 模型 A (研究/開發者)</label>
+                                <select id="dual-ai-model-a" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 outline-none focus:border-blue-500">
+                                    <option value="gemini">Gemini</option>
+                                    <option value="grok">Grok</option>
+                                    <option value="gpt">OpenAI</option>
+                                    <option value="cohere">Cohere</option>
+                                    <option value="groq">Groq</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-rose-400 mb-1 font-bold"><i class="ph-fill ph-user-circle-gear"></i> 模型 B (審核/總結者)</label>
+                                <select id="dual-ai-model-b" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 outline-none focus:border-rose-500">
+                                    <option value="grok">Grok</option>
+                                    <option value="gemini">Gemini</option>
+                                    <option value="gpt">OpenAI</option>
+                                    <option value="cohere">Cohere</option>
+                                    <option value="groq">Groq</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-amber-400 mb-1 font-bold"><i class="ph-fill ph-arrows-clockwise"></i> 攻防討論回合數</label>
+                            <select id="dual-ai-rounds" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 outline-none focus:border-amber-500">
+                                <option value="2">2 回合 (快讀出結果)</option>
+                                <option value="3" selected>3 回合 (深度討論修正)</option>
+                                <option value="4">4 回合 (極致嚴格審查)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-slate-800">
+                        <button onclick="closeDualAIModal()" class="px-4 py-2 text-slate-400 hover:text-white transition-colors">取消</button>
+                        <button onclick="startDualAIWorkflow()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><i class="ph-bold ph-play"></i> 開始協作</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- ================= 資料夾管理彈窗 (Folder Manage Modal) ================= -->
             <div id="folder-manage-modal" class="hidden fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl flex-col max-h-[80vh]">
@@ -287,9 +337,18 @@
                     <div class="p-3 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center shrink-0 overflow-x-auto no-scrollbar relative z-10">
                          <div class="flex items-center space-x-2 mr-4 shrink-0">
                             <span id="web-search-badge" class="hidden md:flex items-center space-x-1 text-[10px] bg-blue-900/30 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full"><i class="ph-bold ph-globe"></i><span>連網搜尋</span></span>
+                            
+                            <!-- 錄音狀態標示 -->
                             <div id="recording-status" onclick="stopAudioRecording()" class="hidden items-center space-x-2 bg-red-900/50 border border-red-500/50 px-3 py-1 rounded-full animate-pulse mr-2 cursor-pointer hover:bg-red-800/50 transition-colors" title="點擊停止錄音/口譯">
                                 <div class="w-2 h-2 bg-red-500 rounded-full recording-dot"></div><span class="text-xs text-red-200 font-bold" id="recording-status-text">錄音中... (點擊停止)</span>
                             </div>
+
+                            <!-- 雙 AI 協作狀態標示 -->
+                            <div id="dual-ai-status" class="hidden items-center space-x-2 bg-emerald-900/50 border border-emerald-500/50 px-3 py-1 rounded-full animate-pulse mr-2">
+                                <i class="ph-bold ph-users-three text-emerald-400"></i><span class="text-xs text-emerald-200 font-bold">雙 AI 協作運行中...</span>
+                                <button onclick="stopDualAIWorkflow()" class="ml-2 bg-emerald-800 hover:bg-red-600 text-white text-[10px] px-2 py-0.5 rounded transition-colors">終止</button>
+                            </div>
+
                             <button onclick="clearChatHistory()" class="text-[10px] text-slate-500 hover:text-red-400 flex items-center space-x-1 border border-slate-700 px-2 py-0.5 rounded-lg transition-colors"><i class="ph-bold ph-trash"></i><span>清空對話</span></button>
                          </div>
                          
@@ -372,8 +431,13 @@
                         
                         <!-- 附加功能展開選單 (+) -->
                         <div id="plus-menu" class="hidden absolute bottom-full left-0 mb-1 w-full bg-slate-900 border-t border-slate-800 p-4 grid grid-cols-4 gap-4 z-40 rounded-t-2xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)] transition-all">
+                            
+                            <button onclick="openDualAIModal()" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-emerald-500/50 hover:bg-slate-700 text-emerald-400 transition-colors active:scale-95 shadow-lg shadow-emerald-500/10">
+                                <i class="ph-bold ph-users-three text-2xl"></i><span class="text-[10px] font-bold">雙 AI 協作</span>
+                            </button>
+
                             <label for="chat-file-input" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 cursor-pointer text-slate-300 transition-colors active:scale-95">
-                                <i class="ph-bold ph-paperclip text-2xl text-emerald-400"></i><span class="text-[10px] font-bold">上傳檔案</span>
+                                <i class="ph-bold ph-paperclip text-2xl text-blue-400"></i><span class="text-[10px] font-bold">上傳檔案</span>
                             </label>
                             <input type="file" id="chat-file-input" accept="*/*" class="hidden" onchange="handleChatFileSelect(event)">
                             
@@ -759,7 +823,9 @@
             ttsRate: localStorage.getItem('nova_tts_rate') || 1.0,
             ttsVoice: localStorage.getItem('nova_tts_voice') || '',
             noteFolders: JSON.parse(localStorage.getItem('nova_folders')) || ['未分類', '工作', '生活'],
-            currentNoteFolder: '全部'
+            currentNoteFolder: '全部',
+            // 雙 AI 協作狀態
+            isDualAIRunning: false
         };
         
         const MODEL_CONFIG = {
@@ -819,6 +885,102 @@
 
         window.openSettings = function() { document.getElementById('settings-modal').classList.remove('hidden'); };
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
+        
+        // --- 雙 AI 協作介面 (Dual AI UI) ---
+        window.openDualAIModal = function() {
+            document.getElementById('plus-menu').classList.add('hidden');
+            document.getElementById('plus-icon').classList.remove('rotate-45');
+            document.getElementById('dual-ai-modal').classList.remove('hidden');
+        };
+        
+        window.closeDualAIModal = function() {
+            document.getElementById('dual-ai-modal').classList.add('hidden');
+        };
+
+        window.startDualAIWorkflow = async function() {
+            const topic = document.getElementById('dual-ai-topic').value.trim();
+            const modelA = document.getElementById('dual-ai-model-a').value;
+            const modelB = document.getElementById('dual-ai-model-b').value;
+            const rounds = parseInt(document.getElementById('dual-ai-rounds').value) || 2;
+            
+            if (!topic) {
+                alert("請輸入研究主題或目標任務！");
+                return;
+            }
+            if (!appState.keys[modelA] || !appState.keys[modelB]) {
+                alert("請確認您已在設定中填寫所選模型的 API Key。");
+                return;
+            }
+
+            closeDualAIModal();
+            appState.isDualAIRunning = true;
+            document.getElementById('dual-ai-status').classList.remove('hidden');
+            document.getElementById('dual-ai-status').classList.add('flex');
+            
+            addMessage(`🚀 **啟動雙 AI 協作開發模式！**\n\n🎯 主題：${topic}\n🧠 研究開發者：${MODEL_CONFIG[modelA].name}\n👁️ 審核總結者：${MODEL_CONFIG[modelB].name}\n🔁 預計進行 ${rounds} 回合討論`, 'system');
+
+            let sessionContext = "";
+            let currentPrompt = `我們現在進行雙AI協作開發。你是【先鋒研究員/開發者】。任務主題是：「${topic}」。\n請發揮你的專業，進行初步的資料收集、架構擬定、或程式碼實作。若有需要，請自主運用網路搜尋來確保資訊最新。請給出第一版的詳盡內容。`;
+
+            for(let i = 0; i < rounds; i++) {
+                if(!appState.isDualAIRunning) break;
+
+                // --- Turn A (Researcher) ---
+                addMessage(`🔄 [回合 ${i+1}/${rounds}] ${MODEL_CONFIG[modelA].name} 研究員正在分析與建構中...`, 'system');
+                renderThinkingState(true, modelA);
+                try {
+                    // Force disable length constraints by marking as isAnalysis
+                    let resA = await fetchAIResponse(currentPrompt, modelA, { enableSearch: true, isAnalysis: true }); 
+                    let textA = typeof resA === 'string' ? resA : resA.text;
+                    // Prepend Persona Tag for clarity
+                    textA = `**【研究員 ${MODEL_CONFIG[modelA].name}】**\n` + textA;
+                    addMessage(textA, 'ai', modelA);
+                    sessionContext += `\n\n【研究員 ${MODEL_CONFIG[modelA].name} 的輸出】：\n${textA}`;
+
+                    if(i === rounds - 1) {
+                        currentPrompt = `你是【總結審核專家】。針對主題：「${topic}」，以下是你與研究員稍早的討論過程與產出：\n${sessionContext}\n\n請根據以上所有內容，整合成一份最終的、完美的、結構清晰的正式報告/文件/方案。`;
+                    } else {
+                        currentPrompt = `你是【嚴格審查員】。針對主題：「${topic}」，你的搭檔研究員剛剛提出了以下內容：\n\n${textA}\n\n請你發揮批判性思考，提出修正建議、邏輯漏洞、或需要進一步補充的盲點。請直接針對內容給出具體的批評與改進方向。`;
+                    }
+                } catch (e) {
+                     addMessage(`⚠️ 研究員 ${MODEL_CONFIG[modelA].name} 發生錯誤: ${e.message}`, 'system'); 
+                     break;
+                }
+                renderThinkingState(false);
+
+                if(!appState.isDualAIRunning) break;
+
+                // --- Turn B (Reviewer / Summarizer) ---
+                addMessage(`🔄 [回合 ${i+1}/${rounds}] ${MODEL_CONFIG[modelB].name} 審查員正在驗證與總結...`, 'system');
+                renderThinkingState(true, modelB);
+                try {
+                     let resB = await fetchAIResponse(currentPrompt, modelB, { enableSearch: true, isAnalysis: true });
+                     let textB = typeof resB === 'string' ? resB : resB.text;
+                     textB = `**【審查員 ${MODEL_CONFIG[modelB].name}】**\n` + textB;
+                     addMessage(textB, 'ai', modelB);
+                     sessionContext += `\n\n【審查員 ${MODEL_CONFIG[modelB].name} 的反饋】：\n${textB}`;
+
+                     currentPrompt = `你是【先鋒研究員/開發者】。針對主題：「${topic}」，你的搭檔審查專家給了你以下的反饋與批評：\n\n${textB}\n\n請你虛心接受，並根據他的反饋大幅修正你的內容，補充必要資料，然後給出改進後的優化版本。`;
+                } catch (e) {
+                     addMessage(`⚠️ 審查員 ${MODEL_CONFIG[modelB].name} 發生錯誤: ${e.message}`, 'system'); 
+                     break;
+                }
+                renderThinkingState(false);
+            }
+            
+            appState.isDualAIRunning = false;
+            document.getElementById('dual-ai-status').classList.add('hidden');
+            document.getElementById('dual-ai-status').classList.remove('flex');
+            addMessage(`✅ **雙 AI 協作任務圓滿完成！**`, 'system');
+        };
+
+        window.stopDualAIWorkflow = function() {
+            appState.isDualAIRunning = false;
+            document.getElementById('dual-ai-status').classList.add('hidden');
+            document.getElementById('dual-ai-status').classList.remove('flex');
+            renderThinkingState(false);
+            addMessage(`🛑 使用者已強制中斷雙 AI 協作模式。`, 'system');
+        };
         
         window.saveKeys = function() {
             const s = (id, key) => { const v = document.getElementById(id).value.trim(); appState.keys[key] = v; localStorage.setItem('nova_key_'+key, v); };
@@ -1338,8 +1500,11 @@
                 let cleanText = text.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
                 cleanText = cleanText.replace(/\(?系統提示：[^\)]+\)?/g, '').trim();
                 cleanText = cleanText.replace(/✨ 圖片生成成功！已為您附在下方。/g, '為您生成圖片如下');
+                // 移除雙 AI 標籤以利語音閱讀
+                cleanText = cleanText.replace(/【研究員.*?】\n/g, '').replace(/【審查員.*?】\n/g, '');
                 
                 let utterance = new SpeechSynthesisUtterance(cleanText);
+
                 
                 let lang = 'en-US'; 
                 let testChunk = cleanText.substring(0, 150);
