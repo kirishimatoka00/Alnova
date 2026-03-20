@@ -679,7 +679,7 @@
     <!-- Toast 系統提示區塊 -->
     <div id="toast">✅ 訊息提示</div>
 
-    <!-- ================= JavaScript 邏輯與功能實作 ================= -->
+  <!-- ================= JavaScript 邏輯與功能實作 ================= -->
     <script>
         // --- 全域變數與狀態初始化 ---
         let recognition = null; let noteRecognition = null; let voiceTimer = null; 
@@ -690,18 +690,24 @@
         let translateDiscardNext = false;
         let wakeLock = null; // 防休眠鎖
         
-        // 【NOVA 106 SP】雙重背景保活防線 (HTML5 Loop Audio + Web Audio Oscillator + Timeslice)
+        // 【NOVA 120 SSP】終極保活引擎 (Web Audio API 極低頻震盪 + 強制 Worker 週期喚醒)
         let bgAudioCtx = null;
         let bgOscillator = null;
         let bgGainNode = null;
         let vadTimerWorker = null;
+        let keepAliveInterval = null;
         
         try {
             const workerCode = `
                 let t = null;
                 self.onmessage = function(e) {
                     if (e.data === 'start') {
-                        if(!t) t = setInterval(() => self.postMessage('tick'), 100);
+                        // 100ms 滴答：用於 VAD 採樣與維持主線程活躍度
+                        if(!t) t = setInterval(() => {
+                            // 執行一點無意義計算，確保 CPU 處於活躍狀態不進入深度休眠
+                            let x = 0; for(let i=0; i<1000; i++) x+=Math.random();
+                            self.postMessage('tick');
+                        }, 100);
                     } else if (e.data === 'stop') {
                         clearInterval(t);
                         t = null;
@@ -724,19 +730,33 @@
                     }
                 }
                 
-                // 2. Web Audio API 震盪器防線
+                // 2. Web Audio API 震盪器防線 (NOVA 120 增強版：產生人耳無法察覺的超微音量，強制 OS 判定為播放中)
                 if (!bgAudioCtx) bgAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (bgAudioCtx.state === 'suspended') bgAudioCtx.resume();
                 if (!bgOscillator) {
                     bgOscillator = bgAudioCtx.createOscillator();
+                    bgOscillator.type = 'sine';
+                    bgOscillator.frequency.value = 1; // 1Hz 極低頻
                     bgGainNode = bgAudioCtx.createGain();
-                    bgGainNode.gain.value = 0.00001; // 近乎無聲，騙過作業系統
+                    bgGainNode.gain.value = 0.001; // 微量音量，足以被 OS 判定，但人耳聽不見
                     bgOscillator.connect(bgGainNode);
                     bgGainNode.connect(bgAudioCtx.destination);
                     bgOscillator.start();
                 }
+
+                // 3. 防被殺強制恢復輪詢：每隔 5 秒檢查並強制恢復 Context，防止瀏覽器背景優化
+                if (!keepAliveInterval) {
+                    keepAliveInterval = setInterval(() => {
+                        if (bgAudioCtx && bgAudioCtx.state === 'suspended') {
+                            bgAudioCtx.resume();
+                        }
+                        if (vadAudioCtx && vadAudioCtx.state === 'suspended') {
+                            vadAudioCtx.resume();
+                        }
+                    }, 5000);
+                }
                 
-                // 3. Screen Wake Lock (避免閒置時螢幕主動關閉)
+                // 4. Screen Wake Lock (避免閒置時螢幕主動關閉)
                 if ('wakeLock' in navigator) {
                     navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(()=>{});
                 }
@@ -752,12 +772,16 @@
                     try { bgOscillator.stop(); bgOscillator.disconnect(); } catch(e){}
                     bgOscillator = null;
                 }
-                
+                if (keepAliveInterval) {
+                    clearInterval(keepAliveInterval);
+                    keepAliveInterval = null;
+                }
                 if (wakeLock) {
                     wakeLock.release().then(() => { wakeLock = null; }).catch(()=>{});
                 }
             } catch(e) {}
         }
+
 
         // --- IndexedDB 資料庫初始化與操作 ---
         const DB_NAME = 'NovaDB'; const DB_VERSION = 2; let db;
