@@ -3241,18 +3241,35 @@
             document.getElementById('plus-menu').classList.add('hidden'); 
             document.getElementById('plus-icon').classList.remove('rotate-45');
             
-            // 完美繼承：動態抓取主系統的 Model 清單，讓你在這裡也能隨意選擇！
-            const systemModelsHTML = document.getElementById('model-select').innerHTML;
+            // 修復：動態組合所有主模型與細部子模型的清單，讓你精細到能選特定版本
+            let geminiHTML = ''; let grokHTML = '';
+            const geminiSelect = document.getElementById('gemini-sub-model-select');
+            const grokSelect = document.getElementById('grok-sub-model-select');
+            if (geminiSelect) geminiHTML = `<optgroup label="Gemini 系列">${geminiSelect.innerHTML}</optgroup>`;
+            if (grokSelect) grokHTML = `<optgroup label="Grok 系列">${grokSelect.innerHTML}</optgroup>`;
+            
+            const systemModelsHTML = `
+                ${geminiHTML}
+                ${grokHTML}
+                <optgroup label="其他模型">
+                    <option value="gpt">OpenAI (GPT-4o-mini)</option>
+                    <option value="groq">Groq (Llama)</option>
+                    <option value="cohere">Cohere (Command-R-Plus)</option>
+                </optgroup>
+            `;
+            
             document.getElementById('agent-orchestrator').innerHTML = systemModelsHTML;
             document.getElementById('agent-researcher').innerHTML = systemModelsHTML;
             document.getElementById('agent-verifier').innerHTML = systemModelsHTML;
             document.getElementById('agent-image-model').innerHTML = '<option value="none">❌ 不產生圖片</option>' + systemModelsHTML;
             
-            // 預設選取當前主系統正在使用的 Model
-            const current = appState.currentModel || 'gemini';
-            document.getElementById('agent-orchestrator').value = current;
-            document.getElementById('agent-researcher').value = current;
-            document.getElementById('agent-verifier').value = current;
+            // 預設選取當前主系統正在使用的細部 Model
+            const current = appState.currentModel === 'gemini' ? appState.geminiModel : (appState.currentModel === 'grok' ? appState.grokModel : appState.currentModel);
+            try {
+                document.getElementById('agent-orchestrator').value = current;
+                document.getElementById('agent-researcher').value = current;
+                document.getElementById('agent-verifier').value = current;
+            } catch(e) {}
 
             document.getElementById('agent-modal').classList.remove('hidden'); document.getElementById('agent-modal').classList.add('flex');
         };
@@ -3280,9 +3297,29 @@
             
             addMessage(`🧠 **啟動多 AI 協同深度研究**\n📌 主題：「${topic}」\n📏 長度設定：${reportLength}\n👨‍💼 專案經理：${orchestratorModel}\n🔍 研究員：${researcherModel}\n⚖️ 審查委員：${verifierModel}`, 'system');
             
+            // 安全呼叫底層 API 的封裝函數 (解決 API Key mapping 廠牌判斷問題)
+            const callAgent = async (prompt, subModel, opts) => {
+                let provider = 'gemini';
+                if(subModel.includes('grok')) provider = 'grok';
+                else if(subModel === 'gpt') provider = 'gpt';
+                else if(subModel === 'groq') provider = 'groq';
+                else if(subModel === 'cohere') provider = 'cohere';
+                
+                const origGemini = appState.geminiModel;
+                const origGrok = appState.grokModel;
+                if(provider === 'gemini') appState.geminiModel = subModel;
+                if(provider === 'grok') appState.grokModel = subModel;
+                
+                let res = await fetchAIResponse(prompt, provider, opts);
+                
+                appState.geminiModel = origGemini;
+                appState.grokModel = origGrok;
+                return res;
+            };
+
             try {
                 appState.isThinking = true;
-                if(typeof renderThinkingState === 'function') renderThinkingState(true, orchestratorModel);
+                if(typeof renderThinkingState === 'function') renderThinkingState(true);
 
                 // --- 階段 1：Orchestrator (任務拆解) ---
                 addMessage(`⏳ [階段 1/4] 專案經理模型 (${orchestratorModel})：正在拆解研究子任務...`, 'system');
@@ -3290,35 +3327,32 @@
                 let p1Options = { isAnalysis: true };
                 if(appState.agentFile) p1Options.file = appState.agentFile; 
                 
-                let p1Res = await fetchAIResponse(p1Prompt, orchestratorModel, p1Options);
+                let p1Res = await callAgent(p1Prompt, orchestratorModel, p1Options);
                 let subQuestions = (typeof p1Res === 'string' ? p1Res : (p1Res.text || ""));
                 addMessage(`📋 **拆解出的研究維度：**\n${subQuestions}`, 'system');
 
                 // --- 階段 2：Researcher (資料搜集與局部摘要) ---
-                if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, researcherModel); }
                 addMessage(`🔍 [階段 2/4] 研究員模型 (${researcherModel})：正在連網搜集最新數據並過濾雜訊...`, 'system');
                 const p2Prompt = `你現在是資深研究員。請針對以下子問題，連網搜尋最新資訊並進行「客觀的事實摘要」。請剔除無用雜訊，只列出最重要的數據、事實與不同觀點：\n\n【待研究問題】：\n${subQuestions}`;
                 let p2Options = { enableSearch: true, isAnalysis: true };
                 if(appState.agentFile && orchestratorModel !== researcherModel) p2Options.file = appState.agentFile; 
                 
-                let p2Res = await fetchAIResponse(p2Prompt, researcherModel, p2Options);
+                let p2Res = await callAgent(p2Prompt, researcherModel, p2Options);
                 let facts = (typeof p2Res === 'string' ? p2Res : (p2Res.text || ""));
 
                 // --- 階段 3：Verifier (多模型交叉驗證) ---
-                if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, verifierModel); }
                 addMessage(`⚖️ [階段 3/4] 審查委員模型 (${verifierModel})：正在交叉驗證事實的邏輯與完整性...`, 'system');
                 const p3Prompt = `你是一位嚴格的審查委員。以下是研究員收集到的「事實摘要」。請檢查邏輯是否連貫、是否有矛盾，並針對原始主題「${topic}」給出一份最終的【已驗證事實清單】供總編輯寫報告用。不要廢話。\n\n【研究員事實摘要】：\n${facts}`;
                 
-                let p3Res = await fetchAIResponse(p3Prompt, verifierModel, { enableSearch: true, isAnalysis: true });
+                let p3Res = await callAgent(p3Prompt, verifierModel, { enableSearch: true, isAnalysis: true });
                 let verifiedFacts = (typeof p3Res === 'string' ? p3Res : (p3Res.text || ""));
 
                 // --- 階段 4：The Writer (總編輯最終聚合) ---
-                if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, orchestratorModel); }
                 addMessage(`✍️ [階段 4/4] 總編輯模型 (${orchestratorModel})：正在聚合資訊撰寫最終報告...`, 'system');
                 let lengthInstruction = reportLength === 'short' ? '約 500 字的精煉高管摘要 (Executive Summary)' : (reportLength === 'long' ? '超過 2500 字的深度專論，需包含詳細論證、多角度分析、清晰標題段落與結論' : '約 1000~1500 字的結構化專業報告');
                 const p4Prompt = `你現在是一位資深總編輯。請根據以下「已驗證的事實清單」，撰寫一份關於「${topic}」的最終報告。\n\n【嚴格要求】：\n1. 長度：${lengthInstruction}\n2. 格式：前言、核心段落(需加上 Markdown 標題與列點)、客觀結論。\n3. 語氣：專業且具備洞察力，絕對不可口語化。\n\n【事實清單】：\n${verifiedFacts}`;
                 
-                let p4Res = await fetchAIResponse(p4Prompt, orchestratorModel, { isAnalysis: true });
+                let p4Res = await callAgent(p4Prompt, orchestratorModel, { isAnalysis: true });
                 let finalReport = (typeof p4Res === 'string' ? p4Res : (p4Res.text || ""));
 
                 addMessage(`🎉 **【多 Agent 協同深度報告】**\n\n${finalReport}`, 'ai', orchestratorModel);
@@ -3326,20 +3360,17 @@
 
                 // --- 階段 5：Illustrator (修復版：強制渲染圖片) ---
                 if(imageModel && imageModel !== 'none') {
-                    if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, orchestratorModel); }
                     addMessage(`🎨 繪圖師模型：正在為此報告生成專屬配圖...`, 'system');
                     const imgPromptReq = `請根據這篇報告的核心概念，寫出一段「全英文」的精準 Image Generation Prompt (約 30~50 字)，用來產生高品質的概念配圖。不要任何其他對話，直接輸出英文 Prompt：\n\n${finalReport.substring(0, 800)}`;
-                    let imgRes = await fetchAIResponse(imgPromptReq, orchestratorModel, { isAnalysis: true });
+                    let imgRes = await callAgent(imgPromptReq, orchestratorModel, { isAnalysis: true });
                     let imgPrompt = (typeof imgRes === 'string' ? imgRes : (imgRes.text || "abstract professional concept art"));
                     
-                    addMessage(`正在呼叫 ${imageModel} 產生配圖...\n[Prompt: ${imgPrompt.trim()}]`, 'system');
+                    let imageProvider = 'gemini'; 
+                    if(imageModel.includes('grok')) imageProvider = 'grok';
+                    else if(imageModel.includes('gpt') || imageModel.includes('dall-e')) imageProvider = 'gpt';
+                    addMessage(`正在呼叫 ${imageProvider} (${imageModel}) 產生配圖...\n[Prompt: ${imgPrompt.trim()}]`, 'system');
                     
-                    // 強制切換至使用者指定的生圖模型
-                    const origModel = appState.currentModel; 
-                    appState.currentModel = imageModel; 
-                    let imgResponse = await fetchAIResponse(imgPrompt.trim(), imageModel, { isAnalysis: true });
-                    appState.currentModel = origModel; 
-                    
+                    let imgResponse = await callAgent(imgPrompt.trim(), imageModel, { isAnalysis: true });
                     let imgText = (typeof imgResponse === 'string' ? imgResponse : (imgResponse.text || imgResponse.content || ""));
                     
                     // 【生圖強制顯示修復】如果模型只丟回一個網址或 Base64，強制幫它包裝成 Markdown 圖片標籤
@@ -3347,11 +3378,10 @@
                         imgText = `![Generated Image](${imgText.trim()})`;
                     }
                     
-                    // 安全渲染：如果有檔案物件就送檔案，不然就硬印字串讓 Markdown 解析器抓圖
                     if (imgResponse && imgResponse.file) {
-                        addMessage(`🖼️ **報告專屬配圖**：\n${imgText}`, 'ai', imageModel, null, imgResponse.file);
+                        addMessage(`🖼️ **報告專屬配圖**：\n${imgText}`, 'ai', imageProvider, null, imgResponse.file);
                     } else if (imgText) {
-                        addMessage(`🖼️ **報告專屬配圖**：\n${imgText}`, 'ai', imageModel);
+                        addMessage(`🖼️ **報告專屬配圖**：\n${imgText}`, 'ai', imageProvider);
                     } else {
                         addMessage(`❌ 模型 ${imageModel} 未成功回傳圖片數據。`, 'system');
                     }
@@ -3972,7 +4002,7 @@
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
                     id: Date.now(), 
-                    text: 'NOVA 109 SSP 系統升級完畢！\n\n✅ **WebM 錄音時長修復 (Duration Fix)**：導入了底層標頭重寫技術！現在您錄製出來的音檔播放時不再會顯示 0 秒，時間軸可以正確顯示實際的錄音長度，拖曳與播放更加精準了！', 
+                    text: 'NOVA 120 SSP 系統升級完畢！\n\n✅ **Multi AI協作**：導入Multi AI協作', 
                     sender: 'ai', model: 'gemini', time: getTime(), sources: [], file: null 
                 };
                 appState.messages.push(welcomeMsg); saveToDB('messages', welcomeMsg);
