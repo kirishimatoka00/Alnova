@@ -3460,7 +3460,7 @@ window.startMultiAgentResearch = async function() {
             
             // 獨立的發送器 (包含相容 iOS 與 Android 的協定)
             const triggerCommunication = (lat, lng) => {
-                let smsBody = "【緊急求救】我需要協助！【HELP】I NEED HELP！";
+                let smsBody = "【緊急求救】我需要協助！";
                 if (lat && lng) {
                     // 將網址切碎組合，防止被安全機制代理改寫
                     const mapBaseUrl = 'https://' + 'www.' + 'google.com' + '/maps?q=';
@@ -3471,11 +3471,13 @@ window.startMultiAgentResearch = async function() {
                 const smsUrl = `sms:${emergencyNumber}?body=${encodeURIComponent(smsBody)}`;
                 const telUrl = `tel:${emergencyNumber}`;
                 
-                // 1. 嘗試強制喚醒手機原生的簡訊 App
-                window.location.href = smsUrl;
+                // 1. 【使用者指定】強制優先喚醒手機原生的「撥號 App」
+                window.location.href = telUrl;
                 
-                // 2. 終極防護網：改用 'ai' 身分發送，以正確渲染 HTML 實體按鈕
-                addMessage(`🚨 **已觸發緊急求救程序！**\n系統已嘗試為您開啟簡訊 App 並填入 GPS 定位。\n\n⚠️ *若畫面未自動跳轉，請立即手動點擊下方按鈕：*\n\n<div class="flex flex-col gap-3 mt-4"><a href="${smsUrl}" class="text-center bg-blue-600 hover:bg-blue-500 text-white px-4 py-3 rounded-xl font-bold text-lg shadow-lg"><i class="ph-bold ph-chat-circle-text"></i> 發送定位簡訊</a> <a href="${telUrl}" class="text-center bg-red-600 hover:bg-red-500 text-white px-4 py-3 rounded-xl font-bold text-lg shadow-lg"><i class="ph-bold ph-phone-call"></i> 撥打 ${emergencyNumber}</a></div>`, 'ai', '🚨 SOS 系統');
+                // 2. 終極防護網：對話框留存 GPS 簡訊按鈕，供通話中或通話後一鍵發送
+                const msgText = `🚨 **已觸發緊急求救程序！**\n系統已嘗試為您自動撥打 ${emergencyNumber}。\n\n⚠️ *請於通話中或通話後，點擊下方連結將您的定位傳送給救援單位：*\n\n📲 **[👉 點此發送定位簡訊](${smsUrl})**\n\n📞 **[👉 若未自動撥號，請點此手動撥打](${telUrl})**`;
+                
+                addMessage(msgText, 'ai', '🚨 SOS 系統');
             };
 
             // 請求 GPS 定位 (設定 5 秒 Timeout，避免等不到訊號卡住)
