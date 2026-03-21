@@ -3009,6 +3009,22 @@
             }
         }
 
+        // --- 筆記彈窗控制邏輯 ---
+        window.openNoteModal = function() {
+            const noteInput = document.getElementById('note-input');
+            if(noteInput) noteInput.value = '';
+            const preview = document.getElementById('note-file-preview');
+            if(preview) preview.innerHTML = '';
+            appState.noteFile = null;
+            document.getElementById('note-modal').classList.remove('hidden'); 
+            document.getElementById('note-modal').classList.add('flex');
+        };
+
+        window.closeNoteModal = function() { 
+            document.getElementById('note-modal').classList.add('hidden'); 
+            document.getElementById('note-modal').classList.remove('flex'); 
+        };
+
         // --- 核心訊息發送與處理邏輯 ---
         async function handleSendMessage() {
             if(appState.isThinking) return;
