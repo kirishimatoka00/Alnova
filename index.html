@@ -158,6 +158,7 @@
                             <div><label class="block text-xs text-violet-400 mb-1">Cohere API Key</label><input type="password" id="key-cohere" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-violet-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
                             <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-slate-500 outline-none"></div>
+                            <div><label class="block text-xs text-orange-400 mb-1">Google TTS Key (可選)</label><input type="password" id="key-googletts" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none" placeholder="Google Cloud API Key"></div>
                             
                             <!-- 進階選項設定 -->
                             <div class="border-t border-slate-700 pt-3 mt-2 grid grid-cols-2 gap-2">
@@ -967,7 +968,7 @@
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '', driveUrl: localStorage.getItem('nova_drive_url') || '',
             messages: [], notes: [], todos: [], audioRecords: [], 
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
-            keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'' },
+            keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'', googletts: localStorage.getItem('nova_key_googletts')||'' },
             isThinking: false, isListening: false, isNoteListening: false, noteVoiceActive: false, isSearchEnabled: false, isContinuous: false, manualLocIndex: 0,
             isLiveMode: false, 
             translateMode: 'off', 
@@ -1171,7 +1172,7 @@
         
         window.saveKeys = function() {
             const s = (id, key) => { const v = document.getElementById(id).value.trim(); appState.keys[key] = v; localStorage.setItem('nova_key_'+key, v); };
-            s('key-gemini', 'gemini'); s('key-groq', 'groq'); s('key-cohere', 'cohere'); s('key-openai', 'openai'); s('key-grok', 'grok'); s('key-serpapi', 'serpapi');
+            s('key-gemini', 'gemini'); s('key-groq', 'groq'); s('key-cohere', 'cohere'); s('key-openai', 'openai'); s('key-grok', 'grok'); s('key-serpapi', 'serpapi'); s('key-googletts', 'googletts');
             appState.docMonitorUrl = document.getElementById('key-doc-url').value.trim(); localStorage.setItem('nova_doc_url', appState.docMonitorUrl);
             appState.driveUrl = document.getElementById('key-drive-url').value.trim(); localStorage.setItem('nova_drive_url', appState.driveUrl);
             
@@ -1851,19 +1852,31 @@
             let voices = window.speechSynthesis.getVoices();
             let select = document.getElementById('key-tts-voice');
             if(!select) return;
-            select.innerHTML = '<option value="">(系統智慧自動選擇)</option>';
+            select.innerHTML = `<option value="">(系統智慧自動選擇)</option>
+                <optgroup label="Gemini 原生高音質人聲 (需填 Gemini API Key)">
+                    <option value="Aoede">Aoede (輕柔女聲 / Breezy)</option>
+                    <option value="Kore">Kore (沉穩女聲 / Firm)</option>
+                    <option value="Puck">Puck (活潑男聲 / Upbeat)</option>
+                    <option value="Charon">Charon (知性男聲 / Informative)</option>
+                    <option value="Fenrir">Fenrir (激昂男聲 / Excitable)</option>
+                </optgroup>
+                <optgroup label="瀏覽器內建系統語音">`;
             voices.forEach(v => {
                 select.innerHTML += `<option value="${v.name}">${v.name} (${v.lang})</option>`;
             });
+            select.innerHTML += `</optgroup>`;
             if(appState.ttsVoice) select.value = appState.ttsVoice;
         }
         if ('speechSynthesis' in window) {
             window.speechSynthesis.onvoiceschanged = populateVoices;
         }
 
+        let googleTtsAudio = new Audio(); // 新增全域 Google TTS 播放器
+
         window.playMessageAudio = function(id) {
             if (appState.isTTSPlaying && appState.playingMsgId === String(id)) {
                 window.speechSynthesis.cancel();
+                if (googleTtsAudio) googleTtsAudio.pause();
                 appState.isTTSPlaying = false;
                 appState.playingMsgId = null;
                 renderMessages();
@@ -1882,10 +1895,11 @@
                 if (appState.translateMode === 'auto') {
                     // 安全鎖：不斷輪詢確認系統語音已經完全停止，才敢重啟麥克風
                     const checkAndStart = () => {
-                        if (window.speechSynthesis.speaking) {
+                        const isGoogleSpeaking = !googleTtsAudio.paused && googleTtsAudio.currentTime > 0 && !googleTtsAudio.ended;
+                        if (window.speechSynthesis.speaking || isGoogleSpeaking) {
                             setTimeout(checkAndStart, 500);
                         } else {
-                            setTimeout(() => { startTranslateBAutoRecord(); }, 1000); // 確認無聲後再給1秒冷卻，防止喇叭硬體殘響
+                            setTimeout(() => { startTranslateBAutoRecord(); }, 1000);
                         }
                     };
                     checkAndStart();
@@ -1900,83 +1914,164 @@
 
             // 防呆鎖：如果在全自動翻譯模式的第一次收音前，強制忽略所有語音播報
             if (!force && appState.translateMode === 'auto' && appState.translateMuteUntilFirstCapture) {
-                continueLoop();
-                return;
+                continueLoop(); return;
             }
-
-            if (!shouldAutoPlay && !force) return; 
-
+            if (!shouldAutoPlay && !force) return;
             if (!text || text.trim() === "") {
-                continueLoop();
-                return;
+                continueLoop(); return;
             }
-
-            // 若設定不自動播放，則直接跳過朗讀並進入下一個聆聽循環
             if (!force && !appState.autoTTS) {
-                continueLoop();
-                return;
+                continueLoop(); return;
             }
 
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
+                googleTtsAudio.pause(); // 停止先前的 Google TTS
                 appState.playingMsgId = msgId;
                 
                 let cleanText = text.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
                 cleanText = cleanText.replace(/\(?系統提示：[^\)]+\)?/g, '').trim();
                 cleanText = cleanText.replace(/✨ 圖片生成成功！已為您附在下方。/g, '為您生成圖片如下');
-                // 移除雙 AI 標籤以利語音閱讀
                 cleanText = cleanText.replace(/【研究員.*?】\n/g, '').replace(/【審查員.*?】\n/g, '');
-                
-                let utterance = new SpeechSynthesisUtterance(cleanText);
 
-                
                 let lang = 'en-US'; 
                 let testChunk = cleanText.substring(0, 150);
-                
                 if (/[\u3040-\u309F\u30A0-\u30FF]/.test(testChunk)) {
                     lang = 'ja-JP';
                 } else if (/[\uAC00-\uD7AF]/.test(testChunk)) {
                     lang = 'ko-KR';
                 } else if (/[\u4E00-\u9FFF]/.test(testChunk)) {
-                    lang = 'zh-TW';
+                    lang = 'cmn-TW'; // Google TTS 使用 cmn-TW 代表繁體中文
                 }
                 
-                utterance.lang = lang;
+                const geminiVoices = ['Aoede', 'Kore', 'Puck', 'Charon', 'Fenrir'];
+                const selectedVoice = appState.ttsVoice;
+                const geminiKey = appState.keys.gemini;
+                const ttsKey = appState.keys.googletts;
                 
-                let voices = window.speechSynthesis.getVoices();
-                if (appState.ttsVoice) {
-                    let preferred = voices.find(v => v.name === appState.ttsVoice && v.lang.startsWith(lang.substring(0,2)));
-                    if (preferred) utterance.voice = preferred;
-                }
-                if (!utterance.voice) {
-                    let defaultVoice = voices.find(v => v.lang === lang || v.lang.startsWith(lang.substring(0,2)));
-                    if (defaultVoice) utterance.voice = defaultVoice;
-                }
-                utterance.rate = parseFloat(appState.ttsRate) || 1.0;
-                
-                utterance.onstart = () => {
+                if (geminiKey && geminiVoices.includes(selectedVoice)) {
+                    // --- 呼叫 Gemini 2.5 Flash Preview TTS API ---
                     appState.isTTSPlaying = true;
-                };
-                
-                utterance.onend = () => {
-                    appState.isTTSPlaying = false;
-                    appState.playingMsgId = null;
                     renderMessages();
-                    continueLoop();
-                };
+                    
+                    const requestBody = {
+                        contents: [{ parts: [{ text: cleanText }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
+                        }
+                    };
 
-                utterance.onerror = () => {
-                    appState.isTTSPlaying = false;
-                    appState.playingMsgId = null;
+                    fetch(`https://generativelanguage.googleapis.com/v1alpha/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.candidates && data.candidates[0].content.parts[0].inlineData) {
+                            const audioBase64 = data.candidates[0].content.parts[0].inlineData.data;
+                            // Gemini 回傳格式通常為 WAV/PCM
+                            googleTtsAudio.src = "data:audio/wav;base64," + audioBase64;
+                            googleTtsAudio.onended = () => { appState.isTTSPlaying = false; appState.playingMsgId = null; renderMessages(); continueLoop(); };
+                            googleTtsAudio.onerror = () => { appState.isTTSPlaying = false; appState.playingMsgId = null; renderMessages(); continueLoop(); };
+                            googleTtsAudio.play().catch(e => { console.error(e); continueLoop(); });
+                        } else {
+                            throw new Error("Gemini API 未回傳音檔資料");
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Gemini TTS 錯誤，降級為系統語音:", err);
+                        fallbackNativeTTS(cleanText, lang === 'cmn-TW' ? 'zh-TW' : lang, continueLoop);
+                    });
+                } else if (ttsKey) {
+                    // --- 呼叫舊版 Google Cloud TTS API (如有填寫專用金鑰) ---
+                    appState.isTTSPlaying = true;
                     renderMessages();
-                    continueLoop();
-                };
+                    
+                    // 根據語言指定高音質 Wavenet 聲學模型
+                    let voiceName = 'en-US-Wavenet-F';
+                    if (lang === 'cmn-TW') voiceName = 'cmn-TW-Wavenet-A';
+                    if (lang === 'ja-JP') voiceName = 'ja-JP-Wavenet-A';
+                    if (lang === 'ko-KR') voiceName = 'ko-KR-Wavenet-A';
 
-                window.speechSynthesis.speak(utterance);
-                renderMessages();
+                    const requestBody = {
+                        input: { text: cleanText },
+                        voice: { languageCode: lang, name: voiceName },
+                        audioConfig: { audioEncoding: "MP3", speakingRate: parseFloat(appState.ttsRate) || 1.0 }
+                    };
+
+                    fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${ttsKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.audioContent) {
+                            googleTtsAudio.src = "data:audio/mp3;base64," + data.audioContent;
+                            googleTtsAudio.onended = () => {
+                                appState.isTTSPlaying = false;
+                                appState.playingMsgId = null;
+                                renderMessages();
+                                continueLoop();
+                            };
+                            googleTtsAudio.onerror = () => {
+                                appState.isTTSPlaying = false;
+                                appState.playingMsgId = null;
+                                renderMessages();
+                                continueLoop();
+                            };
+                            googleTtsAudio.play().catch(e => { console.error(e); continueLoop(); });
+                        } else {
+                            throw new Error("API 未回傳音檔資料");
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Google TTS 錯誤，降級為系統語音:", err);
+                        fallbackNativeTTS(cleanText, lang === 'cmn-TW' ? 'zh-TW' : lang, continueLoop);
+                    });
+                } else {
+                    // --- 降級：沒填 API Key 時，退回系統語音 ---
+                    fallbackNativeTTS(cleanText, lang === 'cmn-TW' ? 'zh-TW' : lang, continueLoop);
+                }
             } else if (force) {
                 showToast("❌ 您的瀏覽器不支援語音朗讀功能");
             }
+        }
+
+        function fallbackNativeTTS(cleanText, nativeLang, continueLoop) {
+            let utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = nativeLang;
+            let voices = window.speechSynthesis.getVoices();
+            if (appState.ttsVoice) {
+                let preferred = voices.find(v => v.name === appState.ttsVoice && v.lang.startsWith(nativeLang.substring(0,2)));
+                if (preferred) utterance.voice = preferred;
+            }
+            if (!utterance.voice) {
+                let defaultVoice = voices.find(v => v.lang === nativeLang || v.lang.startsWith(nativeLang.substring(0,2)));
+                if (defaultVoice) utterance.voice = defaultVoice;
+            }
+            utterance.rate = parseFloat(appState.ttsRate) || 1.0;
+            
+            utterance.onstart = () => { appState.isTTSPlaying = true; };
+            
+            utterance.onend = () => {
+                appState.isTTSPlaying = false;
+                appState.playingMsgId = null;
+                renderMessages();
+                continueLoop();
+            };
+
+            utterance.onerror = () => {
+                appState.isTTSPlaying = false;
+                appState.playingMsgId = null;
+                renderMessages();
+                continueLoop();
+            };
+
+            window.speechSynthesis.speak(utterance);
+            renderMessages();
         }
 
         // --- 剪貼簿與檔案下載功能 ---
