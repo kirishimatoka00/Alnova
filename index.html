@@ -883,28 +883,9 @@
                     }, 5000);
                 }
                 
-                // 4. 強化版 Screen Wake Lock (強制螢幕長亮，防止 OS 鎖屏殺死麥克風)
-                window.requestNovaWakeLock = async () => {
-                    if ('wakeLock' in navigator) {
-                        try {
-                            wakeLock = await navigator.wakeLock.request('screen');
-                            console.log('💡 螢幕已鎖定長亮');
-                        } catch (err) { console.warn("螢幕長亮請求失敗", err); }
-                    }
-                };
-                window.requestNovaWakeLock();
-
-                // 防禦機制：只要網頁恢復顯示且正在執行語音任務，立刻重新奪取螢幕長亮
-                if (!window.novaWakeLockListenerAdded) {
-                    document.addEventListener('visibilitychange', () => {
-                        if (document.visibilityState === 'visible') {
-                            const isRecording = document.getElementById('recording-status').classList.contains('flex');
-                            if (isRecording || appState.translateMode !== 'off' || appState.isContinuous) {
-                                window.requestNovaWakeLock();
-                            }
-                        }
-                    });
-                    window.novaWakeLockListenerAdded = true;
+                // 4. Screen Wake Lock (避免閒置時螢幕主動關閉)
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(()=>{});
                 }
             } catch(e) { console.warn("BG audio fail", e); }
         }
@@ -2941,8 +2922,9 @@
 
                 releaseMicrophone();
 
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 appState.activeMediaTracks.push(...stream.getTracks());
+
                 enableBackgroundMode();
 
                 mediaRecorder = new MediaRecorder(stream); audioChunks = []; appState.currentAudioTranscript = ""; 
