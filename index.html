@@ -681,7 +681,7 @@
                                 </select>
                             </div>
                     </div>
-                    <div class="flex justify-end space-x-3 mt-6">
+                    </div> <div class="flex justify-end space-x-3 mt-6">
                         <button onclick="closeTodoEdit()" class="px-4 py-2 text-slate-400 hover:text-white transition-colors">取消</button>
                         <button onclick="saveTodoEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">儲存變更</button>
                     </div>
@@ -3136,90 +3136,7 @@
             }
         }
 
-        // --- 筆記 (Notes) 彈窗與資料控制邏輯 ---
-        window.openNoteModal = window.openNote = window.editNote = function(id = null) {
-            const modal = document.getElementById('note-modal');
-            if(!modal) return;
-            modal.classList.remove('hidden'); 
-            modal.classList.add('flex');
-            
-            const noteInput = document.getElementById('note-input');
-            const preview = document.getElementById('note-file-preview');
-            const idField = document.getElementById('note-id') || document.getElementById('edit-note-id');
-            
-            // 判斷是「編輯舊筆記」還是「新增筆記」
-            if (id && typeof id === 'string') {
-                const note = appState.notes.find(n => String(n.id) === String(id));
-                if (note) {
-                    if(idField) idField.value = id;
-                    if(noteInput) noteInput.value = note.text || '';
-                    appState.noteFile = note.image || null;
-                    if(preview && note.image) {
-                        preview.innerHTML = `<img src="${note.image}" class="w-full max-h-40 object-contain rounded-lg border border-slate-700">`;
-                    } else if (preview) {
-                        preview.innerHTML = '';
-                    }
-                }
-            } else {
-                // 清空畫面以新增筆記
-                if(idField) idField.value = '';
-                if(noteInput) noteInput.value = '';
-                if(preview) preview.innerHTML = '';
-                appState.noteFile = null;
-            }
-        };
-
-        window.closeNoteModal = window.closeNote = function() { 
-            const modal = document.getElementById('note-modal');
-            if(modal) {
-                modal.classList.add('hidden'); 
-                modal.classList.remove('flex');
-            }
-        };
-
-        // 確保儲存與刪除筆記的功能存在且強健
-        window.saveNote = function() {
-            const noteInput = document.getElementById('note-input');
-            const idField = document.getElementById('note-id') || document.getElementById('edit-note-id');
-            if(!noteInput || !noteInput.value.trim()) return;
-            
-            const text = noteInput.value.trim();
-            const id = idField && idField.value ? idField.value : Date.now();
-            
-            let note = appState.notes.find(n => String(n.id) === String(id));
-            if(note) {
-                note.text = text;
-                note.image = appState.noteFile;
-            } else {
-                note = { id: id, text: text, image: appState.noteFile, timestamp: Date.now() };
-                appState.notes.unshift(note);
-            }
-            saveToDB('notes', note);
-            if(typeof renderNotes === 'function') renderNotes();
-            if(typeof window.closeNoteModal === 'function') window.closeNoteModal();
-            showToast("✅ 筆記已儲存");
-        };
-
-        window.deleteNote = function(id) {
-            appState.notes = appState.notes.filter(n => String(n.id) !== String(id));
-            deleteFromDB('notes', id);
-            if(typeof renderNotes === 'function') renderNotes();
-            showToast("🗑️ 筆記已刪除");
-        };
-
-// --- 處理筆記圖片預覽 ---
-        window.handleNoteImage = function(input) {
-            if(input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    appState.noteFile = e.target.result;
-                    const preview = document.getElementById('note-file-preview');
-                    if(preview) preview.innerHTML = `<img src="${e.target.result}" class="w-full max-h-40 object-contain rounded-lg border border-slate-700 mt-2">`;
-                };
-                reader.readAsDataURL(input.files[0]);
-            }
-        };
-
+        
         // --- 核心訊息發送與處理邏輯 ---
         async function handleSendMessage() {
             if(appState.isThinking) return;
