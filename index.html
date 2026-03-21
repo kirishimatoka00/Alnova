@@ -3276,7 +3276,7 @@
         
         window.closeAgentModal = function() { document.getElementById('agent-modal').classList.add('hidden'); document.getElementById('agent-modal').classList.remove('flex'); };
 
-        window.startMultiAgentResearch = async function() {
+window.startMultiAgentResearch = async function() {
             closeAgentModal();
             const query = document.getElementById('agent-topic').value.trim();
             const reportLength = document.getElementById('agent-report-length').value;
@@ -3319,6 +3319,103 @@
                 appState.grokModel = origGrok;
                 return res;
             };
+
+            try {
+                appState.isThinking = true;
+                if(typeof renderThinkingState === 'function') renderThinkingState(true);
+
+                // --- 階段 1：Orchestrator (任務拆解) ---
+                addMessage(`⏳ [階段 1/4] 專案經理模型 (${orchestratorModel})：正在拆解研究子任務...`, 'system');
+                const p1Prompt = `你現在是專案經理。請將以下主題拆解成 3 到 4 個最重要的「子問題」，以便進行後續的深度研究。只需列出問題清單，不要有任何廢話或問候語。\n\n主題：${topic} ${fileContent ? "(請務必深入解讀上傳之檔案)" : ""}`;
+                let p1Options = { isAnalysis: true };
+                if(appState.agentFile) p1Options.file = appState.agentFile; 
+                
+                let p1Res = await callAgent(p1Prompt, orchestratorModel, p1Options);
+                let subQuestions = (typeof p1Res === 'string' ? p1Res : (p1Res.text || ""));
+                addMessage(`📋 **拆解出的研究維度：**\n${subQuestions}`, 'system');
+
+                // --- 階段 2：Researcher (資料搜集與局部摘要) ---
+                addMessage(`🔍 [階段 2/4] 研究員模型 (${researcherModel})：正在連網搜集最新數據並過濾雜訊...`, 'system');
+                const p2Prompt = `你現在是資深研究員。請針對以下子問題，連網搜尋最新資訊並進行「客觀的事實摘要」。請剔除無用雜訊，只列出最重要的數據、事實與不同觀點：\n\n【待研究問題】：\n${subQuestions}`;
+                let p2Options = { enableSearch: true, isAnalysis: true };
+                if(appState.agentFile && orchestratorModel !== researcherModel) p2Options.file = appState.agentFile; 
+                
+                let p2Res = await callAgent(p2Prompt, researcherModel, p2Options);
+                let facts = (typeof p2Res === 'string' ? p2Res : (p2Res.text || ""));
+
+                // --- 階段 3：Verifier (多模型交叉驗證) ---
+                addMessage(`⚖️ [階段 3/4] 審查委員模型 (${verifierModel})：正在交叉驗證事實的邏輯與完整性...`, 'system');
+                const p3Prompt = `你是一位嚴格的審查委員。以下是研究員收集到的「事實摘要」。請檢查邏輯是否連貫、是否有矛盾，並針對原始主題「${topic}」給出一份最終的【已驗證事實清單】供總編輯寫報告用。不要廢話。\n\n【研究員事實摘要】：\n${facts}`;
+                
+                let p3Res = await callAgent(p3Prompt, verifierModel, { enableSearch: true, isAnalysis: true });
+                let verifiedFacts = (typeof p3Res === 'string' ? p3Res : (p3Res.text || ""));
+
+                // --- 階段 4：The Writer (總編輯最終聚合) ---
+                addMessage(`✍️ [階段 4/4] 總編輯模型 (${orchestratorModel})：正在聚合資訊撰寫最終報告...`, 'system');
+                let lengthInstruction = reportLength === 'short' ? '約 500 字的精煉高管摘要 (Executive Summary)' : (reportLength === 'long' ? '超過 2500 字的深度專論，需包含詳細論證、多角度分析、清晰標題段落與結論' : '約 1000~1500 字的結構化專業報告');
+                const p4Prompt = `你現在是一位資深總編輯。請根據以下「已驗證的事實清單」，撰寫一份關於「${topic}」的最終報告。\n\n【嚴格要求】：\n1. 長度：${lengthInstruction}\n2. 格式：前言、核心段落(需加上 Markdown 標題與列點)、客觀結論。\n3. 語氣：專業且具備洞察力，絕對不可口語化。\n\n【事實清單】：\n${verifiedFacts}`;
+                
+                let p4Res = await callAgent(p4Prompt, orchestratorModel, { isAnalysis: true });
+                let finalReport = (typeof p4Res === 'string' ? p4Res : (p4Res.text || ""));
+
+                addMessage(`🎉 **【多 Agent 協同深度報告】**\n\n${finalReport}`, 'ai', orchestratorModel);
+                if(appState.autoTTS && typeof speakText === 'function') speakText("深度研究報告已完成，請查閱。");
+
+                // --- 階段 5：Illustrator (修復版：強制擷取與渲染圖片) ---
+                if(imageModel && imageModel !== 'none') {
+                    addMessage(`🎨 繪圖師模型：正在為此報告生成專屬配圖...`, 'system');
+                    const imgPromptReq = `請根據這篇報告的核心概念，寫出一段「全英文」的精準 Image Generation Prompt (約 30~50 字)，用來產生高品質的概念配圖。不要任何其他對話，直接輸出英文 Prompt：\n\n${finalReport.substring(0, 800)}`;
+                    let imgRes = await callAgent(imgPromptReq, orchestratorModel, { isAnalysis: true });
+                    let imgPrompt = (typeof imgRes === 'string' ? imgRes : (imgRes.text || "abstract professional concept art")).replace(/[\r\n]+/g, ' ').trim();
+                    
+                    let imageProvider = 'gemini'; 
+                    if(imageModel.toLowerCase().includes('grok')) imageProvider = 'grok';
+                    else if(imageModel.toLowerCase().includes('gpt') || imageModel.toLowerCase().includes('dall-e')) imageProvider = 'gpt';
+                    
+                    addMessage(`正在呼叫 ${imageProvider} (${imageModel}) 產生配圖...\n[Prompt: ${imgPrompt}]`, 'system');
+                    
+                    // 【修復】取消 isAnalysis，讓 API 完全以正常生圖模式運作
+                    let imgResponse = await callAgent(imgPrompt, imageModel, {}); 
+                    
+                    let imgText = (typeof imgResponse === 'string' ? imgResponse : (imgResponse.text || imgResponse.content || ""));
+                    let imgFileObj = (imgResponse && imgResponse.file) ? imgResponse.file : null;
+
+                    // 【暴力解析】不管模型回傳什麼字串，直接用正則把 Base64 或 URL 硬挖出來！
+                    if (!imgFileObj && imgText) {
+                        let base64Match = imgText.match(/data:image\/[a-zA-Z0-9+.-]+;base64,[^\s)\]'"]+/);
+                        if (base64Match) {
+                            imgFileObj = { category: 'image', data: base64Match[0] };
+                        } else {
+                            let urlMatch = imgText.match(/https?:\/\/[^\s)\]'"]+/);
+                            if (urlMatch && (imgText.includes('![') || imageModel.includes('dall-e'))) {
+                                imgFileObj = { category: 'image', data: urlMatch[0] };
+                            }
+                        }
+                    }
+
+                    // 強制渲染圖片檔案，避開 Markdown 轉換錯誤
+                    if (imgFileObj) {
+                        addMessage(`🖼️ **報告專屬配圖：**`, 'ai', imageProvider, null, imgFileObj);
+                    } else if (imgText) {
+                        if (imgText.trim().startsWith('http') || imgText.trim().startsWith('data:image')) {
+                            imgText = `![Generated Image](${imgText.trim()})`;
+                        }
+                        addMessage(`🖼️ **報告專屬配圖：**\n${imgText}`, 'ai', imageProvider);
+                    } else {
+                        addMessage(`❌ 模型 ${imageModel} 未成功回傳圖片數據。`, 'system');
+                    }
+                }
+
+                clearAgentFile();
+                document.getElementById('agent-topic').value = '';
+
+            } catch (error) {
+                addMessage(`❌ 深度研究發生錯誤：${error.message}`, 'system');
+            } finally {
+                appState.isThinking = false;
+                if(typeof renderThinkingState === 'function') renderThinkingState(false);
+            }
+        };
 
 // --- 緊急求救 (SOS) 處理邏輯 ---
         let sosTimer = null;
