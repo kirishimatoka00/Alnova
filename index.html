@@ -639,22 +639,22 @@
                         <button onclick="closeTodoEdit()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
                     </div>
                     <input type="hidden" id="edit-todo-id">
-                   div class="space-y-4">
                         <div class="space-y-4">
                         <div><label class="text-xs text-slate-400 mb-1 block">行程內容</label><input type="text" id="edit-todo-text" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"></div>
                         <div><label class="text-xs text-slate-400 mb-1 block">提醒時間</label><input type="datetime-local" id="edit-todo-time" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none" style="color-scheme: dark;"></div>
                         <div>
-                            <label class="text-xs text-slate-400 mb-1 block">重複設定</label>
-                            <select id="edit-todo-repeat" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none">
-                                <option value="0">不重複 (單次)</option>
-                                <option value="60000">每 1 分鐘 (測試用)</option>
-                                <option value="3600000">每 1 小時</option>
-                                <option value="86400000">每天</option>
-                                <option value="604800000">每週</option>
-                                <option value="2592000000">每月</option>
-                                <option value="31536000000">每年</option>
-                            </select>
-                        </div>
+                            <label class="text-xs text-slate-400 mb-1 block">重複設定 (自訂輸入，0為單次)</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="edit-todo-repeat-num" min="0" placeholder="數字..." class="w-1/2 bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none">
+                                <select id="edit-todo-repeat-unit" class="w-1/2 bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none">
+                                    <option value="60000">分鐘</option>
+                                    <option value="3600000">小時</option>
+                                    <option value="86400000">天</option>
+                                    <option value="604800000">週</option>
+                                    <option value="2592000000">月</option>
+                                    <option value="31536000000">年</option>
+                                </select>
+                            </div>
                     </div>
                     <div class="flex justify-end space-x-3 mt-6">
                         <button onclick="closeTodoEdit()" class="px-4 py-2 text-slate-400 hover:text-white transition-colors">取消</button>
@@ -1296,7 +1296,15 @@
         };
 
         window.parseTimeNatural = function(text) {
-            text = text.replace(/\s+/g, '').replace(/一/g,'1').replace(/兩|二/g,'2').replace(/三/g,'3').replace(/四/g,'4').replace(/五/g,'5').replace(/六/g,'6').replace(/七/g,'7').replace(/八/g,'8').replace(/九/g,'9').replace(/十/g,'10').replace(/十一/g,'11').replace(/十二/g,'12');
+            const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+            text = text.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
+                if(match === '十') return '10';
+                if(match.length === 1) return map[match].toString();
+                if(match.length === 2 && match[0] === '十') return (10 + map[match[1]]).toString();
+                if(match.length === 2 && match[1] === '十') return (map[match[0]] * 10).toString();
+                if(match.length === 3) return (map[match[0]] * 10 + map[match[2]]).toString();
+                return match;
+            });
             const now = new Date();
             let target = new Date(now); let complete = false; let missing = null;
             let hasDate = false, hasTime = false, hasAmPm = false;
@@ -1386,10 +1394,22 @@
                 // 修正時區偏移以正確顯示於 datetime-local
                 d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
                 document.getElementById('edit-todo-time').value = d.toISOString().slice(0,16);
-                document.getElementById('edit-todo-repeat').value = t.repeatInterval || '0';
+                let ms = t.repeatInterval || 0;
+                let rNum = 0; let rUnit = 60000;
+                if(ms > 0) {
+                    if(ms % 31536000000 === 0) { rNum = ms / 31536000000; rUnit = 31536000000; }
+                    else if(ms % 2592000000 === 0) { rNum = ms / 2592000000; rUnit = 2592000000; }
+                    else if(ms % 604800000 === 0) { rNum = ms / 604800000; rUnit = 604800000; }
+                    else if(ms % 86400000 === 0) { rNum = ms / 86400000; rUnit = 86400000; }
+                    else if(ms % 3600000 === 0) { rNum = ms / 3600000; rUnit = 3600000; }
+                    else { rNum = ms / 60000; rUnit = 60000; }
+                }
+                document.getElementById('edit-todo-repeat-num').value = rNum;
+                document.getElementById('edit-todo-repeat-unit').value = rUnit;
             } else { 
                 document.getElementById('edit-todo-time').value = ''; 
-                document.getElementById('edit-todo-repeat').value = '0';
+                document.getElementById('edit-todo-repeat-num').value = '0';
+                document.getElementById('edit-todo-repeat-unit').value = '3600000';
             }
             document.getElementById('todo-edit-modal').classList.remove('hidden'); 
             document.getElementById('todo-edit-modal').classList.add('flex');
@@ -1401,8 +1421,10 @@
             const id = document.getElementById('edit-todo-id').value;
             const text = document.getElementById('edit-todo-text').value.trim(); 
             const timeStr = document.getElementById('edit-todo-time').value;
-            const repeatVal = parseInt(document.getElementById('edit-todo-repeat').value) || 0;
             
+            const numVal = parseInt(document.getElementById('edit-todo-repeat-num').value) || 0;
+            const unitVal = parseInt(document.getElementById('edit-todo-repeat-unit').value) || 60000;
+            const repeatVal = numVal > 0 ? numVal * unitVal : 0;
             const t = appState.todos.find(x => String(x.id) === String(id)); 
             if(!t || !text) return;
             
@@ -2996,7 +3018,15 @@
             const hasChatFile = appState.chatFile !== null;
             
             const getIntervalMs = (txt) => {
-                let nTxt = txt.replace(/\s+/g, '').replace(/一/g,'1').replace(/兩|二/g,'2').replace(/三/g,'3').replace(/四/g,'4').replace(/五/g,'5').replace(/六/g,'6').replace(/七/g,'7').replace(/八/g,'8').replace(/九/g,'9').replace(/十/g,'10').replace(/十一/g,'11').replace(/十二/g,'12');
+                const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+                let nTxt = txt.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
+                    if(match === '十') return '10';
+                    if(match.length === 1) return map[match].toString();
+                    if(match.length === 2 && match[0] === '十') return (10 + map[match[1]]).toString();
+                    if(match.length === 2 && match[1] === '十') return (map[match[0]] * 10).toString();
+                    if(match.length === 3) return (map[match[0]] * 10 + map[match[2]]).toString();
+                    return match;
+                });
                 if(nTxt.includes('每天') || nTxt.includes('每日')) return 86400000;
                 if(nTxt.includes('每週') || nTxt.includes('每星期')) return 604800000;
                 if(nTxt.includes('每月') || nTxt.includes('每個月')) return 2592000000;
@@ -3006,12 +3036,22 @@
                 return 0;
             };
 
-            const autoSearchMatch = text.match(/每\s*([一二兩三四五六七八九十十一十二\d]+)\s*(分鐘|分|小時|天|日|個月|月|年)\s*幫我(?:搜尋|抓取)(.*)/i);
+            const autoSearchMatch = text.match(/每\s*([一二兩三四五六七八九十\d]+)\s*(分鐘|分|小時|天|日|個月|月|年)\s*幫我(?:搜尋|抓取)(.*)/i);
             if (autoSearchMatch) {
                 let unit = autoSearchMatch[2];
                 let query = autoSearchMatch[3].trim();
                 let ms = getIntervalMs(text);
-                let num = autoSearchMatch[1];
+                
+                const mapZh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+                let numStr = autoSearchMatch[1];
+                let num = parseInt(numStr.replace(/[一二兩三四五六七八九十]+/g, m => {
+                    if(m === '十') return '10';
+                    if(m.length === 1) return mapZh[m].toString();
+                    if(m.length === 2 && m[0] === '十') return (10 + mapZh[m[1]]).toString();
+                    if(m.length === 2 && m[1] === '十') return (mapZh[m[0]] * 10).toString();
+                    if(m.length === 3) return (mapZh[m[0]] * 10 + mapZh[m[2]]).toString();
+                    return m;
+                })) || autoSearchMatch[1];
                 const newSearchTask = { 
                     id: Date.now(), 
                     text: `🔄 自動搜尋任務: ${query}`, 
