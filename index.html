@@ -4,7 +4,7 @@
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NOVA 109 SSP</title>
+    <title>NOVA 120 SSP</title>
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -114,7 +114,7 @@
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
             <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 109 SSP</span></div>
+                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 120 SSP</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
@@ -131,7 +131,6 @@
                     <button onclick="switchTab('schedule'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-calendar-check text-xl"></i><span>行程管理</span></button>
                     <button onclick="switchTab('notes'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-notebook text-xl"></i><span>筆記/文件</span></button>
                     <button onclick="switchTab('audio'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-waveform text-xl"></i><span>錄音紀錄</span></button>
-                    <button onclick="switchTab('collab'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-users-three text-xl"></i><span>雙 AI 協作</span></button>
                 </nav>
             </div>
 
@@ -1024,33 +1023,103 @@
             closeSettings(); showToast("✅ 設定已儲存"); updateModelUI();
         };
 
+
+和 Gemini 的對話
+你說了
+基於附件中的程式碼, 教我如何修改以達到典按其匯出備份按紐時可以匯出程式所有的內容包含對話紀錄, 設定, 排成, 錄音, 筆記等打包成一個檔案匯出下載供我轉移機器, 只需要教我改動哪一段, 及生成改動的部份給我就好
+
+Gemini 說了
+為了達成將「所有對話紀錄、筆記、排程、錄音與設定」通通打包成單一檔案匯出，並在匯入時完整還原，您只需要替換原本程式碼中的 exportSettings 與 importSettings 這兩個函數即可。
+
+請在您的程式碼中（大約在第 475 行左右），找到這兩個函數的區塊，並用以下的新程式碼完全替換掉它們：
+
+替換成以下的程式碼：
+JavaScript
         window.exportSettings = function() {
-            const data = JSON.stringify({ keys: appState.keys, doc: appState.docMonitorUrl, drive: appState.driveUrl, voiceTimeout: appState.voiceTimeout, translateBTimeout: appState.translateBTimeout, vadMultiplier: appState.vadMultiplier, replyLength: appState.replyLength, ttsRate: appState.ttsRate, ttsVoice: appState.ttsVoice, hideLiveCapture: appState.hideLiveCapture, autoTTS: appState.autoTTS });
+            // 收集所有設定與應用程式資料庫狀態
+            const fullBackupData = {
+                keys: appState.keys, 
+                doc: appState.docMonitorUrl, 
+                drive: appState.driveUrl, 
+                voiceTimeout: appState.voiceTimeout, 
+                translateBTimeout: appState.translateBTimeout, 
+                vadMultiplier: appState.vadMultiplier, 
+                replyLength: appState.replyLength, 
+                ttsRate: appState.ttsRate, 
+                ttsVoice: appState.ttsVoice, 
+                hideLiveCapture: appState.hideLiveCapture, 
+                autoTTS: appState.autoTTS,
+                noteFolders: appState.noteFolders,
+                // 加入所有內容資料庫陣列
+                messages: appState.messages,
+                notes: appState.notes,
+                todos: appState.todos,
+                audioRecords: appState.audioRecords
+            };
+            
+            const data = JSON.stringify(fullBackupData);
             const blob = new Blob([data], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = 'nova_settings_backup.json'; a.click(); URL.revokeObjectURL(url);
+            const a = document.createElement('a'); 
+            a.href = url; 
+            
+            // 加上日期標籤方便辨識
+            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
+            a.download = `NOVA_FullBackup_${dateStr}.json`; 
+            a.click(); 
+            URL.revokeObjectURL(url);
+            showToast("✅ 系統資料與設定已完整備份");
         };
 
         window.importSettings = function(e) {
             const file = e.target.files[0]; if(!file) return;
             const reader = new FileReader();
-            reader.onload = (evt) => {
+            reader.onload = async (evt) => {
                 try {
                     const data = JSON.parse(evt.target.result);
+                    
+                    // 1. 還原系統設定與金鑰
                     if(data.keys) {
-                        Object.keys(data.keys).forEach(k => { appState.keys[k] = data.keys[k]; localStorage.setItem('nova_key_'+k, data.keys[k]); document.getElementById('key-'+k).value = data.keys[k] || ''; });
+                        Object.keys(data.keys).forEach(k => { appState.keys[k] = data.keys[k]; localStorage.setItem('nova_key_'+k, data.keys[k]); const el = document.getElementById('key-'+k); if(el) el.value = data.keys[k] || ''; });
                     }
-                    if(data.doc !== undefined) { appState.docMonitorUrl = data.doc; localStorage.setItem('nova_doc_url', data.doc); document.getElementById('key-doc-url').value = data.doc; }
-                    if(data.drive !== undefined) { appState.driveUrl = data.drive; localStorage.setItem('nova_drive_url', data.drive); document.getElementById('key-drive-url').value = data.drive; }
-                    if(data.translateBTimeout !== undefined) { appState.translateBTimeout = data.translateBTimeout; localStorage.setItem('nova_trans_b_timeout', data.translateBTimeout); document.getElementById('key-translate-b-timeout').value = data.translateBTimeout; }
-                    if(data.vadMultiplier !== undefined) { appState.vadMultiplier = data.vadMultiplier; localStorage.setItem('nova_vad_multiplier', data.vadMultiplier); document.getElementById('key-vad-multiplier').value = data.vadMultiplier; }
-                    if(data.autoTTS !== undefined) { appState.autoTTS = data.autoTTS; localStorage.setItem('nova_auto_tts', data.autoTTS); document.getElementById('key-auto-tts').checked = data.autoTTS; }
-                    showToast("✅ 設定還原成功"); updateModelUI();
-                } catch(err) { alert("無效的備份檔"); }
+                    if(data.doc !== undefined) { appState.docMonitorUrl = data.doc; localStorage.setItem('nova_doc_url', data.doc); const el = document.getElementById('key-doc-url'); if(el) el.value = data.doc; }
+                    if(data.drive !== undefined) { appState.driveUrl = data.drive; localStorage.setItem('nova_drive_url', data.drive); const el = document.getElementById('key-drive-url'); if(el) el.value = data.drive; }
+                    if(data.translateBTimeout !== undefined) { appState.translateBTimeout = data.translateBTimeout; localStorage.setItem('nova_trans_b_timeout', data.translateBTimeout); const el = document.getElementById('key-translate-b-timeout'); if(el) el.value = data.translateBTimeout; }
+                    if(data.vadMultiplier !== undefined) { appState.vadMultiplier = data.vadMultiplier; localStorage.setItem('nova_vad_multiplier', data.vadMultiplier); const el = document.getElementById('key-vad-multiplier'); if(el) el.value = data.vadMultiplier; }
+                    if(data.autoTTS !== undefined) { appState.autoTTS = data.autoTTS; localStorage.setItem('nova_auto_tts', data.autoTTS); const el = document.getElementById('key-auto-tts'); if(el) el.checked = data.autoTTS; }
+                    if(data.noteFolders !== undefined) { appState.noteFolders = data.noteFolders; localStorage.setItem('nova_folders', JSON.stringify(data.noteFolders)); }
+
+                    // 2. 輔助函數：還原資料庫資料
+                    const restoreDB = async (storeName, dataArray) => {
+                        if (dataArray && Array.isArray(dataArray)) {
+                            appState[storeName] = dataArray; // 更新記憶體
+                            clearStoreDB(storeName);         // 清空瀏覽器IndexedDB舊資料庫
+                            dataArray.forEach(item => saveToDB(storeName, item)); // 重新寫入
+                        }
+                    };
+
+                    // 3. 依序還原內容資料庫
+                    await restoreDB('messages', data.messages);
+                    await restoreDB('notes', data.notes);
+                    await restoreDB('todos', data.todos);
+                    await restoreDB('audioRecords', data.audioRecords);
+
+                    // 4. 重新渲染畫面與 UI
+                    renderAll();
+                    updateModelUI();
+                    
+                    showToast("✅ 完整備份還原成功！系統已更新。");
+                    
+                    // 清除 input，允許重複選取同一個檔案
+                    e.target.value = '';
+                    
+                } catch(err) { 
+                    alert("還原失敗：無效的備份檔或資料損毀"); 
+                    console.error("Import Error:", err);
+                }
             };
             reader.readAsText(file);
         };
-
         async function getCityName(lat, lon) {
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
