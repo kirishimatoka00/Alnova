@@ -640,6 +640,7 @@
                     </div>
                     <input type="hidden" id="edit-todo-id">
                    div class="space-y-4">
+                        <div class="space-y-4">
                         <div><label class="text-xs text-slate-400 mb-1 block">行程內容</label><input type="text" id="edit-todo-text" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"></div>
                         <div><label class="text-xs text-slate-400 mb-1 block">提醒時間</label><input type="datetime-local" id="edit-todo-time" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none" style="color-scheme: dark;"></div>
                         <div>
@@ -1295,7 +1296,9 @@
         };
 
         window.parseTimeNatural = function(text) {
-            const now = new Date(); let target = new Date(now); let complete = false; let missing = null;
+            text = text.replace(/\s+/g, '').replace(/一/g,'1').replace(/兩|二/g,'2').replace(/三/g,'3').replace(/四/g,'4').replace(/五/g,'5').replace(/六/g,'6').replace(/七/g,'7').replace(/八/g,'8').replace(/九/g,'9').replace(/十/g,'10').replace(/十一/g,'11').replace(/十二/g,'12');
+            const now = new Date();
+            let target = new Date(now); let complete = false; let missing = null;
             let hasDate = false, hasTime = false, hasAmPm = false;
             if(text.includes('今天')) hasDate = true;
             else if(text.includes('明天')) { target.setDate(target.getDate() + 1); hasDate = true; }
@@ -1355,7 +1358,17 @@
         };
 
         window.toggleTodo = function(id) {
-            const t = appState.todos.find(x => x.id === id); if(t) { t.done = !t.done; saveToDB('todos', t); renderTodos(); }
+            const t = appState.todos.find(x => String(x.id) === String(id));
+            if(t) { t.done = !t.done; saveToDB('todos', t); renderTodos(); }
+        };
+        
+        window.toggleTodoAlarm = function(id) {
+            const t = appState.todos.find(x => String(x.id) === String(id));
+            if(t) {
+                t.alertEnabled = !t.alertEnabled;
+                saveToDB('todos', t); renderTodos();
+                showToast(t.alertEnabled ? "🔔 已開啟提醒" : "🔕 已關閉提醒");
+            }
         };
 
         window.deleteTodo = function(id) {
@@ -1880,7 +1893,7 @@
         // --- UI 渲染功能 (待辦事項) ---
         function renderTodos() { 
             const el = document.getElementById('full-todo-list'); const mini = document.getElementById('mini-todo-list');
-            if(el) el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><div class="flex items-center space-x-2"><button onclick="openTodoDatePicker(${t.id})" class="${t.alertEnabled !== false ? 'text-yellow-500' : 'text-slate-600'} hover:text-yellow-400 p-2" title="${t.alertEnabled !== false ? '修改提醒' : '開啟提醒'}"><i class="ph-bold ${t.alertEnabled !== false ? 'ph-bell-ringing' : 'ph-bell-slash'}"></i></button><button onclick="openTodoEdit('${t.id}')" class="text-slate-500 hover:text-blue-400 p-2" title="編輯"><i class="ph-bold ph-pencil-simple"></i></button><button onclick="deleteTodo('${t.id}')" class="text-slate-500 hover:text-red-400 p-2" title="刪除"><i class="ph-bold ph-trash"></i></button></div></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
+            if(el) el.innerHTML=appState.todos.map(t=>`<div class="group bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center hover:border-slate-600 transition-all slide-in"><div class="flex items-center space-x-4"><button onclick="toggleTodo(${t.id})" class="text-slate-500 hover:text-blue-400"><i class="ph${t.done?'-fill ph-check-circle text-green-500':' ph-circle'} text-2xl"></i></button><div><p class="text-base ${t.done?'line-through text-slate-600':'text-slate-200'}">${escapeHtml(t.text)}</p><span class="text-xs text-slate-500">${t.time}</span></div></div><div class="flex items-center space-x-2"><button onclick="toggleTodoAlarm(${t.id})" class="${t.alertEnabled !== false ? 'text-yellow-500' : 'text-slate-600'} hover:text-yellow-400 p-2" title="${t.alertEnabled !== false ? '關閉提醒' : '開啟提醒'}"><i class="ph-bold ${t.alertEnabled !== false ? 'ph-bell-ringing' : 'ph-bell-slash'}"></i></button><button onclick="openTodoEdit('${t.id}')" class="text-slate-500 hover:text-blue-400 p-2" title="編輯"><i class="ph-bold ph-pencil-simple"></i></button><button onclick="deleteTodo('${t.id}')" class="text-slate-500 hover:text-red-400 p-2" title="刪除"><i class="ph-bold ph-trash"></i></button></div></div>`).join('')||'<p class="text-slate-500 text-center mt-10">無任務</p>'; 
             if(mini) mini.innerHTML=appState.todos.slice(0,3).map(t=>`<div class="flex items-center space-x-3 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50"><div class="w-1.5 h-8 rounded-full ${t.done?'bg-green-500':'bg-blue-500'}"></div><div class="flex-1 min-w-0"><p class="text-xs truncate ${t.done?'line-through text-slate-600':'text-slate-300'}">${escapeHtml(t.text)}</p></div></div>`).join('')||'<p class="text-xs text-slate-500 text-center">無待辦</p>'; 
         }
 
@@ -2983,17 +2996,17 @@
             const hasChatFile = appState.chatFile !== null;
             
             const getIntervalMs = (txt) => {
-                let nTxt = txt.replace(/一/g,'1').replace(/兩|二/g,'2').replace(/三/g,'3').replace(/四/g,'4').replace(/五/g,'5').replace(/六/g,'6').replace(/七/g,'7').replace(/八/g,'8').replace(/九/g,'9').replace(/十/g,'10');
+                let nTxt = txt.replace(/\s+/g, '').replace(/一/g,'1').replace(/兩|二/g,'2').replace(/三/g,'3').replace(/四/g,'4').replace(/五/g,'5').replace(/六/g,'6').replace(/七/g,'7').replace(/八/g,'8').replace(/九/g,'9').replace(/十/g,'10').replace(/十一/g,'11').replace(/十二/g,'12');
                 if(nTxt.includes('每天') || nTxt.includes('每日')) return 86400000;
                 if(nTxt.includes('每週') || nTxt.includes('每星期')) return 604800000;
                 if(nTxt.includes('每月') || nTxt.includes('每個月')) return 2592000000;
                 if(nTxt.includes('每年')) return 31536000000;
-                let mH = nTxt.match(/每(\d+)小時/); if(mH) return parseInt(mH[1]) * 3600000;
+                let mH = nTxt.match(/每(\d+)小時?/); if(mH) return parseInt(mH[1]) * 3600000;
                 let mM = nTxt.match(/每(\d+)分/); if(mM) return parseInt(mM[1]) * 60000;
                 return 0;
             };
 
-            const autoSearchMatch = text.match(/每([一二兩三四五六七八九十\d]+)(分鐘|分|小時|天|日|個月|月|年)幫我(?:搜尋|抓取)(.*)/i);
+            const autoSearchMatch = text.match(/每\s*([一二兩三四五六七八九十十一十二\d]+)\s*(分鐘|分|小時|天|日|個月|月|年)\s*幫我(?:搜尋|抓取)(.*)/i);
             if (autoSearchMatch) {
                 let unit = autoSearchMatch[2];
                 let query = autoSearchMatch[3].trim();
