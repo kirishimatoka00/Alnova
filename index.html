@@ -3471,11 +3471,16 @@ window.startMultiAgentResearch = async function() {
                 const smsUrl = `sms:${emergencyNumber}?body=${encodeURIComponent(smsBody)}`;
                 const telUrl = `tel:${emergencyNumber}`;
                 
-                // 1. 【優先觸發】強制喚醒手機原生的「撥號 App」
-                window.location.href = telUrl;
+                // 1. 【連續技第一段】先強制喚醒簡訊 App，把 GPS 定位帶進去
+                window.location.href = smsUrl;
                 
-                // 2. 終極防護網：對話框留存 GPS 簡訊按鈕，供通話中或通話後一鍵發送
-                const msgText = `🚨 **已觸發緊急求救程序！**\n系統已嘗試為您自動撥打 ${emergencyNumber}。\n\n⚠️ *請於通話中或通話後，點擊下方連結將您的定位傳送給救援單位：*\n\n📲 **[👉 點此發送定位簡訊](${smsUrl})**\n\n📞 **[👉 若未自動撥號，請點此手動撥打](${telUrl})**`;
+                // 2. 【連續技第二段】延遲 2 秒後，強制喚醒撥號畫面疊加上去
+                setTimeout(() => { 
+                    window.location.href = telUrl; 
+                }, 2000);
+                
+                // 3. 終極防護網：對話框留存按鈕，萬一跳轉被擋還能手動按
+                const msgText = `🚨 **已觸發緊急求救程序！**\n系統已為您自動開啟簡訊並準備撥打 ${emergencyNumber}。\n\n⚠️ *若畫面未自動跳轉，請點擊下方連結手動操作：*\n\n📲 **[👉 點此手動發送定位簡訊](${smsUrl})**\n\n📞 **[👉 點此手動撥打 ${emergencyNumber}](${telUrl})**`;
                 
                 addMessage(msgText, 'ai', '🚨 SOS 系統');
             };
