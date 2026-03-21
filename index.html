@@ -1504,59 +1504,137 @@
         };
 
         window.addNoteManually = function() {
-            document.getElementById('edit-note-id').value = '';
-            document.getElementById('edit-note-title').value = '';
-            document.getElementById('edit-note-content').innerHTML = '';
-            appState.editNoteImagesBase64 = [];
-            document.getElementById('edit-note-img-preview-container').innerHTML = '';
-            document.getElementById('edit-note-img-preview-container').classList.add('hidden');
-            const folderSelect = document.getElementById('edit-note-folder');
-            folderSelect.innerHTML = appState.noteFolders.map(f => `<option value="${f}">${f}</option>`).join('');
-            folderSelect.value = appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder;
-            document.getElementById('note-modal-title-text').innerText = "新增圖文筆記";
-            document.getElementById('note-edit-modal').classList.remove('hidden');
+            try {
+                document.getElementById('edit-note-id').value = '';
+                document.getElementById('edit-note-title').value = '';
+                const contentEl = document.getElementById('edit-note-content');
+                if (contentEl) contentEl.innerHTML = '';
+                
+                appState.editNoteImagesBase64 = [];
+                const imgContainer = document.getElementById('edit-note-img-preview-container');
+                if (imgContainer) {
+                    imgContainer.innerHTML = '';
+                    imgContainer.classList.add('hidden');
+                    imgContainer.classList.remove('flex');
+                }
+                
+                const folderSelect = document.getElementById('edit-note-folder');
+                if (folderSelect && appState.noteFolders) {
+                    folderSelect.innerHTML = appState.noteFolders.map(f => `<option value="${f}">${f}</option>`).join('');
+                    folderSelect.value = appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder;
+                }
+                
+                const titleEl = document.getElementById('note-modal-title-text');
+                if (titleEl) titleEl.innerText = "新增圖文筆記";
+                
+                const modal = document.getElementById('note-edit-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                } else {
+                    alert("找不到編輯器視窗元件 (note-edit-modal)");
+                }
+            } catch(e) {
+                alert("開啟新增筆記時發生錯誤：" + e.message);
+            }
         };
 
         window.openNoteEdit = function(id) {
-            const n = appState.notes.find(x => String(x.id) === String(id)); if(!n) return;
-            document.getElementById('edit-note-id').value = id;
-            document.getElementById('edit-note-title').value = n.title;
-            const contentEl = document.getElementById('edit-note-content');
-            if (n.isHtml) contentEl.innerHTML = n.content;
-            else contentEl.innerText = n.content;
-            
-            const folderSelect = document.getElementById('edit-note-folder');
-            folderSelect.innerHTML = appState.noteFolders.map(f => `<option value="${f}">${f}</option>`).join('');
-            folderSelect.value = n.folder || '未分類';
-            
-            appState.editNoteImagesBase64 = [...(n.images || (n.image ? [n.image] : []))];
-            const imgContainer = document.getElementById('edit-note-img-preview-container');
-            if(appState.editNoteImagesBase64.length > 0) {
-                imgContainer.innerHTML = appState.editNoteImagesBase64.map((img, idx) => `<div class="relative"><img src="${img}" class="h-16 w-auto rounded border border-slate-700"><button onclick="removeNoteEditImage(${idx})" class="absolute -top-2 -right-2 bg-red-600 rounded-full p-0.5 shadow hover:bg-red-500"><i class="ph-bold ph-x text-white text-xs"></i></button></div>`).join('');
-                imgContainer.classList.remove('hidden'); imgContainer.classList.add('flex');
-            } else { imgContainer.innerHTML = ''; imgContainer.classList.add('hidden'); imgContainer.classList.remove('flex'); }
-            
-            document.getElementById('note-modal-title-text').innerText = "檢視與編輯筆記";
-            document.getElementById('note-edit-modal').classList.remove('hidden');
+            try {
+                const n = appState.notes.find(x => String(x.id) === String(id));
+                if(!n) return;
+                
+                document.getElementById('edit-note-id').value = id;
+                document.getElementById('edit-note-title').value = n.title || '';
+                
+                const contentEl = document.getElementById('edit-note-content');
+                if (contentEl) {
+                    if (n.isHtml) contentEl.innerHTML = n.content || '';
+                    else contentEl.innerText = n.content || '';
+                }
+                
+                const folderSelect = document.getElementById('edit-note-folder');
+                if (folderSelect && appState.noteFolders) {
+                    folderSelect.innerHTML = appState.noteFolders.map(f => `<option value="${f}">${f}</option>`).join('');
+                    folderSelect.value = n.folder || '未分類';
+                }
+                
+                appState.editNoteImagesBase64 = [...(n.images || (n.image ? [n.image] : []))];
+                const imgContainer = document.getElementById('edit-note-img-preview-container');
+                if(imgContainer) {
+                    if(appState.editNoteImagesBase64.length > 0) {
+                        imgContainer.innerHTML = appState.editNoteImagesBase64.map((img, idx) => `<div class="relative"><img src="${img}" class="h-16 w-auto rounded border border-slate-700 object-cover"><button onclick="removeNoteEditImage(${idx})" class="absolute -top-2 -right-2 bg-red-600 rounded-full p-1 shadow hover:bg-red-500 flex items-center justify-center"><i class="ph-bold ph-x text-white text-xs"></i></button></div>`).join('');
+                        imgContainer.classList.remove('hidden'); 
+                        imgContainer.classList.add('flex');
+                    } else { 
+                        imgContainer.innerHTML = ''; 
+                        imgContainer.classList.add('hidden'); 
+                        imgContainer.classList.remove('flex');
+                    }
+                }
+                
+                const titleEl = document.getElementById('note-modal-title-text');
+                if (titleEl) titleEl.innerText = "檢視與編輯筆記";
+                
+                const modal = document.getElementById('note-edit-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                } else {
+                    alert("找不到編輯器視窗元件 (note-edit-modal)");
+                }
+            } catch(e) {
+                alert("開啟筆記時發生錯誤：" + e.message);
+            }
         };
 
-        window.closeNoteEdit = function() { document.getElementById('note-edit-modal').classList.add('hidden'); };
+        window.closeNoteEdit = function() { 
+            const modal = document.getElementById('note-edit-modal');
+            if (modal) {
+                modal.classList.add('hidden'); 
+                modal.classList.remove('flex');
+            }
+        };
 
         window.saveNoteEdit = function() {
-            const id = document.getElementById('edit-note-id').value;
-            const title = document.getElementById('edit-note-title').value.trim() || '未命名筆記';
-            const contentHTML = document.getElementById('edit-note-content').innerHTML;
-            const folder = document.getElementById('edit-note-folder').value;
-            
-            if(id) {
-                const n = appState.notes.find(x => String(x.id) === String(id)); if(!n) return;
-                n.title = title; n.content = contentHTML; n.isHtml = true; n.images = [...appState.editNoteImagesBase64]; n.image = null; n.folder = folder;
-                saveToDB('notes', n);
-            } else {
-                const newNote = { id: Date.now(), title, content: contentHTML, isHtml: true, date: new Date().toLocaleString(), type: 'text', images: [...appState.editNoteImagesBase64], folder: folder };
-                appState.notes.unshift(newNote); saveToDB('notes', newNote);
+            try {
+                const id = document.getElementById('edit-note-id').value;
+                const title = document.getElementById('edit-note-title').value.trim() || '未命名筆記';
+                const contentEl = document.getElementById('edit-note-content');
+                const contentHTML = contentEl ? contentEl.innerHTML : '';
+                const folderSelect = document.getElementById('edit-note-folder');
+                const folder = folderSelect ? folderSelect.value : '未分類';
+                
+                if(id) {
+                    const n = appState.notes.find(x => String(x.id) === String(id));
+                    if(!n) return;
+                    n.title = title; 
+                    n.content = contentHTML; 
+                    n.isHtml = true; 
+                    n.images = [...appState.editNoteImagesBase64]; 
+                    n.image = null; 
+                    n.folder = folder;
+                    saveToDB('notes', n);
+                } else {
+                    const newNote = { 
+                        id: Date.now(), 
+                        title: title, 
+                        content: contentHTML, 
+                        isHtml: true, 
+                        date: new Date().toLocaleString(), 
+                        type: 'text', 
+                        images: [...appState.editNoteImagesBase64], 
+                        folder: folder 
+                    };
+                    appState.notes.unshift(newNote); 
+                    saveToDB('notes', newNote);
+                }
+                renderNotes(); 
+                closeNoteEdit(); 
+                showToast("✅ 筆記已儲存");
+            } catch(e) {
+                alert("儲存筆記時發生錯誤：" + e.message);
             }
-            renderNotes(); closeNoteEdit(); showToast("✅ 筆記已儲存");
         };
 
         window.handleNoteEditImage = function(e) {
@@ -1565,15 +1643,39 @@
                 if(!file.type.startsWith('image/')) return;
                 const reader = new FileReader();
                 reader.onload = (evt) => {
-                    document.execCommand('insertImage', false, evt.target.result);
+                    appState.editNoteImagesBase64.push(evt.target.result);
+                    const imgContainer = document.getElementById('edit-note-img-preview-container');
+                    if(imgContainer) {
+                        imgContainer.innerHTML = appState.editNoteImagesBase64.map((img, idx) => `<div class="relative"><img src="${img}" class="h-16 w-auto rounded border border-slate-700 object-cover"><button onclick="removeNoteEditImage(${idx})" class="absolute -top-2 -right-2 bg-red-600 rounded-full p-1 shadow hover:bg-red-500 flex items-center justify-center"><i class="ph-bold ph-x text-white text-xs"></i></button></div>`).join('');
+                        imgContainer.classList.remove('hidden'); 
+                        imgContainer.classList.add('flex');
+                    }
                 };
                 reader.readAsDataURL(file);
             });
             e.target.value = '';
         };
 
+        window.removeNoteEditImage = function(idx) {
+            appState.editNoteImagesBase64.splice(idx, 1);
+            const imgContainer = document.getElementById('edit-note-img-preview-container');
+            if(imgContainer) {
+                if(appState.editNoteImagesBase64.length > 0) {
+                    imgContainer.innerHTML = appState.editNoteImagesBase64.map((img, i) => `<div class="relative"><img src="${img}" class="h-16 w-auto rounded border border-slate-700 object-cover"><button onclick="removeNoteEditImage(${i})" class="absolute -top-2 -right-2 bg-red-600 rounded-full p-1 shadow hover:bg-red-500 flex items-center justify-center"><i class="ph-bold ph-x text-white text-xs"></i></button></div>`).join('');
+                } else {
+                    imgContainer.innerHTML = '';
+                    imgContainer.classList.add('hidden');
+                    imgContainer.classList.remove('flex');
+                }
+            }
+        };
+
         window.deleteNote = function(id) {
-            if(confirm('確定要刪除這則筆記嗎？')) { appState.notes = appState.notes.filter(x => String(x.id) !== String(id)); deleteFromDB('notes', id); renderNotes(); }
+            if(confirm('確定要刪除這則筆記嗎？')) { 
+                appState.notes = appState.notes.filter(x => String(x.id) !== String(id));
+                deleteFromDB('notes', id); 
+                renderNotes(); 
+            }
         };
 
         window.exportNoteWord = function(id) {
