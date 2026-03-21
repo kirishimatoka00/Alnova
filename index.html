@@ -3457,40 +3457,22 @@ window.startMultiAgentResearch = async function() {
             if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
             
             const emergencyNumber = "119"; // 依當地設定預設號碼
-            
-            // 獨立的發送器 (包含相容 iOS 與 Android 的協定)
-            const triggerCommunication = (lat, lng) => {
-                let smsBody = "【緊急求救】我需要協助！";
-                if (lat && lng) {
-                    // 將網址切碎組合，防止被安全機制代理改寫
-                    const mapBaseUrl = 'https://' + 'www.' + 'google.com' + '/maps?q=';
-                    smsBody += `我的所在位置：${mapBaseUrl}${lat},${lng}`;
-                }
-                
-                // 處理手機跳轉協定 (以 ?body= 為主流標準)
-                const smsUrl = `sms:${emergencyNumber}?body=${encodeURIComponent(smsBody)}`;
-                const telUrl = `tel:${emergencyNumber}`;
-                
-                // 1. 【使用者指定】強制優先喚醒手機原生的「撥號 App」
-                window.location.href = telUrl;
-                
-                // 2. 終極防護網：對話框留存 GPS 簡訊按鈕，供通話中或通話後一鍵發送
-                const msgText = `🚨 **已觸發緊急求救程序！**\n系統已嘗試為您自動撥打 ${emergencyNumber}。\n\n⚠️ *請於通話中或通話後，點擊下方連結將您的定位傳送給救援單位：*\n\n📲 **[👉 點此發送定位簡訊](${smsUrl})**\n\n📞 **[👉 若未自動撥號，請點此手動撥打](${telUrl})**`;
-                
-                addMessage(msgText, 'ai', '🚨 SOS 系統');
-            };
-
-            // 請求 GPS 定位 (設定 5 秒 Timeout，避免等不到訊號卡住)
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(position => {
-                    triggerCommunication(position.coords.latitude, position.coords.longitude);
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const smsBody = encodeURIComponent(`【緊急求救 HELP】我需要協助 I NEED HELP！我的所在位置MY LOCATION：https://maps.google.com/?q=${lat},${lng}`);
+                    
+                    window.location.href = `sms:${emergencyNumber}?body=${smsBody}`;
+                    setTimeout(() => { window.location.href = `tel:${emergencyNumber}`; }, 2000);
+                    addMessage(`🚨 已自動觸發求救！嘗試發送定位簡訊並撥打 ${emergencyNumber}。`, 'system');
                 }, error => {
-                    // 若抓不到定位 (例如在地下室或未開權限)，依然強制觸發純文字求救
-                    triggerCommunication(null, null);
-                    addMessage(`⚠️ 無法取得 GPS 定位 (可能未開啟定位權限或訊號不良)。`, 'system');
-                }, { timeout: 5000, enableHighAccuracy: true });
+                    window.location.href = `tel:${emergencyNumber}`;
+                    addMessage(`🚨 無法取得 GPS 定位，直接撥打 ${emergencyNumber}。`, 'system');
+                });
             } else {
-                triggerCommunication(null, null);
+                window.location.href = `tel:${emergencyNumber}`;
+                addMessage(`🚨 裝置不支援 GPS，直接撥打 ${emergencyNumber}。`, 'system');
             }
         };
 
