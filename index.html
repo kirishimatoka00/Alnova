@@ -333,50 +333,69 @@
                 </div>
             </div>
 
-<div id="agent-modal" class="hidden fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-                <div class="bg-slate-900 border border-purple-500/50 rounded-2xl p-6 w-full max-w-lg shadow-[0_0_30px_rgba(168,85,247,0.2)] max-h-[90vh] flex flex-col">
+<div id="agent-modal" class="hidden fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-2 md:p-4">
+                <div class="bg-slate-900 border border-purple-500/50 rounded-2xl p-4 md:p-6 w-full max-w-4xl shadow-[0_0_40px_rgba(168,85,247,0.25)] max-h-[90vh] flex flex-col">
                     <div class="flex justify-between items-center mb-4 shrink-0">
-                        <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-brain text-purple-400"></i> 多 AI 深度協同研究</h3>
-                        <button onclick="closeAgentModal()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-brain text-purple-400"></i> 多 AI 深度協同研究控制台</h3>
+                        <button onclick="closeAgentModal()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg"><i class="ph-bold ph-x text-xl"></i></button>
                     </div>
                     <div class="space-y-4 overflow-y-auto pr-2 scrollbar-thin flex-1">
-                        <div class="bg-purple-900/20 border border-purple-500/30 p-3 rounded-xl">
-                            <p class="text-xs text-purple-300 mb-1">系統將自動執行：1.檔案/意圖拆解 2.連網檢索 3.交叉驗證 4.長篇報告 5.配圖</p>
+                        <div class="bg-purple-900/20 border border-purple-500/30 p-3 rounded-xl flex items-center justify-between shrink-0">
+                            <p class="text-xs text-purple-300 font-medium">工作流：1.意圖拆解 ➡️ 2.連網檢索 ➡️ 3.交叉驗證 ➡️ 4.長篇報告 ➡️ 5.產生配圖</p>
                         </div>
-                        <div>
-                            <label class="text-xs text-slate-400 mb-1 block">參與協作的模型 (未填 API Key 系統會自動跳過)</label>
-                            <div class="grid grid-cols-2 gap-2 text-sm text-slate-300">
-                                <label class="flex items-center gap-2 bg-slate-950 p-2 rounded border border-slate-700"><input type="checkbox" id="agent-gemini" checked class="accent-purple-500"> Gemini</label>
-                                <label class="flex items-center gap-2 bg-slate-950 p-2 rounded border border-slate-700"><input type="checkbox" id="agent-grok" checked class="accent-purple-500"> Grok</label>
-                                <label class="flex items-center gap-2 bg-slate-950 p-2 rounded border border-slate-700"><input type="checkbox" id="agent-openai" class="accent-purple-500"> OpenAI</label>
-                                <label class="flex items-center gap-2 bg-slate-950 p-2 rounded border border-slate-700"><input type="checkbox" id="agent-groq" class="accent-purple-500"> Groq</label>
-                                <label class="flex items-center gap-2 bg-slate-950 p-2 rounded border border-slate-700"><input type="checkbox" id="agent-cohere" class="accent-purple-500"> Cohere</label>
+                        
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shrink-0 shadow-inner">
+                            <label class="text-xs font-bold text-slate-300 mb-2 block"><i class="ph-fill ph-target text-purple-400"></i> 研究主題或目標任務</label>
+                            <textarea id="agent-topic" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-purple-500 outline-none resize-none mb-3" placeholder="例如：分析2026年全球固態電池的商業化進程與主要玩家，並給出投資建議。"></textarea>
+                            <div class="flex items-center justify-between border-t border-slate-800 pt-3">
+                                <div class="flex items-center gap-2">
+                                    <label for="agent-file-input" class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 border border-slate-600 shadow-sm">
+                                        <i class="ph-bold ph-paperclip text-blue-400"></i> 上傳參考檔案
+                                    </label>
+                                    <input type="file" id="agent-file-input" accept="*/*" class="hidden" onchange="handleAgentFileSelect(event)">
+                                    <span id="agent-file-name" class="text-xs text-slate-500 truncate max-w-[200px]">未選擇檔案</span>
+                                    <button id="agent-file-clear" onclick="clearAgentFile()" class="hidden text-slate-500 hover:text-red-400 p-1 bg-slate-800 rounded ml-1"><i class="ph-bold ph-x text-xs"></i></button>
+                                </div>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <label class="text-xs font-bold text-slate-300 mb-3 block"><i class="ph-fill ph-users-three text-blue-400"></i> 指派參與協作的 AI 模型</label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="text-xs text-slate-500 mb-1.5 block">🧠 專案經理 & 總編輯</label>
+                                    <select id="agent-orchestrator" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-purple-500 outline-none"></select>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 mb-1.5 block">🔍 資料研究員</label>
+                                    <select id="agent-researcher" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-purple-500 outline-none"></select>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500 mb-1.5 block">⚖️ 邏輯審查委員</label>
+                                    <select id="agent-verifier" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-purple-500 outline-none"></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="text-xs text-slate-400 mb-1 block">目標報告長度</label>
-                                <select id="agent-report-length" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white focus:border-purple-500 outline-none">
+                                <select id="agent-report-length" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-purple-500 outline-none">
                                     <option value="short">短篇摘要 (約 500 字)</option>
                                     <option value="medium" selected>深度報告 (約 1500 字)</option>
                                     <option value="long">長篇專論 (約 3000 字以上)</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs text-slate-400 mb-1 block">自動配圖模型</label>
-                                <select id="agent-image-model" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-sm text-white focus:border-purple-500 outline-none">
-                                    <option value="none">不產生圖片</option>
-                                    <option value="gemini-2.5-flash-image">Gemini Flash Image</option>
-                                    <option value="imagen-4.0-generate-001">Imagen 4.0 Standard</option>
-                                    <option value="grok-imagine-image">Grok Imagine</option>
-                                    <option value="dall-e-3">DALL-E 3 (OpenAI)</option>
-                                </select>
+                                <label class="text-xs text-slate-400 mb-1 block">自動配圖模型 (選擇具有生圖能力的模型)</label>
+                                <select id="agent-image-model" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-purple-500 outline-none">
+                                    </select>
                             </div>
                         </div>
                     </div>
-                    <div class="flex justify-end space-x-3 mt-6 shrink-0 border-t border-slate-800 pt-4">
-                        <button onclick="closeAgentModal()" class="px-4 py-2 text-slate-400 hover:text-white transition-colors">取消</button>
-                        <button onclick="startMultiAgentResearch()" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors font-bold shadow-lg flex items-center gap-2"><i class="ph-bold ph-rocket-launch"></i> 開始深度研究</button>
+                    <div class="flex justify-end space-x-3 mt-4 shrink-0 border-t border-slate-800 pt-4">
+                        <button onclick="closeAgentModal()" class="px-5 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">取消</button>
+                        <button onclick="startMultiAgentResearch()" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors font-bold shadow-lg flex items-center gap-2"><i class="ph-bold ph-rocket-launch"></i> 開始分析作業</button>
                     </div>
                 </div>
             </div>
@@ -3198,51 +3217,78 @@
         }
 
 // --- 多 AI 深度研究 Multi-Agent 系統 ---
+        window.handleAgentFileSelect = function(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const isImage = file.type.startsWith('image/');
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                appState.agentFile = { category: isImage ? 'image' : (file.type.startsWith('audio')||file.type.startsWith('video') ? 'media' : 'text'), name: file.name, mime: file.type, data: evt.target.result };
+                document.getElementById('agent-file-name').innerText = file.name;
+                document.getElementById('agent-file-clear').classList.remove('hidden');
+            };
+            if(isImage || file.type.startsWith('audio') || file.type.startsWith('video')) reader.readAsDataURL(file);
+            else reader.readAsText(file);
+        };
+        window.clearAgentFile = function() {
+            appState.agentFile = null;
+            document.getElementById('agent-file-input').value = '';
+            document.getElementById('agent-file-name').innerText = '未選擇檔案';
+            document.getElementById('agent-file-clear').classList.add('hidden');
+        };
+
         window.openAgentModal = function() {
-            const input = document.getElementById('user-input').value.trim();
-            if(!input && !appState.chatFile) { alert("請先在對話框輸入研究主題，或先「上傳相關檔案」做為分析基準！"); return; }
             document.getElementById('plus-menu').classList.add('hidden'); 
             document.getElementById('plus-icon').classList.remove('rotate-45');
+            
+            // 完美繼承：動態抓取主系統的 Model 清單，讓你在這裡也能隨意選擇！
+            const systemModelsHTML = document.getElementById('model-select').innerHTML;
+            document.getElementById('agent-orchestrator').innerHTML = systemModelsHTML;
+            document.getElementById('agent-researcher').innerHTML = systemModelsHTML;
+            document.getElementById('agent-verifier').innerHTML = systemModelsHTML;
+            document.getElementById('agent-image-model').innerHTML = '<option value="none">❌ 不產生圖片</option>' + systemModelsHTML;
+            
+            // 預設選取當前主系統正在使用的 Model
+            const current = appState.currentModel || 'gemini';
+            document.getElementById('agent-orchestrator').value = current;
+            document.getElementById('agent-researcher').value = current;
+            document.getElementById('agent-verifier').value = current;
+
             document.getElementById('agent-modal').classList.remove('hidden'); document.getElementById('agent-modal').classList.add('flex');
         };
+        
         window.closeAgentModal = function() { document.getElementById('agent-modal').classList.add('hidden'); document.getElementById('agent-modal').classList.remove('flex'); };
 
         window.startMultiAgentResearch = async function() {
             closeAgentModal();
-            const query = document.getElementById('user-input').value.trim();
+            const query = document.getElementById('agent-topic').value.trim();
             const reportLength = document.getElementById('agent-report-length').value;
+            
+            // 讀取精確的子模型型號
+            const orchestratorModel = document.getElementById('agent-orchestrator').value; 
+            const researcherModel = document.getElementById('agent-researcher').value; 
+            const verifierModel = document.getElementById('agent-verifier').value; 
             const imageModel = document.getElementById('agent-image-model').value;
             
-            // 讀取有勾選且有金鑰的模型
-            const selectedModels = [];
-            ['gemini', 'grok', 'openai', 'groq', 'cohere'].forEach(m => {
-                const cb = document.getElementById('agent-'+m);
-                if(cb && cb.checked && (appState.keys[m] || m === 'gemini')) selectedModels.push(m);
-            });
-            if(selectedModels.length === 0) { alert("請至少選擇一個已填寫 API Key 的模型參與協作！"); return; }
+            if(!query && !appState.agentFile) { alert("請在設定面板輸入研究主題，或上傳相關檔案！"); openAgentModal(); return; }
             
-            // AI 職位分配 (若選得夠多就各司其職，否則兼任)
-            const orchestratorModel = selectedModels[0]; // 專案經理 & 總編輯
-            const researcherModel = selectedModels.length > 1 ? selectedModels[1] : selectedModels[0]; // 搜尋研究員
-            const verifierModel = selectedModels.length > 2 ? selectedModels[2] : (selectedModels.length > 1 ? selectedModels[0] : selectedModels[0]); // 邏輯審查員
-            
-            const fileContent = appState.chatFile ? `\n\n【參考檔案資料】:\n檔名：${appState.chatFile.name}\n` : '';
-            const topic = query || (appState.chatFile ? `全面分析上傳的檔案「${appState.chatFile.name}」並進行延伸深度研究` : "");
+            const fileContent = appState.agentFile ? `\n\n【參考檔案資料】:\n檔名：${appState.agentFile.name}\n` : '';
+            const topic = query || (appState.agentFile ? `全面分析上傳的檔案「${appState.agentFile.name}」並進行延伸深度研究` : "");
             
             document.getElementById('user-input').value = ''; 
             if(typeof autoResizeInput === 'function') autoResizeInput(document.getElementById('user-input'));
             
-            addMessage(`🧠 **啟動多 AI 協同深度研究**\n📌 主題：「${topic}」\n📏 長度設定：${reportLength}\n🤖 參與模型：${selectedModels.map(m=>MODEL_CONFIG[m]?.name||m).join(', ')}`, 'system');
+            addMessage(`🧠 **啟動多 AI 協同深度研究**\n📌 主題：「${topic}」\n📏 長度設定：${reportLength}\n👨‍💼 專案經理：${orchestratorModel}\n🔍 研究員：${researcherModel}\n⚖️ 審查委員：${verifierModel}`, 'system');
             
             try {
                 appState.isThinking = true;
                 if(typeof renderThinkingState === 'function') renderThinkingState(true, orchestratorModel);
 
                 // --- 階段 1：Orchestrator (任務拆解) ---
-                addMessage(`⏳ [階段 1/4] 專案經理模型 (${MODEL_CONFIG[orchestratorModel]?.name})：正在拆解研究子任務...`, 'system');
+                addMessage(`⏳ [階段 1/4] 專案經理模型 (${orchestratorModel})：正在拆解研究子任務...`, 'system');
                 const p1Prompt = `你現在是專案經理。請將以下主題拆解成 3 到 4 個最重要的「子問題」，以便進行後續的深度研究。只需列出問題清單，不要有任何廢話或問候語。\n\n主題：${topic} ${fileContent ? "(請務必深入解讀上傳之檔案)" : ""}`;
                 let p1Options = { isAnalysis: true };
-                if(appState.chatFile) p1Options.file = appState.chatFile; // 將上傳的圖文或檔案傳給大腦解析
+                if(appState.agentFile) p1Options.file = appState.agentFile; 
                 
                 let p1Res = await fetchAIResponse(p1Prompt, orchestratorModel, p1Options);
                 let subQuestions = (typeof p1Res === 'string' ? p1Res : (p1Res.text || ""));
@@ -3250,17 +3296,17 @@
 
                 // --- 階段 2：Researcher (資料搜集與局部摘要) ---
                 if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, researcherModel); }
-                addMessage(`🔍 [階段 2/4] 研究員模型 (${MODEL_CONFIG[researcherModel]?.name})：正在連網搜集最新數據並過濾雜訊...`, 'system');
+                addMessage(`🔍 [階段 2/4] 研究員模型 (${researcherModel})：正在連網搜集最新數據並過濾雜訊...`, 'system');
                 const p2Prompt = `你現在是資深研究員。請針對以下子問題，連網搜尋最新資訊並進行「客觀的事實摘要」。請剔除無用雜訊，只列出最重要的數據、事實與不同觀點：\n\n【待研究問題】：\n${subQuestions}`;
                 let p2Options = { enableSearch: true, isAnalysis: true };
-                if(appState.chatFile && orchestratorModel !== researcherModel) p2Options.file = appState.chatFile; 
+                if(appState.agentFile && orchestratorModel !== researcherModel) p2Options.file = appState.agentFile; 
                 
-                let p2Res = await fetchAIResponse(p2Prompt, researcherModel, p2Options); 
+                let p2Res = await fetchAIResponse(p2Prompt, researcherModel, p2Options);
                 let facts = (typeof p2Res === 'string' ? p2Res : (p2Res.text || ""));
 
                 // --- 階段 3：Verifier (多模型交叉驗證) ---
                 if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, verifierModel); }
-                addMessage(`⚖️ [階段 3/4] 審查委員模型 (${MODEL_CONFIG[verifierModel]?.name})：正在交叉驗證事實的邏輯與完整性...`, 'system');
+                addMessage(`⚖️ [階段 3/4] 審查委員模型 (${verifierModel})：正在交叉驗證事實的邏輯與完整性...`, 'system');
                 const p3Prompt = `你是一位嚴格的審查委員。以下是研究員收集到的「事實摘要」。請檢查邏輯是否連貫、是否有矛盾，並針對原始主題「${topic}」給出一份最終的【已驗證事實清單】供總編輯寫報告用。不要廢話。\n\n【研究員事實摘要】：\n${facts}`;
                 
                 let p3Res = await fetchAIResponse(p3Prompt, verifierModel, { enableSearch: true, isAnalysis: true });
@@ -3268,7 +3314,7 @@
 
                 // --- 階段 4：The Writer (總編輯最終聚合) ---
                 if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, orchestratorModel); }
-                addMessage(`✍️ [階段 4/4] 總編輯模型 (${MODEL_CONFIG[orchestratorModel]?.name})：正在聚合資訊撰寫最終報告...`, 'system');
+                addMessage(`✍️ [階段 4/4] 總編輯模型 (${orchestratorModel})：正在聚合資訊撰寫最終報告...`, 'system');
                 let lengthInstruction = reportLength === 'short' ? '約 500 字的精煉高管摘要 (Executive Summary)' : (reportLength === 'long' ? '超過 2500 字的深度專論，需包含詳細論證、多角度分析、清晰標題段落與結論' : '約 1000~1500 字的結構化專業報告');
                 const p4Prompt = `你現在是一位資深總編輯。請根據以下「已驗證的事實清單」，撰寫一份關於「${topic}」的最終報告。\n\n【嚴格要求】：\n1. 長度：${lengthInstruction}\n2. 格式：前言、核心段落(需加上 Markdown 標題與列點)、客觀結論。\n3. 語氣：專業且具備洞察力，絕對不可口語化。\n\n【事實清單】：\n${verifiedFacts}`;
                 
@@ -3278,36 +3324,42 @@
                 addMessage(`🎉 **【多 Agent 協同深度報告】**\n\n${finalReport}`, 'ai', orchestratorModel);
                 if(appState.autoTTS && typeof speakText === 'function') speakText("深度研究報告已完成，請查閱。");
 
-                // --- 階段 5：Illustrator (報告配圖產生) ---
-                if(imageModel !== 'none') {
+                // --- 階段 5：Illustrator (修復版：強制渲染圖片) ---
+                if(imageModel && imageModel !== 'none') {
                     if(typeof renderThinkingState === 'function') { renderThinkingState(false); renderThinkingState(true, orchestratorModel); }
                     addMessage(`🎨 繪圖師模型：正在為此報告生成專屬配圖...`, 'system');
                     const imgPromptReq = `請根據這篇報告的核心概念，寫出一段「全英文」的精準 Image Generation Prompt (約 30~50 字)，用來產生高品質的概念配圖。不要任何其他對話，直接輸出英文 Prompt：\n\n${finalReport.substring(0, 800)}`;
                     let imgRes = await fetchAIResponse(imgPromptReq, orchestratorModel, { isAnalysis: true });
                     let imgPrompt = (typeof imgRes === 'string' ? imgRes : (imgRes.text || "abstract professional concept art"));
                     
-                    let apiModelType = 'gemini'; 
-                    if(imageModel.includes('grok')) apiModelType = 'grok';
-                    else if(imageModel.includes('dall-e')) apiModelType = 'gpt';
-                    addMessage(`正在呼叫 ${apiModelType} (${imageModel}) 產生配圖...\n[Prompt: ${imgPrompt.trim()}]`, 'system');
+                    addMessage(`正在呼叫 ${imageModel} 產生配圖...\n[Prompt: ${imgPrompt.trim()}]`, 'system');
                     
-                    // 暫存當前 UI 選擇，強制切換至生圖模型
-                    const origModel = appState.currentModel; const origGemini = appState.geminiModel; const origGrok = appState.grokModel;
-                    appState.currentModel = apiModelType;
-                    if(apiModelType === 'gemini') appState.geminiModel = imageModel;
-                    if(apiModelType === 'grok') appState.grokModel = imageModel;
+                    // 強制切換至使用者指定的生圖模型
+                    const origModel = appState.currentModel; 
+                    appState.currentModel = imageModel; 
+                    let imgResponse = await fetchAIResponse(imgPrompt.trim(), imageModel, { isAnalysis: true });
+                    appState.currentModel = origModel; 
                     
-                    let imgResponse = await fetchAIResponse(`Generate an image based on this exact prompt: ${imgPrompt.trim()}`, apiModelType, { isAnalysis: true });
+                    let imgText = (typeof imgResponse === 'string' ? imgResponse : (imgResponse.text || imgResponse.content || ""));
                     
-                    // 還原原本設定
-                    appState.currentModel = origModel; appState.geminiModel = origGemini; appState.grokModel = origGrok;
+                    // 【生圖強制顯示修復】如果模型只丟回一個網址或 Base64，強制幫它包裝成 Markdown 圖片標籤
+                    if (imgText.trim().startsWith('http') || imgText.trim().startsWith('data:image')) {
+                        imgText = `![Generated Image](${imgText.trim()})`;
+                    }
                     
-                    let imgText = (typeof imgResponse === 'string' ? imgResponse : (imgResponse.text || ""));
-                    if(imgText) addMessage(`🖼️ **報告專屬配圖**：\n${imgText}`, 'ai', apiModelType);
+                    // 安全渲染：如果有檔案物件就送檔案，不然就硬印字串讓 Markdown 解析器抓圖
+                    if (imgResponse && imgResponse.file) {
+                        addMessage(`🖼️ **報告專屬配圖**：\n${imgText}`, 'ai', imageModel, null, imgResponse.file);
+                    } else if (imgText) {
+                        addMessage(`🖼️ **報告專屬配圖**：\n${imgText}`, 'ai', imageModel);
+                    } else {
+                        addMessage(`❌ 模型 ${imageModel} 未成功回傳圖片數據。`, 'system');
+                    }
                 }
 
-                // 任務完成後清空 UI 上傳檔案暫存，準備下一次問答
-                if(typeof clearChatFile === 'function') clearChatFile();
+                // 任務完成後清空面板資料
+                clearAgentFile();
+                document.getElementById('agent-topic').value = '';
 
             } catch (error) {
                 addMessage(`❌ 深度研究發生錯誤：${error.message}`, 'system');
