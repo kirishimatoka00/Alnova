@@ -3361,21 +3361,23 @@ window.startMultiAgentResearch = async function() {
                 addMessage(`🎉 **【多 Agent 協同深度報告】**\n\n${finalReport}`, 'ai', orchestratorModel);
                 if(appState.autoTTS && typeof speakText === 'function') speakText("深度研究報告已完成，請查閱。");
 
-                // --- 階段 5：Illustrator (修復版：強制擷取與渲染圖片) ---
+                // --- 階段 5：Illustrator (修復版：加入 Generate an image 強制咒語) ---
                 if(imageModel && imageModel !== 'none') {
                     addMessage(`🎨 繪圖師模型：正在為此報告生成專屬配圖...`, 'system');
                     const imgPromptReq = `請根據這篇報告的核心概念，寫出一段「全英文」的精準 Image Generation Prompt (約 30~50 字)，用來產生高品質的概念配圖。不要任何其他對話，直接輸出英文 Prompt：\n\n${finalReport.substring(0, 800)}`;
                     let imgRes = await callAgent(imgPromptReq, orchestratorModel, { isAnalysis: true });
-                    let imgPrompt = (typeof imgRes === 'string' ? imgRes : (imgRes.text || "abstract professional concept art")).replace(/[\r\n]+/g, ' ').trim();
+                    let rawImgPrompt = (typeof imgRes === 'string' ? imgRes : (imgRes.text || "abstract professional concept art")).replace(/[\r\n]+/g, ' ').trim();
+                    
+                    // 【關鍵修正】強制加上使用者建議的魔法前綴，大幅提升生圖觸發率
+                    let finalImgPrompt = rawImgPrompt.toLowerCase().startsWith('generate') ? rawImgPrompt : `Generate an image of ${rawImgPrompt}`;
                     
                     let imageProvider = 'gemini'; 
                     if(imageModel.toLowerCase().includes('grok')) imageProvider = 'grok';
                     else if(imageModel.toLowerCase().includes('gpt') || imageModel.toLowerCase().includes('dall-e')) imageProvider = 'gpt';
                     
-                    addMessage(`正在呼叫 ${imageProvider} (${imageModel}) 產生配圖...\n[Prompt: ${imgPrompt}]`, 'system');
+                    addMessage(`正在呼叫 ${imageProvider} (${imageModel}) 產生配圖...\n[Prompt: ${finalImgPrompt}]`, 'system');
                     
-                    // 【修復】取消 isAnalysis，讓 API 完全以正常生圖模式運作
-                    let imgResponse = await callAgent(imgPrompt, imageModel, {}); 
+                    let imgResponse = await callAgent(finalImgPrompt, imageModel, {}); 
                     
                     let imgText = (typeof imgResponse === 'string' ? imgResponse : (imgResponse.text || imgResponse.content || ""));
                     let imgFileObj = (imgResponse && imgResponse.file) ? imgResponse.file : null;
