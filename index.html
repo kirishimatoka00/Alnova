@@ -883,9 +883,28 @@
                     }, 5000);
                 }
                 
-                // 4. Screen Wake Lock (避免閒置時螢幕主動關閉)
-                if ('wakeLock' in navigator) {
-                    navigator.wakeLock.request('screen').then(wl => { wakeLock = wl; }).catch(()=>{});
+                // 4. 強化版 Screen Wake Lock (強制螢幕長亮，防止 OS 鎖屏殺死麥克風)
+                window.requestNovaWakeLock = async () => {
+                    if ('wakeLock' in navigator) {
+                        try {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                            console.log('💡 螢幕已鎖定長亮');
+                        } catch (err) { console.warn("螢幕長亮請求失敗", err); }
+                    }
+                };
+                window.requestNovaWakeLock();
+
+                // 防禦機制：只要網頁恢復顯示且正在執行語音任務，立刻重新奪取螢幕長亮
+                if (!window.novaWakeLockListenerAdded) {
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            const isRecording = document.getElementById('recording-status').classList.contains('flex');
+                            if (isRecording || appState.translateMode !== 'off' || appState.isContinuous) {
+                                window.requestNovaWakeLock();
+                            }
+                        }
+                    });
+                    window.novaWakeLockListenerAdded = true;
                 }
             } catch(e) { console.warn("BG audio fail", e); }
         }
@@ -2904,11 +2923,7 @@
                 document.getElementById('recording-status').classList.add('flex');
                 document.getElementById('recording-status-text').innerText = "錄音中... (點擊停止)";
                 
-                if (recognition && !appState.isListening) { 
-                    chatInitialInput = document.getElementById('user-input').value; 
-                    try { recognition.start(); } catch(e){}
-                }
-
+                // 【修復】移除會造成手機音軌切換與電腦自動打字的 recognition.start()
             } catch (err) {
                 addMessage("⚠️ 無法啟動錄音，請檢查麥克風權限或瀏覽器設定。", 'system');
                 console.error(err);
@@ -2922,9 +2937,8 @@
 
                 releaseMicrophone();
 
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
                 appState.activeMediaTracks.push(...stream.getTracks());
-
                 enableBackgroundMode();
 
                 mediaRecorder = new MediaRecorder(stream); audioChunks = []; appState.currentAudioTranscript = ""; 
@@ -2940,11 +2954,9 @@
                 addMessage(titleMsg, 'system');
                 document.getElementById('recording-status-text').innerText = "錄音中... (點擊停止)";
                 
-                if (recognition && !appState.isListening) { 
-                    chatInitialInput = document.getElementById('user-input').value; 
-                    try { recognition.start(); } catch(e){}
-                }
-            } catch (err) { addMessage("⚠️ 無法啟動錄音，請檢查麥克風權限", 'system'); }
+                // 【修復】移除會造成手機音軌切換與電腦自動打字的 recognition.start()
+            } catch (err) { addMessage("⚠️ 無法啟動錄音，請檢查麥克風權限", 'system');
+            }
         }
 
         function stopAudioRecording() {
@@ -3006,12 +3018,16 @@
             // 一般錄音存檔處理
             const capturedTranscript = appState.currentAudioTranscript ? appState.currentAudioTranscript.trim() : "";
             
+            // 【修復】提早宣告變數，讓下方的 Google Drive 同步程式能讀取到資料
+            let newNote = null;
+            let newRecord = null;
+
             if (appState.recordingContext === 'note') {
-                const newNote = { id: recordId, title: `語音筆記 ${timeStr}`, content: capturedTranscript ? `[即時辨識草稿]\n${capturedTranscript}` : '[無語音內容]', date: displayDate, type: 'audio', driveUrl: "", transcript: capturedTranscript, audioData: base64dataWithPrefix, mimeType: actualMimeType, filename: filename, images: [], image: null, folder: appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder };
+                newNote = { id: recordId, title: `語音筆記 ${timeStr}`, content: capturedTranscript ? `[即時辨識草稿]\n${capturedTranscript}` : '[無語音內容]', date: displayDate, type: 'audio', driveUrl: "", transcript: capturedTranscript, audioData: base64dataWithPrefix, mimeType: actualMimeType, filename: filename, images: [], image: null, folder: appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder };
                 appState.notes.unshift(newNote); saveToDB('notes', newNote);
                 addMessage(`📝 語音筆記已安全儲存至本地「筆記/文件」分頁。`, 'system'); renderNotes();
             } else {
-                const newRecord = { id: recordId, title: `錄音紀錄 ${timeStr}`, date: displayDate, filename: filename, driveUrl: "", transcript: capturedTranscript, audioData: base64dataWithPrefix, mimeType: actualMimeType };
+                newRecord = { id: recordId, title: `錄音紀錄 ${timeStr}`, date: displayDate, filename: filename, driveUrl: "", transcript: capturedTranscript, audioData: base64dataWithPrefix, mimeType: actualMimeType };
                 appState.audioRecords.unshift(newRecord); saveToDB('audioRecords', newRecord);
                 addMessage(`📼 錄音已安全儲存至本地「錄音紀錄」分頁。`, 'system'); renderAudioRecords();
             }
@@ -4114,8 +4130,9 @@ window.startMultiAgentResearch = async function() {
                 recognition.interimResults = true; 
                 
                 recognition.onend = () => { 
-                    if ((appState.isContinuous || (mediaRecorder && mediaRecorder.state === 'recording')) && !appState.isTTSPlaying && !appState.isThinking && appState.translateMode !== 'auto') { 
-                        setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); 
+                    // 【修復】拔除與 MediaRecorder 綁定的自動重啟，徹底解決手機瘋狂切換音軌的問題
+                    if (appState.isContinuous && !appState.isTTSPlaying && !appState.isThinking && appState.translateMode !== 'auto') { 
+                        setTimeout(() => { try { recognition.start(); } catch(e){} }, 300);
                     }
                 };
                 
