@@ -317,6 +317,16 @@
                     <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><i class="ph-bold ph-bell text-yellow-500"></i> 設定提醒時間</h3>
                     <input type="hidden" id="picker-todo-id">
                     <input type="datetime-local" id="todo-native-picker" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none mb-6 shadow-inner" style="color-scheme: dark;">
+<div class="mt-2 mb-4">
+    <label class="text-xs text-slate-400 mb-1 block">重複設定</label>
+    <select id="todo-repeat-select" class="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm text-white focus:border-blue-500 outline-none">
+        <option value="0">不重複 (單次)</option>
+        <option value="60000">每 1 分鐘 (測試用)</option>
+        <option value="3600000">每 1 小時</option>
+        <option value="86400000">每天</option>
+        <option value="604800000">每週</option>
+    </select>
+</div>
                     <div class="flex justify-between items-center mt-2">
                         <button onclick="clearTodoAlarm()" class="px-3 py-2 text-red-400 hover:bg-red-900/30 rounded-lg transition-colors text-sm flex items-center gap-1"><i class="ph-bold ph-bell-slash"></i> 關閉提醒</button>
                         <div class="flex space-x-2">
@@ -1362,7 +1372,9 @@
         window.openTodoDatePicker = function(id) {
             const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
             document.getElementById('picker-todo-id').value = id;
-            if(t.alertTime) { const d = new Date(t.alertTime); document.getElementById('todo-native-picker').value = d.toISOString().slice(0,16); } else { document.getElementById('todo-native-picker').value = ''; }
+            if(t.alertTime) { const d = new Date(t.alertTime); document.getElementById('todo-native-picker').value = document.getElementById('todo-repeat-select').value = t.repeatInterval || '0';d.toISOString().slice(0,16); } else { document.getElementById('todo-native-picker').value = ''; }
+// 在 document.getElementById('todo-native-picker').value = ... 的下方加入：
+
             document.getElementById('todo-time-modal').classList.remove('hidden'); document.getElementById('todo-time-modal').classList.add('flex');
         };
 
@@ -1371,7 +1383,9 @@
         window.saveTodoPicker = function() {
             const id = document.getElementById('picker-todo-id').value; const timeStr = document.getElementById('todo-native-picker').value;
             const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
-            if(timeStr) { const d = new Date(timeStr); t.alertTime = d.getTime(); t.time = d.toLocaleString(); t.alertEnabled = true; t.alerted = false; } else { t.alertTime = null; t.time = '未設定提醒'; t.alertEnabled = false; }
+            if(timeStr) { const d = new Date(timeStr); t.alertTime = d.getTime(); t.repeatInterval = parseInt(document.getElementById('todo-repeat-select').value) || 0; t.time = d.toLocaleString(); t.alertEnabled = true; t.alerted = false; } else { t.alertTime = null; t.time = '未設定提醒'; t.alertEnabled = false; }
+// 在 t.alertTime = d.getTime(); 的下方加入：
+
             saveToDB('todos', t); renderTodos(); closeTodoPicker(); showToast("✅ 提醒時間已設定");
         };
 
@@ -3007,7 +3021,15 @@
                      const todo = appState.todos.find(t => t.id === appState.pendingReminder);
                      if (todo) {
                          let combinedText = todo.tempTimeStr ? `${todo.tempTimeStr} ${text}` : text; const timeInfo = parseTimeNatural(combinedText);
-                         if (timeInfo.complete) { todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); } 
+                         if (timeInfo.complete) { let interval = 0;
+if(text.includes('每天')) interval = 86400000;
+else if(text.includes('每週')) interval = 604800000;
+else if(text.match(/每(\d+)小時/)) interval = parseInt(text.match(/每(\d+)小時/)[1]) * 3600000;
+else if(text.match(/每(\d+)分/)) interval = parseInt(text.match(/每(\d+)分/)[1]) * 60000;
+
+todo.repeatInterval = interval;
+let repeatText = interval > 0 ? ' (並將循環提醒)' : '';
+addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); } 
                          else if (timeInfo.missing === 'date') { todo.tempTimeStr = combinedText; addMessage(`請問是「今天」、「明天」還是哪一天？`, 'system'); speakText(`請問是今天、明天還是哪一天？`); appState.reminderStage = 2; } 
                          else if (timeInfo.missing === 'ampm') { todo.tempTimeStr = combinedText; addMessage(`請問是「上午」還是「下午」？`, 'system'); speakText(`請問是上午還是下午？`); appState.reminderStage = 2; } 
                          else { addMessage(`無法識別時間，請重試 (例如: 明天下午3點)`, 'system'); speakText(`無法識別時間，請重試`); }
@@ -3019,7 +3041,7 @@
                 if (reminderMatch) {
                     const content = reminderMatch[1].trim() || "未命名事項"; const newTodo = { id: Date.now(), text: content, done: false, time: '詢問中...', alerted: false, alertEnabled: true };
                     appState.todos.push(newTodo); saveToDB('todos', newTodo); appState.pendingReminder = newTodo.id; appState.reminderStage = 1; renderTodos();
-                    addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？`, 'system');
+                    addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`, 'system');
                     speakText(`已將${content}加入行程，請問什麼時候提醒？`);
                     return;
                 }
