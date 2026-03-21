@@ -1970,12 +1970,50 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.candidates && data.candidates[0].content.parts[0].inlineData) {
-                            const audioBase64 = data.candidates[0].content.parts[0].inlineData.data;
-                            // Gemini 回傳格式通常為 WAV/PCM
-                            googleTtsAudio.src = "data:audio/wav;base64," + audioBase64;
+                            const inlineData = data.candidates[0].content.parts[0].inlineData;
+                            const audioBase64 = inlineData.data;
+                            const mimeType = inlineData.mimeType || "audio/pcm;rate=24000";
+
+                            // 【核心修復】Gemini 通常回傳 raw PCM，瀏覽器無法直接播放，需要手動補上 WAV 標頭
+                            if (mimeType.includes('pcm') || mimeType.includes('raw')) {
+                                let sampleRate = 24000;
+                                if (mimeType.includes('rate=')) {
+                                    const match = mimeType.match(/rate=(\d+)/);
+                                    if (match) sampleRate = parseInt(match[1]);
+                                }
+                                
+                                const binaryStr = window.atob(audioBase64);
+                                const len = binaryStr.length;
+                                const pcmBytes = new Uint8Array(len);
+                                for (let i = 0; i < len; i++) pcmBytes[i] = binaryStr.charCodeAt(i);
+                                
+                                // 動態合成 44 bytes 的標準 RIFF/WAVE 標頭
+                                const wavHeader = new Uint8Array(44);
+                                const view = new DataView(wavHeader.buffer);
+                                view.setUint32(0, 1380533830, false); // "RIFF"
+                                view.setUint32(4, 36 + len, true);    // chunk size
+                                view.setUint32(8, 1463899717, false); // "WAVE"
+                                view.setUint32(12, 1718449184, false);// "fmt "
+                                view.setUint32(16, 16, true);         // subchunk1 size
+                                view.setUint16(20, 1, true);          // PCM format
+                                view.setUint16(22, 1, true);          // 1 channel (單聲道)
+                                view.setUint32(24, sampleRate, true); // sample rate
+                                view.setUint32(28, sampleRate * 2, true); // byte rate
+                                view.setUint16(32, 2, true);          // block align
+                                view.setUint16(34, 16, true);         // bits per sample
+                                view.setUint32(36, 1684108385, false);// "data"
+                                view.setUint32(40, len, true);        // data length
+                                
+                                const blob = new Blob([wavHeader, pcmBytes], { type: 'audio/wav' });
+                                googleTtsAudio.src = URL.createObjectURL(blob);
+                            } else {
+                                // 如果它乖乖回傳標準格式，就直接播放
+                                googleTtsAudio.src = `data:${mimeType};base64,${audioBase64}`;
+                            }
+                            
                             googleTtsAudio.onended = () => { appState.isTTSPlaying = false; appState.playingMsgId = null; renderMessages(); continueLoop(); };
-                            googleTtsAudio.onerror = () => { appState.isTTSPlaying = false; appState.playingMsgId = null; renderMessages(); continueLoop(); };
-                            googleTtsAudio.play().catch(e => { console.error(e); continueLoop(); });
+                            googleTtsAudio.onerror = (e) => { console.error("Audio Error", e); appState.isTTSPlaying = false; appState.playingMsgId = null; renderMessages(); continueLoop(); };
+                            googleTtsAudio.play().catch(e => { console.error("Play Error", e); continueLoop(); });
                         } else {
                             throw new Error("Gemini API 未回傳音檔資料");
                         }
@@ -4166,7 +4204,7 @@ window.startMultiAgentResearch = async function() {
             renderAll();
             
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-            safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-googletts', appState.keys.googletts); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl);
+            safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl);
             safeSet('key-voice-timeout', appState.voiceTimeout);
             safeSet('key-translate-b-timeout', appState.translateBTimeout);
             safeSet('key-vad-multiplier', appState.vadMultiplier);
