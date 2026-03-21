@@ -1370,10 +1370,18 @@
         };
 
         window.openTodoDatePicker = function(id) {
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
+            const t = appState.todos.find(x => String(x.id) === String(id));
+            if(!t) return;
             document.getElementById('picker-todo-id').value = id;
-            if(t.alertTime) { const d = new Date(t.alertTime); document.getElementById('todo-native-picker').value = document.getElementById('todo-repeat-select').value = t.repeatInterval || '0';d.toISOString().slice(0,16); } else { document.getElementById('todo-native-picker').value = ''; }
-// 在 document.getElementById('todo-native-picker').value = ... 的下方加入：
+            
+            if(t.alertTime) { 
+                const d = new Date(t.alertTime); 
+                document.getElementById('todo-native-picker').value = d.toISOString().slice(0,16);
+                document.getElementById('todo-repeat-select').value = t.repeatInterval || '0';
+            } else { 
+                document.getElementById('todo-native-picker').value = ''; 
+                document.getElementById('todo-repeat-select').value = '0';
+            }
 
             document.getElementById('todo-time-modal').classList.remove('hidden'); document.getElementById('todo-time-modal').classList.add('flex');
         };
@@ -2930,8 +2938,36 @@
             if(appState.isThinking) return;
             
             const input = document.getElementById('user-input'); 
-            let text = input.value.trim(); 
+            let text = input.value.trim();
             const hasChatFile = appState.chatFile !== null;
+            
+            const autoSearchMatch = text.match(/每(\d+)(分鐘|分|小時|天|日)幫我(?:搜尋|抓取)(.*)/i);
+            if (autoSearchMatch) {
+                let num = parseInt(autoSearchMatch[1]);
+                let unit = autoSearchMatch[2];
+                let query = autoSearchMatch[3].trim();
+                let ms = num * (unit.includes('分') ? 60000 : unit.includes('小時') ? 3600000 : 86400000);
+                
+                const newSearchTask = { 
+                    id: Date.now(), 
+                    text: `🔄 自動搜尋任務: ${query}`, 
+                    done: false, 
+                    time: `每 ${num} ${unit}執行`, 
+                    alertTime: Date.now() + ms, 
+                    repeatInterval: ms,
+                    alertEnabled: true,
+                    alerted: false,
+                    isAutoSearch: true,
+                    searchQuery: query
+                };
+                appState.todos.push(newSearchTask);
+                saveToDB('todos', newSearchTask);
+                renderTodos();
+                
+                addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會每 ${num} ${unit} 自動連網搜尋「${query}」並回報給你。`, 'system');
+                input.value = ''; autoResizeInput(input); chatInitialInput = '';
+                return;
+            }
             
             if (text.length >= 4 && text.length % 2 === 0) { 
                 const mid = text.length / 2; 
@@ -3019,14 +3055,58 @@
 
                 if (appState.pendingReminder && appState.reminderStage > 0) {
                      const todo = appState.todos.find(t => t.id === appState.pendingReminder);
-                     if (todo) {
-                         let combinedText = todo.tempTimeStr ? `${todo.tempTimeStr} ${text}` : text; const timeInfo = parseTimeNatural(combinedText);
-                         if (timeInfo.complete) { todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); let interval = 0; if(text.includes('每天')) interval = 86400000; else if(text.includes('每週')) interval = 604800000; else if(text.match(每(\d+)小時/)) interval = parseInt(text.match(/每(\d+)小時/)[1]) * 3600000; else if(text.match(/每(\d+)分/)) interval = parseInt(text.match(/每(\d+)分/)[1]) * 60000; todo.repeatInterval = interval; let repeatText = interval > 0 ? ' (並將循環提醒)' : ''; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); } 
-                         else if (timeInfo.missing === 'date') { todo.tempTimeStr = combinedText; addMessage(`請問是「今天」、「明天」還是哪一天？`, 'system'); speakText(`請問是今天、明天還是哪一天？`); appState.reminderStage = 2; } 
-                         else if (timeInfo.missing === 'ampm') { todo.tempTimeStr = combinedText; addMessage(`請問是「上午」還是「下午」？`, 'system'); speakText(`請問是上午還是下午？`); appState.reminderStage = 2; } 
-                         else { addMessage(`無法識別時間，請重試 (例如: 明天下午3點)`, 'system'); speakText(`無法識別時間，請重試`); }
-                         saveToDB('todos', todo); renderTodos();
-                     }
+                     if (todo) {if (appState.reminderStage === 1 || appState.reminderStage === 2) {
+                             let combinedText = todo.tempTimeStr ? `${todo.tempTimeStr} ${text}` : text; 
+                             const timeInfo = parseTimeNatural(combinedText);
+                             
+                             if (timeInfo.complete) { 
+                                 todo.time = new Date(timeInfo.timestamp).toLocaleString(); 
+                                 todo.alertTime = timeInfo.timestamp;
+                                 todo.alerted = false; 
+                                 
+                                 let interval = 0;
+                                 if(combinedText.includes('每天')) interval = 86400000;
+                                 else if(combinedText.includes('每週')) interval = 604800000;
+                                 else if(combinedText.match(/每(\d+)小時/)) interval = parseInt(combinedText.match(/每(\d+)小時/)[1]) * 3600000;
+                                 else if(combinedText.match(/每(\d+)分/)) interval = parseInt(combinedText.match(/每(\d+)分/)[1]) * 60000;
+                                 
+                                 // 若句子中已包含「每天」或明確說「不重複」，則直接設定完成
+                                 if (interval > 0 || combinedText.includes('不重複') || combinedText.includes('單次')) {
+                                     todo.repeatInterval = interval;
+                                     delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; 
+                                     let repeatText = interval > 0 ? ' (並將循環提醒)' : ' (單次提醒)';
+                                     addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');
+                                     speakText(`已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`);
+                                 } else {
+                                     // 如果只給了時間，則進入 Stage 3 反問
+                                     todo.tempTimeStr = combinedText; appState.reminderStage = 3;
+                                     addMessage(`收到！提醒時間為 ${todo.time}。請問需要每隔多久重複一次嗎？(例如：每天、每 8 小時，或回答「不重複」)`, 'system');
+                                     speakText(`請問需要重複嗎？`);
+                                 }
+                             } 
+                             else if (timeInfo.missing === 'date') { todo.tempTimeStr = combinedText;
+                                 addMessage(`請問是「今天」、「明天」還是哪一天？`, 'system'); speakText(`請問是今天、明天還是哪一天？`); appState.reminderStage = 2; } 
+                             else if (timeInfo.missing === 'ampm') { todo.tempTimeStr = combinedText;
+                                 addMessage(`請問是「上午」還是「下午」？`, 'system'); speakText(`請問是上午還是下午？`); appState.reminderStage = 2; } 
+                             else { addMessage(`無法識別時間，請重試 (例如: 明天下午3點)`, 'system'); speakText(`無法識別時間，請重試`); }
+                             
+                         } else if (appState.reminderStage === 3) {
+                             // 第三階段：專門解析是否需要重複
+                             let interval = 0;
+                             if(text.includes('每天')) interval = 86400000;
+                             else if(text.includes('每週')) interval = 604800000;
+                             else if(text.match(/每(\d+)小時/)) interval = parseInt(text.match(/每(\d+)小時/)[1]) * 3600000;
+                             else if(text.match(/每(\d+)分/)) interval = parseInt(text.match(/每(\d+)分/)[1]) * 60000;
+                             
+                             todo.repeatInterval = interval;
+                             delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; 
+                             let repeatText = interval > 0 ? ' (並將循環提醒)' : ' (單次提醒)';
+                             addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');
+                             speakText(`已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`);
+                         }
+                         saveToDB('todos', todo);
+                         renderTodos();
+                         }
                      return;
                 }
                 const reminderMatch = text.match(/^(?:提醒|reminder)(.*)$/i);
@@ -3562,25 +3642,61 @@
             }
             tryGetLocation(true); updateModelUI(); 
 
-            const checkReminders = () => {
+const checkReminders = async () => {
                 const now = Date.now();
-                appState.todos.forEach(t => {
+                for (let t of appState.todos) {
                     if (t.alertTime && t.alertEnabled !== false && !t.alerted && t.alertTime <= now && !t.done) {
-                        t.alerted = true; saveToDB('todos', t); renderTodos();
-                        document.getElementById('alarm-text').innerText = t.text; document.getElementById('alarm-modal').classList.remove('hidden'); document.getElementById('alarm-modal').classList.add('flex');
-                        try {
-                            alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                            const osc = alarmAudioCtx.createOscillator(); const gain = alarmAudioCtx.createGain();
-                            osc.type = 'sine'; osc.frequency.setValueAtTime(880, alarmAudioCtx.currentTime); osc.connect(gain); gain.connect(alarmAudioCtx.destination);
-                            osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, alarmAudioCtx.currentTime + 0.5);
-                            alarmInterval = setInterval(() => {
-                                const osc2 = alarmAudioCtx.createOscillator(); const gain2 = alarmAudioCtx.createGain();
-                                osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, alarmAudioCtx.currentTime); osc2.connect(gain2); gain2.connect(alarmAudioCtx.destination);
-                                osc2.start(); gain2.gain.exponentialRampToValueAtTime(0.00001, alarmAudioCtx.currentTime + 0.5);
-                            }, 1000);
-                        } catch(e) {}
+                        
+                        // 處理循環時間推進
+                        if (t.repeatInterval && t.repeatInterval > 0) {
+                            t.alertTime += t.repeatInterval; 
+                            t.alerted = false; // 保持未提醒狀態以利下次觸發
+                        } else {
+                            t.alerted = true; 
+                        }
+                        saveToDB('todos', t); 
+                        renderTodos();
+
+                        // 判斷任務類型：自動搜尋 vs 一般鬧鐘
+                        if (t.isAutoSearch && t.searchQuery) {
+                            addMessage(`🔄 [排程搜尋觸發] 正在為您搜尋最新資訊：${t.searchQuery}...`, 'system');
+                            try {
+                                let searchResultText = "";
+                                if (appState.keys.serpapi) searchResultText = await searchViaSerpApi(t.searchQuery);
+                                if (!searchResultText && appState.docMonitorUrl) searchResultText = await fetchUrlViaGas(t.searchQuery); // 如果有爬蟲腳本
+                                
+                                if (searchResultText) {
+                                    let prompt = `請根據以下最新搜尋結果，為我整理一份簡潔的重點回報：\n\n${searchResultText}`;
+                                    let res = await fetchAIResponse(prompt, appState.currentModel);
+                                    let finalOutputText = typeof res === 'string' ? res : (res.text || "(無文字)");
+                                    addMessage(`📊 **排程搜尋報告 [${t.searchQuery}]**\n\n${finalOutputText}`, 'ai', appState.currentModel);
+                                    if(appState.autoTTS) speakText(`排程搜尋報告出爐：${t.searchQuery}`);
+                                } else {
+                                    addMessage(`⚠️ 排程搜尋 [${t.searchQuery}] 失敗：無法取得搜尋結果。`, 'system');
+                                }
+                            } catch (e) {
+                                addMessage(`⚠️ 排程搜尋異常：${e.message}`, 'system');
+                            }
+                        } else {
+                            // 原有的一般鬧鐘彈窗與音效邏輯
+                            document.getElementById('alarm-text').innerText = t.text; 
+                            document.getElementById('alarm-modal').classList.remove('hidden'); 
+                            document.getElementById('alarm-modal').classList.add('flex');
+                            try {
+                                alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                const osc = alarmAudioCtx.createOscillator(); const gain = alarmAudioCtx.createGain();
+                                osc.type = 'sine'; osc.frequency.setValueAtTime(880, alarmAudioCtx.currentTime); osc.connect(gain); gain.connect(alarmAudioCtx.destination);
+                                osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, alarmAudioCtx.currentTime + 0.5);
+                                alarmInterval = setInterval(() => {
+                                    const osc2 = alarmAudioCtx.createOscillator();
+                                    const gain2 = alarmAudioCtx.createGain();
+                                    osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, alarmAudioCtx.currentTime); osc2.connect(gain2); gain2.connect(alarmAudioCtx.destination);
+                                    osc2.start(); gain2.gain.exponentialRampToValueAtTime(0.00001, alarmAudioCtx.currentTime + 0.5);
+                                }, 1000);
+                            } catch(e) {}
+                        }
                     }
-                });
+                }
             };
             setInterval(checkReminders, 10000);
 
