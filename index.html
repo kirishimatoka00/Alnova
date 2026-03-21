@@ -639,9 +639,21 @@
                         <button onclick="closeTodoEdit()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
                     </div>
                     <input type="hidden" id="edit-todo-id">
-                    <div class="space-y-4">
+                   div class="space-y-4">
                         <div><label class="text-xs text-slate-400 mb-1 block">行程內容</label><input type="text" id="edit-todo-text" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"></div>
                         <div><label class="text-xs text-slate-400 mb-1 block">提醒時間</label><input type="datetime-local" id="edit-todo-time" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none" style="color-scheme: dark;"></div>
+                        <div>
+                            <label class="text-xs text-slate-400 mb-1 block">重複設定</label>
+                            <select id="edit-todo-repeat" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none">
+                                <option value="0">不重複 (單次)</option>
+                                <option value="60000">每 1 分鐘 (測試用)</option>
+                                <option value="3600000">每 1 小時</option>
+                                <option value="86400000">每天</option>
+                                <option value="604800000">每週</option>
+                                <option value="2592000000">每月</option>
+                                <option value="31536000000">每年</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="flex justify-end space-x-3 mt-6">
                         <button onclick="closeTodoEdit()" class="px-4 py-2 text-slate-400 hover:text-white transition-colors">取消</button>
@@ -1351,19 +1363,50 @@
         };
 
         window.openTodoEdit = function(id) {
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
-            document.getElementById('edit-todo-id').value = id; document.getElementById('edit-todo-text').value = t.text;
-            if(t.alertTime) { const d = new Date(t.alertTime); document.getElementById('edit-todo-time').value = d.toISOString().slice(0,16); } else { document.getElementById('edit-todo-time').value = ''; }
-            document.getElementById('todo-edit-modal').classList.remove('hidden'); document.getElementById('todo-edit-modal').classList.add('flex');
+            const t = appState.todos.find(x => String(x.id) === String(id));
+            if(!t) return;
+            document.getElementById('edit-todo-id').value = id; 
+            document.getElementById('edit-todo-text').value = t.text;
+            
+            if(t.alertTime) { 
+                const d = new Date(t.alertTime);
+                // 修正時區偏移以正確顯示於 datetime-local
+                d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                document.getElementById('edit-todo-time').value = d.toISOString().slice(0,16);
+                document.getElementById('edit-todo-repeat').value = t.repeatInterval || '0';
+            } else { 
+                document.getElementById('edit-todo-time').value = ''; 
+                document.getElementById('edit-todo-repeat').value = '0';
+            }
+            document.getElementById('todo-edit-modal').classList.remove('hidden'); 
+            document.getElementById('todo-edit-modal').classList.add('flex');
         };
 
         window.closeTodoEdit = function() { document.getElementById('todo-edit-modal').classList.add('hidden'); document.getElementById('todo-edit-modal').classList.remove('flex'); };
         
         window.saveTodoEdit = function() {
-            const id = document.getElementById('edit-todo-id').value; const text = document.getElementById('edit-todo-text').value.trim(); const timeStr = document.getElementById('edit-todo-time').value;
-            const t = appState.todos.find(x => String(x.id) === String(id)); if(!t || !text) return;
+            const id = document.getElementById('edit-todo-id').value;
+            const text = document.getElementById('edit-todo-text').value.trim(); 
+            const timeStr = document.getElementById('edit-todo-time').value;
+            const repeatVal = parseInt(document.getElementById('edit-todo-repeat').value) || 0;
+            
+            const t = appState.todos.find(x => String(x.id) === String(id)); 
+            if(!t || !text) return;
+            
             t.text = text;
-            if(timeStr) { const d = new Date(timeStr); t.alertTime = d.getTime(); t.time = d.toLocaleString(); t.alertEnabled = true; t.alerted = false; } else { t.alertTime = null; t.time = '未設定提醒'; t.alertEnabled = false; }
+            if(timeStr) { 
+                const d = new Date(timeStr); 
+                t.alertTime = d.getTime(); 
+                t.time = d.toLocaleString(); 
+                t.alertEnabled = true;
+                t.alerted = false; 
+                t.repeatInterval = repeatVal;
+            } else { 
+                t.alertTime = null; 
+                t.time = '未設定提醒'; 
+                t.alertEnabled = false;
+                t.repeatInterval = 0;
+            }
             saveToDB('todos', t); renderTodos(); closeTodoEdit(); showToast("✅ 行程已更新");
         };
 
@@ -2939,13 +2982,23 @@
             let text = input.value.trim();
             const hasChatFile = appState.chatFile !== null;
             
-            const autoSearchMatch = text.match(/每(\d+)(分鐘|分|小時|天|日)幫我(?:搜尋|抓取)(.*)/i);
+            const getIntervalMs = (txt) => {
+                let nTxt = txt.replace(/一/g,'1').replace(/兩|二/g,'2').replace(/三/g,'3').replace(/四/g,'4').replace(/五/g,'5').replace(/六/g,'6').replace(/七/g,'7').replace(/八/g,'8').replace(/九/g,'9').replace(/十/g,'10');
+                if(nTxt.includes('每天') || nTxt.includes('每日')) return 86400000;
+                if(nTxt.includes('每週') || nTxt.includes('每星期')) return 604800000;
+                if(nTxt.includes('每月') || nTxt.includes('每個月')) return 2592000000;
+                if(nTxt.includes('每年')) return 31536000000;
+                let mH = nTxt.match(/每(\d+)小時/); if(mH) return parseInt(mH[1]) * 3600000;
+                let mM = nTxt.match(/每(\d+)分/); if(mM) return parseInt(mM[1]) * 60000;
+                return 0;
+            };
+
+            const autoSearchMatch = text.match(/每([一二兩三四五六七八九十\d]+)(分鐘|分|小時|天|日|個月|月|年)幫我(?:搜尋|抓取)(.*)/i);
             if (autoSearchMatch) {
-                let num = parseInt(autoSearchMatch[1]);
                 let unit = autoSearchMatch[2];
                 let query = autoSearchMatch[3].trim();
-                let ms = num * (unit.includes('分') ? 60000 : unit.includes('小時') ? 3600000 : 86400000);
-                
+                let ms = getIntervalMs(text);
+                let num = autoSearchMatch[1];
                 const newSearchTask = { 
                     id: Date.now(), 
                     text: `🔄 自動搜尋任務: ${query}`, 
@@ -3062,13 +3115,9 @@
                                  todo.alertTime = timeInfo.timestamp;
                                  todo.alerted = false; 
                                  
-                                 let interval = 0;
-                                 if(combinedText.includes('每天')) interval = 86400000;
-                                 else if(combinedText.includes('每週')) interval = 604800000;
-                                 else if(combinedText.match(/每(\d+)小時/)) interval = parseInt(combinedText.match(/每(\d+)小時/)[1]) * 3600000;
-                                 else if(combinedText.match(/每(\d+)分/)) interval = parseInt(combinedText.match(/每(\d+)分/)[1]) * 60000;
+                                 let interval = getIntervalMs(combinedText);
                                  
-                                 // 若句子中已包含「每天」或明確說「不重複」，則直接設定完成
+                                 // 若句子中已包含「每天/月/年」或明確說「不重複」，則直接設定完成
                                  if (interval > 0 || combinedText.includes('不重複') || combinedText.includes('單次')) {
                                      todo.repeatInterval = interval;
                                      delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; 
@@ -3090,11 +3139,7 @@
                              
                          } else if (appState.reminderStage === 3) {
                              // 第三階段：專門解析是否需要重複
-                             let interval = 0;
-                             if(text.includes('每天')) interval = 86400000;
-                             else if(text.includes('每週')) interval = 604800000;
-                             else if(text.match(/每(\d+)小時/)) interval = parseInt(text.match(/每(\d+)小時/)[1]) * 3600000;
-                             else if(text.match(/每(\d+)分/)) interval = parseInt(text.match(/每(\d+)分/)[1]) * 60000;
+                             let interval = getIntervalMs(text);
                              
                              todo.repeatInterval = interval;
                              delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; 
@@ -3659,18 +3704,16 @@ const checkReminders = async () => {
                         if (t.isAutoSearch && t.searchQuery) {
                             addMessage(`🔄 [排程搜尋觸發] 正在為您搜尋最新資訊：${t.searchQuery}...`, 'system');
                             try {
-                                let searchResultText = "";
-                                if (appState.keys.serpapi) searchResultText = await searchViaSerpApi(t.searchQuery);
-                                if (!searchResultText && appState.docMonitorUrl) searchResultText = await fetchUrlViaGas(t.searchQuery); // 如果有爬蟲腳本
+                                let prompt = `請連網搜尋最新資訊：「${t.searchQuery}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
+                                // 強制開啟 enableSearch: true 交給支援連網的模型去處理
+                                let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: true });
+                                let finalOutputText = typeof res === 'string' ? res : (res.text || "(無文字)");
                                 
-                                if (searchResultText) {
-                                    let prompt = `請根據以下最新搜尋結果，為我整理一份簡潔的重點回報：\n\n${searchResultText}`;
-                                    let res = await fetchAIResponse(prompt, appState.currentModel);
-                                    let finalOutputText = typeof res === 'string' ? res : (res.text || "(無文字)");
+                                if (finalOutputText && finalOutputText !== "(無文字)") {
                                     addMessage(`📊 **排程搜尋報告 [${t.searchQuery}]**\n\n${finalOutputText}`, 'ai', appState.currentModel);
                                     if(appState.autoTTS) speakText(`排程搜尋報告出爐：${t.searchQuery}`);
                                 } else {
-                                    addMessage(`⚠️ 排程搜尋 [${t.searchQuery}] 失敗：無法取得搜尋結果。`, 'system');
+                                    addMessage(`⚠️ 排程搜尋 [${t.searchQuery}] 失敗：無法取得有效回覆。`, 'system');
                                 }
                             } catch (e) {
                                 addMessage(`⚠️ 排程搜尋異常：${e.message}`, 'system');
