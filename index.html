@@ -324,6 +324,15 @@
                 </div>
             </div>
 
+<div id="sos-modal" class="hidden fixed inset-0 z-[100] bg-red-950/95 backdrop-blur-md flex items-center justify-center p-4">
+                <div class="bg-slate-900 border-2 border-red-600 rounded-3xl p-8 max-w-sm w-full text-center shadow-[0_0_80px_rgba(220,38,38,0.6)]">
+                    <i class="ph-fill ph-warning-circle text-7xl text-red-500 mb-4 animate-pulse"></i>
+                    <h3 class="text-3xl font-black text-white mb-2 tracking-wider">緊急求救觸發</h3>
+                    <p class="text-slate-300 mb-8 font-medium">將於 <span id="sos-countdown" class="text-6xl font-black text-red-500 mx-2">10</span> 秒後撥打求救電話並發送定位簡訊</p>
+                    <button onclick="cancelSos()" class="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-xl transition-colors border border-slate-600 active:bg-slate-600">取消 (誤觸)</button>
+                </div>
+            </div>
+
             <!-- ================= 鬧鐘提醒彈窗 (Alarm Modal) ================= -->
             <div id="alarm-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
                 <div class="bg-slate-900 border border-red-500/50 rounded-2xl p-8 max-w-sm w-full text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] animate-pulse">
@@ -3136,6 +3145,63 @@
             }
         }
 
+// --- 緊急求救 (SOS) 處理邏輯 ---
+        let sosTimer = null;
+        window.triggerSosCountdown = function() {
+            const modal = document.getElementById('sos-modal');
+            const countEl = document.getElementById('sos-countdown');
+            if(!modal || !countEl) return;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            let timeLeft = 10;
+            countEl.innerText = timeLeft;
+            
+            if(sosTimer) clearInterval(sosTimer);
+            sosTimer = setInterval(() => {
+                timeLeft--;
+                countEl.innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(sosTimer);
+                    executeSosAction();
+                }
+            }, 1000);
+        };
+        
+        window.cancelSos = function() {
+            if(sosTimer) clearInterval(sosTimer);
+            const modal = document.getElementById('sos-modal');
+            if(modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            showToast("✅ 已取消緊急求救");
+        };
+
+        window.executeSosAction = function() {
+            const modal = document.getElementById('sos-modal');
+            if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            
+            const emergencyNumber = "119"; // 依當地設定預設號碼
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const smsBody = encodeURIComponent(`【緊急求救】我需要協助！我的所在位置：https://maps.google.com/?q=${lat},${lng}`);
+                    
+                    window.location.href = `sms:${emergencyNumber}?body=${smsBody}`;
+                    setTimeout(() => { window.location.href = `tel:${emergencyNumber}`; }, 2000);
+                    addMessage(`🚨 已自動觸發求救！嘗試發送定位簡訊並撥打 ${emergencyNumber}。`, 'system');
+                }, error => {
+                    window.location.href = `tel:${emergencyNumber}`;
+                    addMessage(`🚨 無法取得 GPS 定位，直接撥打 ${emergencyNumber}。`, 'system');
+                });
+            } else {
+                window.location.href = `tel:${emergencyNumber}`;
+                addMessage(`🚨 裝置不支援 GPS，直接撥打 ${emergencyNumber}。`, 'system');
+            }
+        };
+
         
         // --- 核心訊息發送與處理邏輯 ---
         async function handleSendMessage() {
@@ -3145,6 +3211,14 @@
             let text = input.value.trim();
             const hasChatFile = appState.chatFile !== null;
             
+       // 優先攔截：SOS 緊急求救意圖
+            const sosMatch = text.match(/^(call\s*911|call\s*119|救我|救救我|報警|救命)/i);
+            if (sosMatch) {
+                triggerSosCountdown();
+                input.value = ''; autoResizeInput(input); chatInitialInput = '';
+                return;
+            }
+
             const getIntervalMs = (txt) => {
                 const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
                 let nTxt = txt.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
