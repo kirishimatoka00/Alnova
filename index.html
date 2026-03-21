@@ -3021,15 +3021,7 @@
                      const todo = appState.todos.find(t => t.id === appState.pendingReminder);
                      if (todo) {
                          let combinedText = todo.tempTimeStr ? `${todo.tempTimeStr} ${text}` : text; const timeInfo = parseTimeNatural(combinedText);
-                         if (timeInfo.complete) { let interval = 0;
-if(text.includes('每天')) interval = 86400000;
-else if(text.includes('每週')) interval = 604800000;
-else if(text.match(/每(\d+)小時/)) interval = parseInt(text.match(/每(\d+)小時/)[1]) * 3600000;
-else if(text.match(/每(\d+)分/)) interval = parseInt(text.match(/每(\d+)分/)[1]) * 60000;
-
-todo.repeatInterval = interval;
-let repeatText = interval > 0 ? ' (並將循環提醒)' : '';
-addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); } 
+                         if (timeInfo.complete) { todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); let interval = 0; if(text.includes('每天')) interval = 86400000; else if(text.includes('每週')) interval = 604800000; else if(text.match(每(\d+)小時/)) interval = parseInt(text.match(/每(\d+)小時/)[1]) * 3600000; else if(text.match(/每(\d+)分/)) interval = parseInt(text.match(/每(\d+)分/)[1]) * 60000; todo.repeatInterval = interval; let repeatText = interval > 0 ? ' (並將循環提醒)' : ''; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');todo.time = new Date(timeInfo.timestamp).toLocaleString(); todo.alertTime = timeInfo.timestamp; todo.alerted = false; delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}`, 'system'); speakText(`已設定提醒：${todo.text} 於 ${todo.time}`); } 
                          else if (timeInfo.missing === 'date') { todo.tempTimeStr = combinedText; addMessage(`請問是「今天」、「明天」還是哪一天？`, 'system'); speakText(`請問是今天、明天還是哪一天？`); appState.reminderStage = 2; } 
                          else if (timeInfo.missing === 'ampm') { todo.tempTimeStr = combinedText; addMessage(`請問是「上午」還是「下午」？`, 'system'); speakText(`請問是上午還是下午？`); appState.reminderStage = 2; } 
                          else { addMessage(`無法識別時間，請重試 (例如: 明天下午3點)`, 'system'); speakText(`無法識別時間，請重試`); }
@@ -3042,7 +3034,7 @@ addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 
                     const content = reminderMatch[1].trim() || "未命名事項"; const newTodo = { id: Date.now(), text: content, done: false, time: '詢問中...', alerted: false, alertEnabled: true };
                     appState.todos.push(newTodo); saveToDB('todos', newTodo); appState.pendingReminder = newTodo.id; appState.reminderStage = 1; renderTodos();
                     addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`, 'system');
-                    speakText(`已將${content}加入行程，請問什麼時候提醒？`);
+                    speakText(` 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`);
                     return;
                 }
 
