@@ -4450,8 +4450,8 @@ window.startLocalUpscale = async function(input) {
     const file = input.files[0];
     const reader = new FileReader();
     
-    // 顯示處理中的訊息到對話框
-    appendMessage('ai', '正在將圖檔傳送至本地 GPU 進行 Upscayl 放大，請稍候...');
+    // ✅ 這裡已修正為 addMessage [cite: 1748]
+    addMessage('正在將圖檔傳送至本地 GPU 進行 Upscayl 放大，請稍候...', 'system');
 
     reader.onload = async function(e) {
         const base64Image = e.target.result;
@@ -4466,18 +4466,20 @@ window.startLocalUpscale = async function(input) {
             const result = await response.json();
             
             if (result.data) {
-                // 將放大後的圖案顯示在對話框中
                 const imgHtml = `
                     <div class="space-y-2">
                         <p class="text-xs text-emerald-400 font-bold">✅ 本地 GPU 重構完成！</p>
                         <img src="${result.data}" class="rounded-lg max-w-full shadow-lg border border-slate-700">
-                        <a href="${result.data}" download="NOVA_Upscayled.png" class="inline-block text-[10px] bg-emerald-600 text-white px-2 py-1 rounded">立即下載高清圖檔</a>
+                        <a href="${result.data}" download="NOVA_Upscayled.png" class="inline-block text-[10px] bg-emerald-600 text-white px-2 py-1 rounded mt-2">立即下載高清圖檔</a>
                     </div>
                 `;
-                appendMessage('ai', imgHtml);
+                // ✅ 這裡也修正為 addMessage [cite: 1748]
+                addMessage(imgHtml, 'ai', 'gemini');
+            } else {
+                addMessage('❌ 運算失敗：' + (result.error || '原因不明'), 'system');
             }
         } catch (err) {
-            alert('❌ 呼叫本地 Upscayl 失敗，請檢查 Node.js 是否正確執行。');
+            alert('❌ 無法連線至本地 Node.js 伺服器，請確認已執行 node bridge.js');
         }
     };
     reader.readAsDataURL(file);
