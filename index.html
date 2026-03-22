@@ -111,6 +111,15 @@
                         <i class="ph ph-browser text-lg"></i><span>開啟 Chrome</span>
                     </button>
                 </div>
+
+<div class="mt-4 pt-4 border-t border-slate-800 space-y-2">
+    <input type="file" id="upscayl-file" class="hidden" accept="image/*" onchange="startLocalUpscale(this)">
+    <button onclick="document.getElementById('upscayl-file').click()" class="flex items-center space-x-3 w-full p-3 rounded-xl bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all text-xs border border-indigo-500/30">
+        <i class="ph-bold ph-monitor-arrow-up text-lg"></i>
+        <span>Upscayl 本地重構</span>
+    </button>
+</div>
+
             </nav>
             <div class="mt-auto space-y-3">
                 <button onclick="openSettings()" class="flex items-center space-x-2 text-xs text-slate-500 hover:text-slate-300 w-full px-2"><i class="ph ph-gear"></i><span>設定 & 備份</span></button>
@@ -4434,6 +4443,46 @@ const checkReminders = async () => {
                     alert('❌ 無法控制電腦！請確認你已啟動 node bridge.js');
                 }
             };
+
+window.startLocalUpscale = async function(input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    const reader = new FileReader();
+    
+    // 顯示處理中的訊息到對話框
+    appendMessage('ai', '正在將圖檔傳送至本地 GPU 進行 Upscayl 放大，請稍候...');
+
+    reader.onload = async function(e) {
+        const base64Image = e.target.result;
+        
+        try {
+            const response = await fetch('http://localhost:3000/upscale', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64Image })
+            });
+            
+            const result = await response.json();
+            
+            if (result.data) {
+                // 將放大後的圖案顯示在對話框中
+                const imgHtml = `
+                    <div class="space-y-2">
+                        <p class="text-xs text-emerald-400 font-bold">✅ 本地 GPU 重構完成！</p>
+                        <img src="${result.data}" class="rounded-lg max-w-full shadow-lg border border-slate-700">
+                        <a href="${result.data}" download="NOVA_Upscayled.png" class="inline-block text-[10px] bg-emerald-600 text-white px-2 py-1 rounded">立即下載高清圖檔</a>
+                    </div>
+                `;
+                appendMessage('ai', imgHtml);
+            }
+        } catch (err) {
+            alert('❌ 呼叫本地 Upscayl 失敗，請檢查 Node.js 是否正確執行。');
+        }
+    };
+    reader.readAsDataURL(file);
+};
+
 
             // 這是原本就在那裡的代碼
 
