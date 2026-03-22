@@ -1248,8 +1248,15 @@
                             if(el) el.value = data.keys[k] || ''; 
                         });
                     }
-                    if(data.doc !== undefined) { appState.docMonitorUrl = data.doc; localStorage.setItem('nova_doc_url', data.doc); const el = document.getElementById('key-doc-url'); if(el) el.value = data.doc;
-                    if(data.drive !== undefined) { appState.driveUrl = data.drive; localStorage.setItem('nova_drive_url', data.drive); const el = document.getElementById('key-drive-url'); if(el) el.value = data.drive; }
+                    if(data.doc !== undefined) { 
+                        appState.docMonitorUrl = data.doc;
+                        localStorage.setItem('nova_doc_url', data.doc); 
+                        const el = document.getElementById('key-doc-url'); 
+                        if(el) el.value = data.doc;
+                    }
+                    if(data.drive !== undefined) { 
+                        appState.driveUrl = data.drive; 
+                        localStorage.setItem('nova_drive_url', data.drive); const el = document.getElementById('key-drive-url'); if(el) el.value = data.drive; }
                     if(data.translateBTimeout !== undefined) { appState.translateBTimeout = data.translateBTimeout; localStorage.setItem('nova_trans_b_timeout', data.translateBTimeout); const el = document.getElementById('key-translate-b-timeout'); if(el) el.value = data.translateBTimeout; }
                     if(data.vadMultiplier !== undefined) { appState.vadMultiplier = data.vadMultiplier; localStorage.setItem('nova_vad_multiplier', data.vadMultiplier); const el = document.getElementById('key-vad-multiplier'); if(el) el.value = data.vadMultiplier; }
                     if(data.autoTTS !== undefined) { appState.autoTTS = data.autoTTS; localStorage.setItem('nova_auto_tts', data.autoTTS); const el = document.getElementById('key-auto-tts'); if(el) el.checked = data.autoTTS; }
