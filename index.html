@@ -1878,7 +1878,162 @@
             window.speechSynthesis.onvoiceschanged = populateVoices;
         }
 
-        function fallbackNativeTTS(cleanText, nativeLang, continueLoop) {
+        // --- 核心播放佇列引擎 (Audio Queue) ---
+        let pollyAudioQueue = [];
+        let isPollyPlayingQueue = false;
+        let currentPollyAudio = new Audio();
+        let queueContinueLoopCb = null;
+
+        function processPollyQueue() {
+            if (pollyAudioQueue.length === 0) {
+                isPollyPlayingQueue = false;
+                appState.isTTSPlaying = false;
+                appState.playingMsgId = null;
+                renderMessages();
+                if (queueContinueLoopCb) { 
+                    queueContinueLoopCb(); 
+                    queueContinueLoopCb = null; 
+                }
+                return;
+            }
+            // 取出陣列第一筆準備播放
+            isPollyPlayingQueue = true;
+            appState.isTTSPlaying = true;
+            renderMessages();
+            let nextAudioUrl = pollyAudioQueue.shift();
+            currentPollyAudio.src = nextAudioUrl;
+            
+            // 播放結束或出錯時，自動呼叫自己遞迴播下一段 (Sequential 播放)
+            currentPollyAudio.onended = () => processPollyQueue();
+            currentPollyAudio.onerror = (e) => { console.error("Polly 播放錯誤", e); processPollyQueue(); };
+            currentPollyAudio.play().catch(e => { console.error("Audio API 被阻擋", e); processPollyQueue(); });
+        }
+
+        window.playMessageAudio = function(id) {
+            if (appState.isTTSPlaying && appState.playingMsgId === String(id)) {
+                window.speechSynthesis.cancel();
+                if (currentPollyAudio) currentPollyAudio.pause();
+                pollyAudioQueue = []; // 清空佇列以終止連續播放
+                isPollyPlayingQueue = false;
+                appState.isTTSPlaying = false;
+                appState.playingMsgId = null;
+                renderMessages();
+                return;
+            }
+            const msg = appState.messages.find(m => String(m.id) === String(id));
+            if (!msg || !msg.text) return;
+            speakText(msg.text, true, String(id));
+            renderMessages();
+        };
+
+        function speakText(text, force = false, msgId = null) {
+            const shouldAutoPlay = appState.isLiveMode || appState.translateMode !== 'off' || appState.isContinuous;
+            
+            const continueLoop = () => {
+                if (appState.translateMode === 'auto') {
+                    // 安全鎖：不斷輪詢確認系統語音與「播放佇列」已經完全停止，才敢重啟麥克風
+                    const checkAndStart = () => {
+                        const isPollySpeaking = !currentPollyAudio.paused && currentPollyAudio.currentTime > 0 && !currentPollyAudio.ended;
+                        if (window.speechSynthesis.speaking || isPollySpeaking || isPollyPlayingQueue) {
+                            setTimeout(checkAndStart, 500);
+                        } else {
+                            setTimeout(() => { startTranslateBAutoRecord(); }, 1000);
+                        }
+                    };
+                    checkAndStart();
+                } else if (appState.isContinuous || appState.isLiveMode) {
+                    setTimeout(() => { 
+                        if(!appState.isThinking) {
+                            try { recognition.start(); } catch(e){} 
+                        }
+                    }, 500);
+                }
+            };
+
+            if (!force && appState.translateMode === 'auto' && appState.translateMuteUntilFirstCapture) { continueLoop(); return; }
+            if (!shouldAutoPlay && !force) return;
+            if (!text || text.trim() === "") { continueLoop(); return; }
+            if (!force && !appState.autoTTS) { continueLoop(); return; }
+
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                currentPollyAudio.pause(); 
+                pollyAudioQueue = [];
+                isPollyPlayingQueue = false;
+                appState.playingMsgId = msgId;
+                queueContinueLoopCb = continueLoop;
+                
+                let cleanText = text.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
+                cleanText = cleanText.replace(/\(?系統提示：[^\)]+\)?/g, '').trim();
+                cleanText = cleanText.replace(/✨ 圖片生成成功！已為您附在下方。/g, '為您生成圖片如下');
+                cleanText = cleanText.replace(/【研究員.*?】\n/g, '').replace(/【審查員.*?】\n/g, '');
+
+                let lang = 'en-US'; 
+                let testChunk = cleanText.substring(0, 150);
+                if (/[\u3040-\u309F\u30A0-\u30FF]/.test(testChunk)) lang = 'ja-JP';
+                else if (/[\uAC00-\uD7AF]/.test(testChunk)) lang = 'ko-KR';
+                else if (/[\u4E00-\u9FFF]/.test(testChunk)) lang = 'zh-TW'; // 原生預設回退繁體中文
+
+                const pollyVoices = ['Zhiyu', 'Mia'];
+                const selectedVoice = appState.ttsVoice;
+                const ak = appState.keys.aws_ak;
+                const sk = appState.keys.aws_sk;
+                const reg = appState.keys.aws_region || 'ap-northeast-1';
+
+                if (ak && sk && pollyVoices.includes(selectedVoice)) {
+                    // 初始化 AWS Polly
+                    AWS.config.update({ accessKeyId: ak, secretAccessKey: sk, region: reg });
+                    const polly = new AWS.Polly();
+                    
+                    // --- 串流分句優化 (Stream Splitting) ---
+                    // 遇到。？！就切斷，保留標點符號，過濾掉純空白
+                    const chunks = cleanText.match(/[^。？！.?!]+[。？！.?!]*/g)?.filter(c => c.trim() !== '') || [cleanText];
+                    
+                    appState.isTTSPlaying = true;
+                    renderMessages();
+
+                    const fetchAndQueue = async () => {
+                        for (let chunk of chunks) {
+                            if (!appState.isTTSPlaying || appState.playingMsgId !== msgId) break; // 中斷檢查
+                            
+                            // Mia 僅支援 standard 引擎，Zhiyu 支援 neural 引擎
+                            const engineType = selectedVoice === 'Mia' ? 'standard' : 'neural';
+                            const params = { OutputFormat: "mp3", Text: chunk, VoiceId: selectedVoice, Engine: engineType };
+                            
+                            try {
+                                const data = await polly.synthesizeSpeech(params).promise();
+                                if (data.AudioStream instanceof Uint8Array || data.AudioStream instanceof ArrayBuffer) {
+                                    const blob = new Blob([data.AudioStream], { type: "audio/mp3" });
+                                    const url = URL.createObjectURL(blob);
+                                    
+                                    // Queue 入隊：將完成的句子放入陣列
+                                    pollyAudioQueue.push(url);
+                                    
+                                    // 若 Queue 尚未在播放中，立刻觸發播放！(背景繼續抓下一句)
+                                    if (!isPollyPlayingQueue) processPollyQueue();
+                                }
+                            } catch(e) {
+                                console.error("Polly 分段合成失敗，該句降級播放:", e);
+                                fallbackNativeTTS(chunk, lang, null); // 失敗的句子單獨用系統音補上
+                            }
+                        }
+                        
+                        // 若所有句子都跑完且完全沒有送進播放序列 (例如網路斷線)，觸發整體降級
+                        if (!isPollyPlayingQueue && pollyAudioQueue.length === 0) {
+                            fallbackNativeTTS(cleanText, lang, queueContinueLoopCb);
+                            queueContinueLoopCb = null;
+                        }
+                    };
+                    
+                    fetchAndQueue();
+                } else {
+                    // --- 降級：沒填 API Key 或沒選 Polly 聲音時，退回系統原生語音 ---
+                    fallbackNativeTTS(cleanText, lang, continueLoop);
+                }
+            } else if (force) {
+                showToast("❌ 您的瀏覽器不支援語音朗讀功能");
+            }
+        }
 
         function fallbackNativeTTS(cleanText, nativeLang, continueLoop) {
             let utterance = new SpeechSynthesisUtterance(cleanText);
