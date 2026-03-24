@@ -1569,12 +1569,18 @@
             const numVal = parseInt(document.getElementById('edit-todo-repeat-num').value) || 0;
             const unitVal = parseInt(document.getElementById('edit-todo-repeat-unit').value) || 60000;
             const repeatVal = numVal > 0 ? numVal * unitVal : 0;
-            const t = appState.todos.find(x => String(x.id) === String(id)); 
+            const t = appState.todos.find(x => String(x.id) === String(id));
             if(!t || !text) return;
             
             t.text = text;
+            
+            // 修正：如果此行程是自動搜尋任務，同步更新背後的搜尋關鍵字
+            if (t.isAutoSearch) {
+                t.searchQuery = text.replace('🔄 自動搜尋任務:', '').trim();
+            }
+
             if(timeStr) { 
-                const d = new Date(timeStr); 
+                const d = new Date(timeStr);
                 t.alertTime = d.getTime(); 
                 t.time = d.toLocaleString(); 
                 t.alertEnabled = true;
@@ -3637,6 +3643,7 @@ window.startMultiAgentResearch = async function() {
                     if(match === '十') return '10';
                     if(match.length === 1) return map[match].toString();
                     if(match.length === 2 && match[0] === '十') return (10 + map[match[1]]).toString();
+               
                     if(match.length === 2 && match[1] === '十') return (map[match[0]] * 10).toString();
                     if(match.length === 3) return (map[match[0]] * 10 + map[match[2]]).toString();
                     return match;
@@ -3650,39 +3657,55 @@ window.startMultiAgentResearch = async function() {
                 return 0;
             };
 
-            const autoSearchMatch = text.match(/每\s*([一二兩三四五六七八九十\d]+)\s*(分鐘|分|小時|天|日|個月|月|年)\s*幫我(?:搜尋|抓取)(.*)/i);
+            // 支援更多語意：每天幫我搜尋、幫我每日搜尋、每1天幫我搜尋 (支援注音ㄧ)
+            const autoSearchMatch = text.match(/(?:(?:幫我)?每\s*([一二兩三四五六七八九十\dㄧ]*)\s*(分鐘|分|小時|天|日|個月|月|年)|(?:幫我)?(?:每天|每日))\s*(?:幫我)?(?:自動)?(?:搜尋|抓取|找)(.*)/i);
             if (autoSearchMatch) {
-                let unit = autoSearchMatch[2];
+                let numStr = autoSearchMatch[1] || '1';
+                let unit = autoSearchMatch[2] || '天';
                 let query = autoSearchMatch[3].trim();
                 let ms = getIntervalMs(text);
+                if (ms === 0 && (text.includes('每天') || text.includes('每日'))) ms = 86400000;
                 
-                const mapZh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-                let numStr = autoSearchMatch[1];
-                let num = parseInt(numStr.replace(/[一二兩三四五六七八九十]+/g, m => {
+                const mapZh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'ㄧ':1};
+                let num = parseInt(numStr.replace(/[一二兩三四五六七八九十ㄧ]+/g, m => {
                     if(m === '十') return '10';
                     if(m.length === 1) return mapZh[m].toString();
                     if(m.length === 2 && m[0] === '十') return (10 + mapZh[m[1]]).toString();
                     if(m.length === 2 && m[1] === '十') return (mapZh[m[0]] * 10).toString();
                     if(m.length === 3) return (mapZh[m[0]] * 10 + mapZh[m[2]]).toString();
                     return m;
-                })) || autoSearchMatch[1];
+                })) || parseInt(numStr) || 1;
+
+                const timeInfo = parseTimeNatural(text);
+                
                 const newSearchTask = { 
                     id: Date.now(), 
                     text: `🔄 自動搜尋任務: ${query}`, 
                     done: false, 
-                    time: `每 ${num} ${unit}執行`, 
-                    alertTime: Date.now() + ms, 
+                    time: timeInfo.complete ? new Date(timeInfo.timestamp).toLocaleString() : `每 ${num} ${unit}執行`, 
+                    alertTime: timeInfo.complete ? timeInfo.timestamp : Date.now() + ms, 
                     repeatInterval: ms,
                     alertEnabled: true,
                     alerted: false,
                     isAutoSearch: true,
                     searchQuery: query
                 };
+                
                 appState.todos.push(newSearchTask);
                 saveToDB('todos', newSearchTask);
-                renderTodos();
                 
-                addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會每 ${num} ${unit} 自動連網搜尋「${query}」並回報給你。`, 'system');
+                // 如果是按天循環，且尚未指定具體時間，攔截並提問
+                if (!timeInfo.complete && (unit === '天' || unit === '日' || text.includes('每天') || text.includes('每日'))) {
+                    newSearchTask.tempTimeStr = "每天"; // 巧妙利用暫存欄位，讓下方的邏輯自動帶入「每天」
+                    appState.pendingReminder = newSearchTask.id; 
+                    appState.reminderStage = 2; // 直接進入詢問時間階段
+                    renderTodos();
+                    addMessage(`🕵️‍♂️ 收到！我已建立自動化任務。請問您希望每天的「幾點」為您搜尋「${query}」呢？(例如：早上9點)`, 'system');
+                } else {
+                    renderTodos();
+                    addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會從 ${new Date(newSearchTask.alertTime).toLocaleString()} 起，每 ${num} ${unit} 自動連網搜尋「${query}」並回報給你。`, 'system');
+                }
+                
                 input.value = ''; autoResizeInput(input); chatInitialInput = '';
                 return;
             }
