@@ -1470,7 +1470,7 @@
             const timeMatch = text.match(/(\d+)(?:點|時)(?:(\d+)(?:分)?)?/);
             if(timeMatch) {
                 hasTime = true; let h = parseInt(timeMatch[1]); const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
-                if(text.includes('下午') || text.includes('晚上') && h < 12) h += 12;
+                if((text.includes('下午') || text.includes('晚上')) && h < 12) h += 12;
                 target.setHours(h, m, 0, 0);
             }
             if(text.includes('半小時後')) { target = new Date(now.getTime() + 30*60000); complete = true; }
@@ -1487,6 +1487,7 @@
             disableBackgroundMode();
             
             if (vadTimerWorker) { vadTimerWorker.postMessage('stop'); }
+            if (vadInterval) { clearInterval(vadInterval); vadInterval = null; }
             if (vadStream) { 
                 try { vadStream.mediaStream && vadStream.mediaStream.getTracks().forEach(t => t.stop()); } catch(e){}
                 try { vadStream.disconnect(); } catch(e){}
@@ -2219,7 +2220,7 @@
                             </div>
                         </div>
                         <div class="flex gap-2 w-full">
-                            <button onclick="copyDeepLink('${ad.deepLinkUrl}')" class="flex-1 bg-slate-70 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1">
+                            <button onclick="copyDeepLink('${ad.deepLinkUrl}')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1">
                                 <i class="ph-bold ph-copy"></i> 複製連結
                             </button>
                             <a href="${ad.deepLinkUrl}" target="_blank" rel="noopener noreferrer" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 text-center">
@@ -2248,9 +2249,10 @@
             container.scrollTop = container.scrollHeight; 
         }
 
-        function renderThinkingState(show) { 
+        function renderThinkingState(show, model = null) { 
+            const activeModel = model || appState.currentModel;
             const el = document.getElementById('thinking-indicator'); const container = document.getElementById('chat-container');
-            if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[appState.currentModel]?.bg || 'bg-slate-700'}"><i class="ph-fill ${MODEL_CONFIG[appState.currentModel]?.icon || 'ph-robot'} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); 
+            if(show && !el && container) container.insertAdjacentHTML('beforeend', `<div id="thinking-indicator" class="flex justify-start items-center space-x-3 fade-in"><div class="w-8 h-8 rounded-full flex items-center justify-center ${MODEL_CONFIG[activeModel]?.bg || 'bg-slate-700'}"><i class="ph-fill ${MODEL_CONFIG[activeModel]?.icon || 'ph-robot'} text-white text-sm"></i></div><div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-none"><div class="dot-flashing ml-2"></div></div></div>`); 
             else if(!show && el) el.remove(); 
         }
 
@@ -2291,7 +2293,7 @@
             let container = document.getElementById('folder-manage-list');
             container.innerHTML = appState.noteFolders.map((f) => {
                 if (f === '未分類' || f === '工作' || f === '生活') {
-                    if (f === '未分類') return `<div class="flex justify-between items-center p-3 bg-slate-800 rounded-lg border border-slate-700"><span class="text-slate-400">${f} <span class="text-[10px]">(系統預設)</span></span></div>`;
+                    return `<div class="flex justify-between items-center p-3 bg-slate-800 rounded-lg border border-slate-700"><span class="text-slate-400">${f} <span class="text-[10px]">(系統預設)</span></span></div>`;
                 }
                 return `<div class="flex justify-between items-center p-3 bg-slate-800 rounded-lg border border-slate-700">
                     <span class="text-white">${escapeHtml(f)}</span>
@@ -4392,7 +4394,7 @@ window.startMultiAgentResearch = async function() {
             }
             tryGetLocation(true); updateModelUI(); 
 
-const checkReminders = async () => {
+            const checkReminders = async () => {
                 const now = Date.now();
                 for (let t of appState.todos) {
                     if (t.alertTime && t.alertEnabled !== false && !t.alerted && t.alertTime <= now && !t.done) {
