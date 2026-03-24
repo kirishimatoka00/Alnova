@@ -3657,12 +3657,32 @@ window.startMultiAgentResearch = async function() {
         // --- 核心訊息發送與處理邏輯 ---
         async function handleSendMessage() {
             if(appState.isThinking) return;
-            
+
+            // 補回被誤刪的排程間隔計算函數，供鬧鐘與一般行程邏輯使用
+            const getIntervalMs = (txt) => {
+                if (!txt) return 0;
+                const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+                let nTxt = txt.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
+                    if(match === '十') return '10';
+                    if(match.length === 1) return map[match].toString();
+                    if(match.length === 2 && match[0] === '十') return (10 + map[match[1]]).toString();
+                    if(match.length === 2 && match[1] === '十') return (map[match[0]] * 10).toString();
+                    if(match.length === 3) return (map[match[0]] * 10 + map[match[2]]).toString();
+                    return match;
+                });
+                if(nTxt.includes('每天') || nTxt.includes('每日')) return 86400000;
+                if(nTxt.includes('每週') || nTxt.includes('每星期')) return 604800000;
+                if(nTxt.includes('每月') || nTxt.includes('每個月')) return 2592000000;
+                if(nTxt.includes('每年')) return 31536000000;
+                let mH = nTxt.match(/每(\d+)小時?/); if(mH) return parseInt(mH[1]) * 3600000;
+                let mM = nTxt.match(/每(\d+)分/); if(mM) return parseInt(mM[1]) * 60000;
+                return 0;
+            };
+
             const input = document.getElementById('user-input'); 
             let text = input.value.trim();
             const hasChatFile = appState.chatFile !== null;
-            
-       // 優先攔截：SOS 緊急求救意圖
+            // 優先攔截：SOS 緊急求救意圖
             const sosMatch = text.match(/^(call\s*911|call\s*119|救我|救救我|報警|救命|HELP)/i);
             if (sosMatch) {
                 triggerSosCountdown();
@@ -3670,13 +3690,13 @@ window.startMultiAgentResearch = async function() {
                 return;
             }
 
-            // ====== 將「const getIntervalMs = ...」一直到「return; }」整大段 Regex 邏輯刪除，替換為這段 LLM 判斷 ======
             // LLM 智慧判斷排程搜尋任務
             if (appState.keys.gemini && (text.includes('每') || text.includes('定時') || text.includes('循環') || text.includes('追蹤'))) {
                 appState.messages.push({id: Date.now(), text: `🔄 正在分析排程意圖...`, sender: 'system', time: getTime()});
                 renderMessages();
                 const scheduleIntent = await checkScheduleIntent(text);
                 appState.messages.pop(); // 移除系統提示
+                renderMessages(); // 🌟【修復 UI Bug】：確保移除提示後刷新畫面，否則 loading 會卡住
                 
                 if (scheduleIntent && scheduleIntent.isScheduleSearch && scheduleIntent.query) {
                     const newSearchTask = { 
