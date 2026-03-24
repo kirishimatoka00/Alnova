@@ -1583,10 +1583,14 @@
             const numVal = parseInt(document.getElementById('edit-todo-repeat-num').value) || 0;
             const unitVal = parseInt(document.getElementById('edit-todo-repeat-unit').value) || 60000;
             const repeatVal = numVal > 0 ? numVal * unitVal : 0;
-            const t = appState.todos.find(x => String(x.id) === String(id)); 
+            const t = appState.todos.find(x => String(x.id) === String(id));
             if(!t || !text) return;
             
             t.text = text;
+            if(t.isAutoSearch) {
+                t.searchQuery = text.replace(/🔄\s*自動搜尋任務:\s*/, '').trim();
+            }
+
             if(timeStr) { 
                 const d = new Date(timeStr); 
                 t.alertTime = d.getTime(); 
@@ -3637,54 +3641,20 @@ window.startMultiAgentResearch = async function() {
             const hasChatFile = appState.chatFile !== null;
             
        // 優先攔截：SOS 緊急求救意圖
-            const sosMatch = text.match(/^(call\s*911|call\s*119|救我|救救我|報警|救命|HELP)/i);
-            if (sosMatch) {
-                triggerSosCountdown();
-                input.value = ''; autoResizeInput(input); chatInitialInput = '';
-                return;
-            }
-
-            const getIntervalMs = (txt) => {
-                const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-                let nTxt = txt.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
-                    if(match === '十') return '10';
-                    if(match.length === 1) return map[match].toString();
-                    if(match.length === 2 && match[0] === '十') return (10 + map[match[1]]).toString();
-                    if(match.length === 2 && match[1] === '十') return (map[match[0]] * 10).toString();
-                    if(match.length === 3) return (map[match[0]] * 10 + map[match[2]]).toString();
-                    return match;
-                });
-                if(nTxt.includes('每天') || nTxt.includes('每日')) return 86400000;
-                if(nTxt.includes('每週') || nTxt.includes('每星期')) return 604800000;
-                if(nTxt.includes('每月') || nTxt.includes('每個月')) return 2592000000;
-                if(nTxt.includes('每年')) return 31536000000;
-                let mH = nTxt.match(/每(\d+)小時?/); if(mH) return parseInt(mH[1]) * 3600000;
-                let mM = nTxt.match(/每(\d+)分/); if(mM) return parseInt(mM[1]) * 60000;
-                return 0;
-            };
-
-            const autoSearchMatch = text.match(/每\s*([一二兩三四五六七八九十\d]+)\s*(分鐘|分|小時|天|日|個月|月|年)\s*幫我(?:搜尋|抓取)(.*)/i);
+            const autoSearchMatch = text.match(/(?:每\s*([一二兩三四五六七八九十\d]*)\s*(分鐘|分|小時|天|日|週|個月|月|年)|(每天|每日|每週|每月|每年))\s*幫我(?:搜尋|抓取)(.*)/i);
             if (autoSearchMatch) {
-                let unit = autoSearchMatch[2];
-                let query = autoSearchMatch[3].trim();
+                let query = (autoSearchMatch[4] || text.split(/幫我(?:搜尋|抓取)/i)[1]).trim();
                 let ms = getIntervalMs(text);
                 
-                const mapZh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-                let numStr = autoSearchMatch[1];
-                let num = parseInt(numStr.replace(/[一二兩三四五六七八九十]+/g, m => {
-                    if(m === '十') return '10';
-                    if(m.length === 1) return mapZh[m].toString();
-                    if(m.length === 2 && m[0] === '十') return (10 + mapZh[m[1]]).toString();
-                    if(m.length === 2 && m[1] === '十') return (mapZh[m[0]] * 10).toString();
-                    if(m.length === 3) return (mapZh[m[0]] * 10 + mapZh[m[2]]).toString();
-                    return m;
-                })) || autoSearchMatch[1];
+                // 防呆：若 getIntervalMs 沒抓到，預設給一天
+                if (ms === 0 && (text.includes('天') || text.includes('日'))) ms = 86400000;
+                
                 const newSearchTask = { 
                     id: Date.now(), 
                     text: `🔄 自動搜尋任務: ${query}`, 
                     done: false, 
-                    time: `每 ${num} ${unit}執行`, 
-                    alertTime: Date.now() + ms, 
+                    time: `詢問中...`, 
+                    alertTime: null, 
                     repeatInterval: ms,
                     alertEnabled: true,
                     alerted: false,
@@ -3693,9 +3663,12 @@ window.startMultiAgentResearch = async function() {
                 };
                 appState.todos.push(newSearchTask);
                 saveToDB('todos', newSearchTask);
+                
+                appState.pendingReminder = newSearchTask.id;
+                appState.reminderStage = 1;
                 renderTodos();
                 
-                addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會每 ${num} ${unit} 自動連網搜尋「${query}」並回報給你。`, 'system');
+                addMessage(`🕵️‍♂️ 收到！將建立排程自動搜尋「${query}」。\n請問這個任務要從「幾點開始」執行？ (例如：今天下午3點)`, 'system');
                 input.value = ''; autoResizeInput(input); chatInitialInput = '';
                 return;
             }
@@ -3791,20 +3764,19 @@ window.startMultiAgentResearch = async function() {
                              const timeInfo = parseTimeNatural(combinedText);
                              
                              if (timeInfo.complete) { 
-                                 todo.time = new Date(timeInfo.timestamp).toLocaleString(); 
-                                 todo.alertTime = timeInfo.timestamp;
-                                 todo.alerted = false; 
-                                 
-                                 let interval = getIntervalMs(combinedText);
-                                 
-                                 // 若句子中已包含「每天/月/年」或明確說「不重複」，則直接設定完成
-                                 if (interval > 0 || combinedText.includes('不重複') || combinedText.includes('單次')) {
-                                     todo.repeatInterval = interval;
-                                     delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; 
-                                     let repeatText = interval > 0 ? ' (並將循環提醒)' : ' (單次提醒)';
-                                     addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');
-                                     speakText(`已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`);
-                                 } else {
+                                     todo.time = new Date(timeInfo.timestamp).toLocaleString();
+                                     todo.alertTime = timeInfo.timestamp;
+                                     todo.alerted = false; 
+                                     
+                                     let interval = getIntervalMs(combinedText);
+                                     // 若已存在 repeatInterval (如自動排程) 或句子包含重複設定
+                                     if (todo.repeatInterval > 0 || interval > 0 || combinedText.includes('不重複') || combinedText.includes('單次')) {
+                                         todo.repeatInterval = interval > 0 ? interval : (todo.repeatInterval || 0);
+                                         delete todo.tempTimeStr; appState.pendingReminder = null; appState.reminderStage = 0; 
+                                         let repeatText = todo.repeatInterval > 0 ? ' (並將循環提醒)' : ' (單次提醒)';
+                                         addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');
+                                         speakText(`已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`);
+                                     } else {
                                      // 如果只給了時間，則進入 Stage 3 反問
                                      todo.tempTimeStr = combinedText; appState.reminderStage = 3;
                                      addMessage(`收到！提醒時間為 ${todo.time}。請問需要每隔多久重複一次嗎？(例如：每天、每 8 小時，或回答「不重複」)`, 'system');
