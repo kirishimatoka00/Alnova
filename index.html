@@ -1428,7 +1428,12 @@
         };
 
         window.toggleSearch = function() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); };
-        window.toggleContext = function() { appState.enableContext = !appState.enableContext; updateModelUI(); showToast(appState.enableContext ? "🧠 已開啟上下文記憶" : "🧠 已關閉上下文記憶 (單次問答)"); };
+        window.toggleDeepDive = function() { 
+            appState.deepDiveMode = !appState.deepDiveMode; 
+            appState.enableContext = appState.deepDiveMode; // 深度模式強制開啟上下文
+            updateModelUI(); 
+            showToast(appState.deepDiveMode ? "🧠 已開啟【AI 深度探究模式】(自主提問與連網深挖)" : "🧠 已關閉深度探究模式 (恢復一問一答)"); 
+        };
         window.setModel = function(val) { appState.currentModel = val; updateModelUI(); };
         window.setGeminiModel = function(val) { appState.geminiModel = val; };
         window.setGrokModel = function(val) { appState.grokModel = val; };
@@ -1569,18 +1574,12 @@
             const numVal = parseInt(document.getElementById('edit-todo-repeat-num').value) || 0;
             const unitVal = parseInt(document.getElementById('edit-todo-repeat-unit').value) || 60000;
             const repeatVal = numVal > 0 ? numVal * unitVal : 0;
-            const t = appState.todos.find(x => String(x.id) === String(id));
+            const t = appState.todos.find(x => String(x.id) === String(id)); 
             if(!t || !text) return;
             
             t.text = text;
-            
-            // 修正：如果此行程是自動搜尋任務，同步更新背後的搜尋關鍵字
-            if (t.isAutoSearch) {
-                t.searchQuery = text.replace('🔄 自動搜尋任務:', '').trim();
-            }
-
             if(timeStr) { 
-                const d = new Date(timeStr);
+                const d = new Date(timeStr); 
                 t.alertTime = d.getTime(); 
                 t.time = d.toLocaleString(); 
                 t.alertEnabled = true;
@@ -2443,14 +2442,16 @@
         
         function updateContextUI() {
             const btn = document.getElementById('context-toggle-btn');
-            if (appState.enableContext) {
-                btn.classList.add('bg-blue-600', 'text-white');
-                btn.classList.remove('bg-slate-800', 'text-slate-400');
-                btn.title = "記憶上下文：開啟 (維持連貫對話)";
+            if (!btn) return;
+            btn.setAttribute('onclick', 'toggleDeepDive()'); // 確保點擊事件綁定正確
+            if (appState.deepDiveMode) {
+                btn.classList.add('bg-purple-600', 'text-white', 'animate-pulse');
+                btn.classList.remove('bg-slate-800', 'text-slate-400', 'bg-blue-600');
+                btn.title = "深度探究模式：開啟 (AI 將自主連網、深挖問題與提問)";
             } else {
-                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.remove('bg-purple-600', 'text-white', 'animate-pulse', 'bg-blue-600');
                 btn.classList.add('bg-slate-800', 'text-slate-400');
-                btn.title = "記憶上下文：關閉 (獨立問答)";
+                btn.title = "深度探究模式：關閉 (一般對話)";
             }
         }
 
@@ -3295,6 +3296,7 @@
 - 台灣高鐵/T-EX行動購票：https://irs.thsrc.com.tw/IMINT/?utm_source=thsrc&utm_medium=btnlink&utm_term=booking
 - 蝦皮購物：shopee://tw 或 https://shopee.tw/
 - 其他各式 APP (如銀行、訂票、社群)：請盡全力判斷並使用其專屬的 Custom Scheme (例如 appname://)；若不確定 Scheme，請輸出該 APP 的官方 HTTPS 網址 (現代手機會透過 Universal Link 自動攔截)。
+⚠️極度重要：如果使用者是要求「搜尋知識、找資料、查天氣、查股價」等詢問資訊的指令（例如「幫我找...」、「幫我搜尋...」），請判斷為一般對話，將 intentFound 設為 false，絕對不要產生網頁搜尋的 Deep Link！只有在明確要開啟某個特定 APP 介面時才設為 true。
 注意：所有中文或特殊符號請務必 URL Encoding。只要判斷是開啟 APP，intentFound 就必須為 true。你必須嚴格遵守 JSON 格式。`;
 
             const schema = {
@@ -3335,6 +3337,37 @@
                 console.error("Deep Link 解析失敗", e);
                 return null;
             }
+        }
+async function checkScheduleIntent(text) {
+            const key = appState.keys.gemini;
+            if(!key) return null;
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    isScheduleSearch: { type: "BOOLEAN", description: "判斷使用者是否要求『每天/每週/定時』進行某個搜尋或追蹤任務" },
+                    query: { type: "STRING", description: "使用者想要搜尋或追蹤的關鍵字/主題" },
+                    intervalMs: { type: "NUMBER", description: "轉換後的重複間隔毫秒數 (如每天=86400000, 沒說時間預設每天=86400000)" },
+                    unit: { type: "STRING", description: "時間單位描述 (如 '天', '小時')" },
+                    num: { type: "NUMBER", description: "數字 (如 1)" },
+                    isSpecificTimeMissing: { type: "BOOLEAN", description: "是否按天循環但『未指定具體幾點』開始 (若為true系統會補問時間)" }
+                },
+                required: ["isScheduleSearch", "query", "intervalMs", "unit", "num", "isSpecificTimeMissing"]
+            };
+            const payload = {
+                systemInstruction: { parts: [{ text: "你是語意分析引擎，專門判斷使用者是否在設定『排程搜尋/自動追蹤』任務。只要語意相近（如每天幫我、幫我每日、定時找...）就視為 true。若只說『幫我找蘋果股價』而沒有『時間頻率』，則是 false。若按天循環但沒說幾點，isSpecificTimeMissing 設為 true。" }] },
+                contents: [{ role: "user", parts: [{ text: text }] }],
+                generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.1 }
+            };
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(data.candidates && data.candidates[0].content.parts[0].text) {
+                    return JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim());
+                }
+                return null;
+            } catch(e) { return null; }
         }
 
 // --- 多 AI 深度研究 Multi-Agent 系統 ---
@@ -3637,77 +3670,35 @@ window.startMultiAgentResearch = async function() {
                 return;
             }
 
-            const getIntervalMs = (txt) => {
-                const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-                let nTxt = txt.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
-                    if(match === '十') return '10';
-                    if(match.length === 1) return map[match].toString();
-                    if(match.length === 2 && match[0] === '十') return (10 + map[match[1]]).toString();
-               
-                    if(match.length === 2 && match[1] === '十') return (map[match[0]] * 10).toString();
-                    if(match.length === 3) return (map[match[0]] * 10 + map[match[2]]).toString();
-                    return match;
-                });
-                if(nTxt.includes('每天') || nTxt.includes('每日')) return 86400000;
-                if(nTxt.includes('每週') || nTxt.includes('每星期')) return 604800000;
-                if(nTxt.includes('每月') || nTxt.includes('每個月')) return 2592000000;
-                if(nTxt.includes('每年')) return 31536000000;
-                let mH = nTxt.match(/每(\d+)小時?/); if(mH) return parseInt(mH[1]) * 3600000;
-                let mM = nTxt.match(/每(\d+)分/); if(mM) return parseInt(mM[1]) * 60000;
-                return 0;
-            };
-
-            // 支援更多語意：每天幫我搜尋、幫我每日搜尋、每1天幫我搜尋 (支援注音ㄧ)
-            const autoSearchMatch = text.match(/(?:(?:幫我)?每\s*([一二兩三四五六七八九十\dㄧ]*)\s*(分鐘|分|小時|天|日|個月|月|年)|(?:幫我)?(?:每天|每日))\s*(?:幫我)?(?:自動)?(?:搜尋|抓取|找)(.*)/i);
-            if (autoSearchMatch) {
-                let numStr = autoSearchMatch[1] || '1';
-                let unit = autoSearchMatch[2] || '天';
-                let query = autoSearchMatch[3].trim();
-                let ms = getIntervalMs(text);
-                if (ms === 0 && (text.includes('每天') || text.includes('每日'))) ms = 86400000;
+            // ====== 將「const getIntervalMs = ...」一直到「return; }」整大段 Regex 邏輯刪除，替換為這段 LLM 判斷 ======
+            // LLM 智慧判斷排程搜尋任務
+            if (appState.keys.gemini && (text.includes('每') || text.includes('定時') || text.includes('循環') || text.includes('追蹤'))) {
+                appState.messages.push({id: Date.now(), text: `🔄 正在分析排程意圖...`, sender: 'system', time: getTime()});
+                renderMessages();
+                const scheduleIntent = await checkScheduleIntent(text);
+                appState.messages.pop(); // 移除系統提示
                 
-                const mapZh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'ㄧ':1};
-                let num = parseInt(numStr.replace(/[一二兩三四五六七八九十ㄧ]+/g, m => {
-                    if(m === '十') return '10';
-                    if(m.length === 1) return mapZh[m].toString();
-                    if(m.length === 2 && m[0] === '十') return (10 + mapZh[m[1]]).toString();
-                    if(m.length === 2 && m[1] === '十') return (mapZh[m[0]] * 10).toString();
-                    if(m.length === 3) return (mapZh[m[0]] * 10 + mapZh[m[2]]).toString();
-                    return m;
-                })) || parseInt(numStr) || 1;
-
-                const timeInfo = parseTimeNatural(text);
-                
-                const newSearchTask = { 
-                    id: Date.now(), 
-                    text: `🔄 自動搜尋任務: ${query}`, 
-                    done: false, 
-                    time: timeInfo.complete ? new Date(timeInfo.timestamp).toLocaleString() : `每 ${num} ${unit}執行`, 
-                    alertTime: timeInfo.complete ? timeInfo.timestamp : Date.now() + ms, 
-                    repeatInterval: ms,
-                    alertEnabled: true,
-                    alerted: false,
-                    isAutoSearch: true,
-                    searchQuery: query
-                };
-                
-                appState.todos.push(newSearchTask);
-                saveToDB('todos', newSearchTask);
-                
-                // 如果是按天循環，且尚未指定具體時間，攔截並提問
-                if (!timeInfo.complete && (unit === '天' || unit === '日' || text.includes('每天') || text.includes('每日'))) {
-                    newSearchTask.tempTimeStr = "每天"; // 巧妙利用暫存欄位，讓下方的邏輯自動帶入「每天」
-                    appState.pendingReminder = newSearchTask.id; 
-                    appState.reminderStage = 2; // 直接進入詢問時間階段
-                    renderTodos();
-                    addMessage(`🕵️‍♂️ 收到！我已建立自動化任務。請問您希望每天的「幾點」為您搜尋「${query}」呢？(例如：早上9點)`, 'system');
-                } else {
-                    renderTodos();
-                    addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會從 ${new Date(newSearchTask.alertTime).toLocaleString()} 起，每 ${num} ${unit} 自動連網搜尋「${query}」並回報給你。`, 'system');
+                if (scheduleIntent && scheduleIntent.isScheduleSearch && scheduleIntent.query) {
+                    const newSearchTask = { 
+                        id: Date.now(), text: `🔄 自動搜尋任務: ${scheduleIntent.query}`, done: false, 
+                        time: `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`, 
+                        alertTime: Date.now() + scheduleIntent.intervalMs, 
+                        repeatInterval: scheduleIntent.intervalMs, alertEnabled: true, alerted: false,
+                        isAutoSearch: true, searchQuery: scheduleIntent.query
+                    };
+                    appState.todos.push(newSearchTask); saveToDB('todos', newSearchTask);
+                    
+                    if (scheduleIntent.isSpecificTimeMissing) {
+                        appState.pendingReminder = newSearchTask.id; appState.reminderStage = 2;
+                        renderTodos();
+                        addMessage(`🕵️‍♂️ 收到！已為您建立「${scheduleIntent.query}」的自動任務。請問您希望每天的「幾點」搜尋呢？(例如: 早上9點)`, 'system');
+                    } else {
+                        renderTodos();
+                        addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會每 ${scheduleIntent.num} ${scheduleIntent.unit} 自動連網搜尋「${scheduleIntent.query}」並回報給你。`, 'system');
+                    }
+                    input.value = ''; autoResizeInput(input); chatInitialInput = '';
+                    return;
                 }
-                
-                input.value = ''; autoResizeInput(input); chatInitialInput = '';
-                return;
             }
             
             if (text.length >= 4 && text.length % 2 === 0) { 
@@ -3851,9 +3842,11 @@ window.startMultiAgentResearch = async function() {
                     return;
                 }
 
-                let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n"; 
-                let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled;
-                
+                let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n";
+                if (appState.deepDiveMode) {
+                    systemPromptAddon = "【深度探究模式開啟】：請完全脫離傳統的被動一問一答機器人模式！你現在是一位極具主動性、具備人類思考邏輯的頂級研究助理與顧問。當使用者提出需求時，你必須：1. 主動連網搜尋各種最新資料來佐證（將自動觸發搜尋工具）。2. 自主考量使用者可能沒想到的進階需求與盲點。3. 以人類對話的自然、熱情語氣，向使用者提出後續的具體建議或反問，引導深入討論。請多運用同理心與引導式提問！\n";
+                }
+                let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode;
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
@@ -3864,7 +3857,7 @@ window.startMultiAgentResearch = async function() {
                     }
                 } 
                 else if (appState.translateMode === 'off') {
-                    const searchMatch = text.match(/^(?:搜尋|search)(.*)$/i);
+                    const searchMatch = text.match(/^(?:幫我找|幫我搜尋|搜尋|search)\s*(.*)$/i);
                     if (searchMatch) {
                         const searchKeyword = searchMatch[1].trim() || "今日新聞"; addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); let searchResultText = "";
                         if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchKeyword); } catch (e) { addMessage(`⚠️ ${e.message}`, 'system'); } }
