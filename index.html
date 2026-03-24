@@ -3647,7 +3647,7 @@ window.startMultiAgentResearch = async function() {
                 let ms = getIntervalMs(text);
                 
                 // 防呆：若 getIntervalMs 沒抓到，預設給一天
-                if (ms === 0 && (text.includes('天') || text.includes('日'))) ms = 86400000;
+                if (ms === 0 && (text.includes('天') || text.includes('日') || text.includes('每天') || text.includes('每日'))) ms = 86400000;
                 
                 const newSearchTask = { 
                     id: Date.now(), 
@@ -3777,6 +3777,13 @@ window.startMultiAgentResearch = async function() {
                                          addMessage(`👌 已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`, 'system');
                                          speakText(`已設定提醒：${todo.text} 於 ${todo.time}${repeatText}`);
                                      } else {
+                                         // 如果只給了時間，則進入 Stage 3 反問
+                                         todo.tempTimeStr = combinedText;
+                                         appState.reminderStage = 3;
+                                         addMessage(`收到！提醒時間為 ${todo.time}。請問需要每隔多久重複一次嗎？(例如：每天、每 8 小時，或回答「不重複」)`, 'system');
+                                         speakText(`請問需要重複嗎？`);
+                                     }
+                                 }
                                      // 如果只給了時間，則進入 Stage 3 反問
                                      todo.tempTimeStr = combinedText; appState.reminderStage = 3;
                                      addMessage(`收到！提醒時間為 ${todo.time}。請問需要每隔多久重複一次嗎？(例如：每天、每 8 小時，或回答「不重複」)`, 'system');
