@@ -37,6 +37,7 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
         .dot-flashing {
             position: relative; width: 6px; height: 6px; border-radius: 5px; background-color: #9880ff; color: #9880ff;
@@ -52,6 +53,7 @@
         .msg-content a { color: #60a5fa; text-decoration: underline; word-break: break-all; cursor: pointer; }
         .msg-content p { margin-bottom: 0.5em; line-height: 1.6; }
         .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         
         .msg-group:hover .msg-actions { opacity: 1; }
         .msg-actions { opacity: 0; transition: opacity 0.2s; }
@@ -101,25 +103,6 @@
                 <button onclick="switchTab('schedule')" id="nav-schedule" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-calendar-check text-xl"></i><span class="font-medium">行程管理</span></button>
                 <button onclick="switchTab('notes')" id="nav-notes" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-notebook text-xl"></i><span class="font-medium">筆記/文件</span></button>
                 <button onclick="switchTab('audio')" id="nav-audio" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-waveform text-xl"></i><span class="font-medium">錄音紀錄</span></button>
-                
-                <div class="mt-4 pt-4 border-t border-slate-800 space-y-2">
-                    <p class="text-[10px] text-slate-500 font-bold px-4 uppercase">System Control</p>
-                    <button onclick="controlComputer('open', 'notepad')" class="flex items-center space-x-3 w-full p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-xs">
-                        <i class="ph ph-note text-lg"></i><span>開啟記事本</span>
-                    </button>
-                    <button onclick="controlComputer('open', 'chrome')" class="flex items-center space-x-3 w-full p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-xs">
-                        <i class="ph ph-browser text-lg"></i><span>開啟 Chrome</span>
-                    </button>
-                </div>
-
-<div class="mt-4 pt-4 border-t border-slate-800 space-y-2">
-    <input type="file" id="upscayl-file" class="hidden" accept="image/*" onchange="startLocalUpscale(this)">
-    <button onclick="document.getElementById('upscayl-file').click()" class="flex items-center space-x-3 w-full p-3 rounded-xl bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all text-xs border border-indigo-500/30">
-        <i class="ph-bold ph-monitor-arrow-up text-lg"></i>
-        <span>Upscayl 本地重構</span>
-    </button>
-</div>
-
             </nav>
             <div class="mt-auto space-y-3">
                 <button onclick="openSettings()" class="flex items-center space-x-2 text-xs text-slate-500 hover:text-slate-300 w-full px-2"><i class="ph ph-gear"></i><span>設定 & 備份</span></button>
@@ -942,6 +925,14 @@
                     try { bgOscillator.stop(); bgOscillator.disconnect(); } catch(e){}
                     bgOscillator = null;
                 }
+                if (bgGainNode) {
+                    try { bgGainNode.disconnect(); } catch(e){}
+                    bgGainNode = null;
+                }
+                if (bgAudioCtx && bgAudioCtx.state !== 'closed') {
+                    try { bgAudioCtx.close(); } catch(e){}
+                    bgAudioCtx = null;
+                }
                 if (keepAliveInterval) {
                     clearInterval(keepAliveInterval);
                     keepAliveInterval = null;
@@ -1012,7 +1003,7 @@
             playingMsgId: null,
             enableContext: false,
             replyLength: localStorage.getItem('nova_reply_length') || 'medium',
-            ttsRate: localStorage.getItem('nova_tts_rate') || 1.0,
+            ttsRate: parseFloat(localStorage.getItem('nova_tts_rate')) || 1.0,
             ttsVoice: localStorage.getItem('nova_tts_voice') || '',
             noteFolders: JSON.parse(localStorage.getItem('nova_folders')) || ['未分類', '工作', '生活'],
             currentNoteFolder: '全部',
@@ -1036,7 +1027,7 @@
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>'); 
            // 放寬解析條件：支援 http, https, sms, tel, mailto 等各種連結協定
             safe = safe.replace(/\[([^\]]+)\]\(([^)\s<]+)\)|(https?:\/\/[^\s<)\]]+)/g, function(match, mdTitle, mdUrl, rawUrl) {
-                let url = mdUrl || rawUrl; url = url.replace(/&/g, "&"); let title = mdTitle || url;
+                let url = mdUrl || rawUrl; url = url.replace(/&amp;/g, "&"); let title = mdTitle || url;
                 return `<a href="${url}" class="text-blue-400 underline break-all">${title}</a>`;
             });
             safe = safe.replace(/___IMG_(\d+)___/g, function(match, id) {
@@ -1205,7 +1196,7 @@
             appState.vadMultiplier = parseFloat(document.getElementById('key-vad-multiplier').value) || 2.0; localStorage.setItem('nova_vad_multiplier', appState.vadMultiplier);
             
             appState.replyLength = document.getElementById('key-reply-length').value; localStorage.setItem('nova_reply_length', appState.replyLength);
-            appState.ttsRate = document.getElementById('key-tts-rate').value; localStorage.setItem('nova_tts_rate', appState.ttsRate);
+            appState.ttsRate = parseFloat(document.getElementById('key-tts-rate').value) || 1.0; localStorage.setItem('nova_tts_rate', appState.ttsRate);
             appState.ttsVoice = document.getElementById('key-tts-voice').value; localStorage.setItem('nova_tts_voice', appState.ttsVoice);
             appState.hideLiveCapture = document.getElementById('key-hide-live-capture').checked; localStorage.setItem('nova_hide_live_capture', appState.hideLiveCapture);
             appState.autoTTS = document.getElementById('key-auto-tts').checked; localStorage.setItem('nova_auto_tts', appState.autoTTS);
@@ -1496,7 +1487,11 @@
             disableBackgroundMode();
             
             if (vadTimerWorker) { vadTimerWorker.postMessage('stop'); }
-            if (vadStream) { try{vadStream.disconnect();}catch(e){} vadStream = null; }
+            if (vadStream) { 
+                try { vadStream.mediaStream && vadStream.mediaStream.getTracks().forEach(t => t.stop()); } catch(e){}
+                try { vadStream.disconnect(); } catch(e){}
+                vadStream = null;
+            }
             if (vadAnalyser) { try{vadAnalyser.disconnect();}catch(e){} vadAnalyser = null; }
             if (vadAudioCtx && vadAudioCtx.state !== 'closed') {
                 try { vadAudioCtx.close().catch(()=>{}); } catch(e){}
@@ -1631,7 +1626,6 @@
             const id = document.getElementById('picker-todo-id').value; const timeStr = document.getElementById('todo-native-picker').value;
             const t = appState.todos.find(x => String(x.id) === String(id)); if(!t) return;
             if(timeStr) { const d = new Date(timeStr); t.alertTime = d.getTime(); t.repeatInterval = parseInt(document.getElementById('todo-repeat-select').value) || 0; t.time = d.toLocaleString(); t.alertEnabled = true; t.alerted = false; } else { t.alertTime = null; t.time = '未設定提醒'; t.alertEnabled = false; }
-// 在 t.alertTime = d.getTime(); 的下方加入：
 
             saveToDB('todos', t); renderTodos(); closeTodoPicker(); showToast("✅ 提醒時間已設定");
         };
@@ -4211,8 +4205,35 @@ window.startMultiAgentResearch = async function() {
                     let ytMatch = plainText.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s\n]+)/);
                     if (ytMatch && ytMatch[1]) {
                         e.preventDefault();
-                        let embedHtml = `<br><div contenteditable="false" style="margin: 10px 0;"><iframe width="100%" height="315" src="https://www.youtube.com/embed/${ytMatch[1]}" frameborder="0" allowfullscreen style="border-radius: 8px;"></iframe></div><br>`;
-                        document.execCommand('insertHTML', false, embedHtml);
+                        const targetEl = document.getElementById(elementId);
+                        if (!targetEl) return;
+                        const wrapper = document.createElement('div');
+                        wrapper.contentEditable = 'false';
+                        wrapper.style.margin = '10px 0';
+                        const iframe = document.createElement('iframe');
+                        iframe.width = '100%'; iframe.height = '315';
+                        iframe.src = `https://www.youtube.com/embed/${ytMatch[1]}`;
+                        iframe.frameBorder = '0'; iframe.allowFullscreen = true;
+                        iframe.style.borderRadius = '8px';
+                        wrapper.appendChild(iframe);
+                        const br1 = document.createElement('br');
+                        const br2 = document.createElement('br');
+                        const sel = window.getSelection();
+                        if (sel && sel.rangeCount > 0 && targetEl.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+                            const range = sel.getRangeAt(0);
+                            range.deleteContents();
+                            range.insertNode(br2);
+                            range.insertNode(wrapper);
+                            range.insertNode(br1);
+                            range.setStartAfter(br2);
+                            range.collapse(true);
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        } else {
+                            targetEl.appendChild(br1);
+                            targetEl.appendChild(wrapper);
+                            targetEl.appendChild(br2);
+                        }
                         return;
                     }
 
@@ -4228,7 +4249,27 @@ window.startMultiAgentResearch = async function() {
                                 e.preventDefault();
                                 const blob = items[i].getAsFile();
                                 const reader = new FileReader();
-                                reader.onload = function(evt) { document.execCommand('insertImage', false, evt.target.result); };
+                                reader.onload = function(evt) {
+                                    const targetEl = document.getElementById(elementId);
+                                    if (!targetEl) return;
+                                    const img = document.createElement('img');
+                                    img.src = evt.target.result;
+                                    img.style.maxWidth = '100%';
+                                    img.style.borderRadius = '0.5rem';
+                                    img.style.margin = '0.5rem 0';
+                                    const sel = window.getSelection();
+                                    if (sel && sel.rangeCount > 0 && targetEl.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+                                        const range = sel.getRangeAt(0);
+                                        range.deleteContents();
+                                        range.insertNode(img);
+                                        range.setStartAfter(img);
+                                        range.collapse(true);
+                                        sel.removeAllRanges();
+                                        sel.addRange(range);
+                                    } else {
+                                        targetEl.appendChild(img);
+                                    }
+                                };
                                 reader.readAsDataURL(blob);
                                 return;
                             }
@@ -4361,7 +4402,7 @@ window.startMultiAgentResearch = async function() {
                     }
 
                     const el = document.getElementById('edit-note-content'); 
-                    if(el) el.innerText += (noteInitialInput + (interimT ? "\n" + interimT : "")).trim();
+                    if(el) el.innerText = (noteInitialInput + (interimT ? "\n" + interimT : "")).trim();
                     
                     if (noteVoiceTimer) clearTimeout(noteVoiceTimer); 
                     noteVoiceTimer = setTimeout(() => { 
@@ -4427,66 +4468,6 @@ const checkReminders = async () => {
                 }
             };
             setInterval(checkReminders, 10000);
-
-// === ✨ 新增：NOVA 電腦控制中繼站通訊函數 ===
-            window.controlComputer = async function(action, target) {
-                const BRIDGE_URL = 'http://localhost:3000/command';
-                try {
-                    const response = await fetch(BRIDGE_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action, target })
-                    });
-                    const result = await response.json();
-                    console.log('NOVA Bridge Success:', result.message);
-                } catch (e) {
-                    alert('❌ 無法控制電腦！請確認你已啟動 node bridge.js');
-                }
-            };
-
-window.startLocalUpscale = async function(input) {
-    if (!input.files || !input.files[0]) return;
-    
-    const file = input.files[0];
-    const reader = new FileReader();
-    
-    // ✅ 這裡已修正為 addMessage [cite: 1748]
-    addMessage('正在將圖檔傳送至本地 GPU 進行 Upscayl 放大，請稍候...', 'system');
-
-    reader.onload = async function(e) {
-        const base64Image = e.target.result;
-        
-        try {
-            const response = await fetch('http://localhost:3000/upscale', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: base64Image })
-            });
-            
-            const result = await response.json();
-            
-            if (result.data) {
-                const imgHtml = `
-                    <div class="space-y-2">
-                        <p class="text-xs text-emerald-400 font-bold">✅ 本地 GPU 重構完成！</p>
-                        <img src="${result.data}" class="rounded-lg max-w-full shadow-lg border border-slate-700">
-                        <a href="${result.data}" download="NOVA_Upscayled.png" class="inline-block text-[10px] bg-emerald-600 text-white px-2 py-1 rounded mt-2">立即下載高清圖檔</a>
-                    </div>
-                `;
-                // ✅ 這裡也修正為 addMessage [cite: 1748]
-                addMessage(imgHtml, 'ai', 'gemini');
-            } else {
-                addMessage('❌ 運算失敗：' + (result.error || '原因不明'), 'system');
-            }
-        } catch (err) {
-            alert('❌ 無法連線至本地 Node.js 伺服器，請確認已執行 node bridge.js');
-        }
-    };
-    reader.readAsDataURL(file);
-};
-
-
-            // 這是原本就在那裡的代碼
 
             window.stopAlarm = function() {
                 document.getElementById('alarm-modal').classList.add('hidden'); document.getElementById('alarm-modal').classList.remove('flex');
