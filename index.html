@@ -3633,20 +3633,51 @@ window.startMultiAgentResearch = async function() {
 
         
         // --- 核心訊息發送與處理邏輯 ---
-        async function handleSendMessage() {
-            if(appState.isThinking) return;
-            
+        if(appState.isThinking) return;
             const input = document.getElementById('user-input'); 
             let text = input.value.trim();
             const hasChatFile = appState.chatFile !== null;
             
-       // 優先攔截：SOS 緊急求救意圖
-            const autoSearchMatch = text.match(/(?:每\s*([一二兩三四五六七八九十\d]*)\s*(分鐘|分|小時|天|日|週|個月|月|年)|(每天|每日|每週|每月|每年))\s*幫我(?:搜尋|抓取)(.*)/i);
+            // 補上 getIntervalMs 函數，解決系統時間單位轉換問題
+            if (typeof window.getIntervalMs !== 'function') {
+                window.getIntervalMs = function(txt) {
+                    let ms = 0;
+                    const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+                    let nTxt = txt.replace(/[一二兩三四五六七八九十]+/g, match => {
+                        if(match === '十') return '10';
+                        if(match.length === 1) return map[match].toString();
+                        if(match.length === 2 && match[0] === '十') return (10 + map[match[1]]).toString();
+                        if(match.length === 2 && match[1] === '十') return (map[match[0]] * 10).toString();
+                        return match;
+                    });
+                    const m = nTxt.match(/每\s*(\d*)\s*(分鐘|分|小時|天|日|週|個月|月|年)/);
+                    if(m) {
+                        const num = parseInt(m[1]) || 1; const unit = m[2];
+                        if(unit==='分鐘'||unit==='分') ms = num*60000;
+                        else if(unit==='小時') ms = num*3600000;
+                        else if(unit==='天'||unit==='日') ms = num*86400000;
+                        else if(unit==='週') ms = num*604800000;
+                        else if(unit==='個月'||unit==='月') ms = num*2592000000;
+                        else if(unit==='年') ms = num*31536000000;
+                    } else if(/(每天|每日|一天)/.test(nTxt)) ms = 86400000;
+                    else if(/每週/.test(nTxt)) ms = 604800000;
+                    else if(/每月/.test(nTxt)) ms = 2592000000;
+                    else if(/每年/.test(nTxt)) ms = 31536000000;
+                    return ms;
+                };
+            }
+
+            // 優先攔截：自動排程搜尋任務 (擴大語意支援，如「每天幫我」、「幫我每日」)
+            const autoSearchMatch = text.match(/(?:(?:每\s*([一二兩三四五六七八九十\d]*)\s*(分鐘|分|小時|天|日|週|個月|月|年)|(每天|每日|每週|每月|每年))\s*幫我(?:搜尋|抓取|找|查)|幫我(?:每\s*([一二兩三四五六七八九十\d]*)\s*(分鐘|分|小時|天|日|週|個月|月|年)|(每天|每日|每週|每月|每年))(?:搜尋|抓取|找|查))(.*)/i);
             if (autoSearchMatch) {
-                let query = (autoSearchMatch[4] || text.split(/幫我(?:搜尋|抓取)/i)[1]).trim();
-                let ms = getIntervalMs(text);
+                // 抓取最後一個非 undefined 的群組作為查詢目標
+                let query = autoSearchMatch[autoSearchMatch.length - 1];
+                if (!query) query = text.split(/(?:搜尋|抓取|找|查)/i).pop();
+                query = query.trim();
                 
-                // 防呆：若 getIntervalMs 沒抓到，預設給一天
+                let ms = window.getIntervalMs(text);
+                
+                // 防呆：若沒抓到數字但語意是一天，預設給 24 小時
                 if (ms === 0 && (text.includes('天') || text.includes('日'))) ms = 86400000;
                 
                 const newSearchTask = { 
@@ -3668,13 +3699,15 @@ window.startMultiAgentResearch = async function() {
                 appState.reminderStage = 1;
                 renderTodos();
                 
+                // 確保強制追問啟動時間
                 addMessage(`🕵️‍♂️ 收到！將建立排程自動搜尋「${query}」。\n請問這個任務要從「幾點開始」執行？ (例如：今天下午3點)`, 'system');
-                input.value = ''; autoResizeInput(input); chatInitialInput = '';
+                input.value = ''; autoResizeInput(input);
+                chatInitialInput = '';
                 return;
             }
             
             if (text.length >= 4 && text.length % 2 === 0) { 
-                const mid = text.length / 2; 
+                const mid = text.length / 2;
                 if (text.substring(0, mid) === text.substring(mid)) text = text.substring(0, mid); 
             }
             
@@ -4383,21 +4416,26 @@ window.startMultiAgentResearch = async function() {
                     }, appState.voiceTimeout * 1000);
                 };
             }
-            tryGetLocation(true); updateModelUI(); 
-
-const checkReminders = async () => {
+            tryGetLocation(true); updateModelUI();
+            const checkReminders = async () => {
                 const now = Date.now();
                 for (let t of appState.todos) {
                     if (t.alertTime && t.alertEnabled !== false && !t.alerted && t.alertTime <= now && !t.done) {
                         
                         // 處理循環時間推進
+            
                         if (t.repeatInterval && t.repeatInterval > 0) {
-                            t.alertTime += t.repeatInterval; 
+                            // 自動推進到未來的時間，避免落後時瘋狂觸發
+                            while (t.alertTime <= now) {
+                                t.alertTime += t.repeatInterval;
+                            }
+                            // ★ 關鍵修復：更新 UI 顯示的時間字串，確保使用者看得到排程已變更
+                            t.time = new Date(t.alertTime).toLocaleString();
                             t.alerted = false; // 保持未提醒狀態以利下次觸發
                         } else {
-                            t.alerted = true; 
+                            t.alerted = true;
                         }
-                        saveToDB('todos', t); 
+                        saveToDB('todos', t);
                         renderTodos();
 
                         // 判斷任務類型：自動搜尋 vs 一般鬧鐘
