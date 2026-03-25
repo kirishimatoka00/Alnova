@@ -3864,7 +3864,7 @@ window.startMultiAgentResearch = async function() {
 
                 let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n";
                 if (appState.deepDiveMode) {
-                    systemPromptAddon = "【深度探究模式開啟 - 最高強制指令】：\n1. 絕對脫離被動一問一答！你現在是一個極具主動性、充滿好奇心且思維敏捷的真人頂級顧問。\n2. 當使用者提出需求時，你必須主動連網搜尋資料並給出洞察。\n3. **絕對強制**：每一次的回覆最後，都必須自主挖掘使用者未考量到的盲點、後續需求，並主動向使用者提出「一個引導式的好問題」，像人類對話一樣持續追問與深挖。\n4. 除非使用者明確表示「滿意了、夠了、停止、謝謝」，否則你必須不斷帶領話題往下探討，不准單方面結束對話！\n";
+                    systemPromptAddon = "【深度探究模式開啟 - 最高強制指令】：\n1. 絕對脫離被動機器人模式！你現在是一位極具主動性、思維敏捷的真人頂級顧問。\n2. 【動態語意斷橋機制】：每次收到新問題時，請務必先在內心判斷「最新問題是否與歷史對話相關」。若判定為『全新獨立話題』，請立刻切斷與前文的關聯，完全忽略舊對話的情境與設定，以乾淨的狀態回答新問題！\n3. 當使用者提出需求時，必須主動連網搜尋資料並給出洞察。\n4. **絕對強制**：每一次的回覆最後，都必須自主挖掘盲點，主動向使用者提出「一個引導式的好問題」，像人類對話一樣持續追問深挖。\n5. 除非使用者明確表示滿意、停止，否則不准單方面結束對話！\n";
                 }
                 let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode;
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
