@@ -4450,7 +4450,35 @@ const checkReminders = async () => {
                 if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
                 if (alarmAudioCtx) { alarmAudioCtx.close(); alarmAudioCtx = null; }
             };
+
+// --- 新增：支援在對話框直接貼上圖片 (Ctrl+V / Cmd+V) ---
+            const chatInputEl = document.getElementById('user-input');
+            if (chatInputEl) {
+                chatInputEl.addEventListener('paste', function(e) {
+                    if (!e.clipboardData || !e.clipboardData.items) return;
+                    
+                    for (let i = 0; i < e.clipboardData.items.length; i++) {
+                        const item = e.clipboardData.items[i];
+                        if (item.type.indexOf('image') !== -1) {
+                            const file = item.getAsFile();
+                            const fileInput = document.getElementById('chat-file-input');
+                            
+                            // 模擬點擊上傳按鈕，把貼上的檔案交給原有的圖片處理系統
+                            if (fileInput && file) {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                fileInput.files = dataTransfer.files;
+                                fileInput.dispatchEvent(new Event('change')); 
+                            }
+                            
+                            e.preventDefault(); // 阻止圖片檔名或亂碼變成純文字貼在輸入框
+                            break;
+                        }
+                    }
+                });
+            }
         };
+
     </script>
 </body>
 </html>
