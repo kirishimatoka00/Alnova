@@ -4464,13 +4464,11 @@ const checkReminders = async () => {
                             const fileInput = document.getElementById('chat-file-input');
                             
                             // 模擬點擊上傳按鈕，把貼上的檔案交給原有的圖片處理系統
-                            if (fileInput && file) {
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-                                fileInput.files = dataTransfer.files;
-                                fileInput.dispatchEvent(new Event('change')); 
+                            if (file) {
+                                // 💡 修正：直接手動呼叫原有處理函式，完美繞過瀏覽器對 <input file> 的安全限制
+                                window.handleChatFileSelect({ target: { files: [file] } });
                             }
-                            
+                      
                             e.preventDefault(); // 阻止圖片檔名或亂碼變成純文字貼在輸入框
                             break;
                         }
