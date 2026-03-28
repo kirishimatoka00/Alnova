@@ -3693,8 +3693,8 @@ window.startMultiAgentResearch = async function() {
                 return;
             }
 
-            // LLM 智慧判斷排程搜尋任務
-            if (appState.keys.gemini && (text.includes('每') || text.includes('定時') || text.includes('循環') || text.includes('追蹤'))) {
+            // LLM 智慧判斷排程搜尋任務 (擴增關鍵字 '排程')
+            if (appState.keys.gemini && (text.includes('每') || text.includes('定時') || text.includes('循環') || text.includes('追蹤') || text.includes('排程'))) {
                 appState.messages.push({id: Date.now(), text: `🔄 正在分析排程意圖...`, sender: 'system', time: getTime()});
                 renderMessages();
                 const scheduleIntent = await checkScheduleIntent(text);
@@ -3702,10 +3702,28 @@ window.startMultiAgentResearch = async function() {
                 renderMessages(); 
                 
                 if (scheduleIntent && (scheduleIntent.isScheduleTask || scheduleIntent.isScheduleSearch) && scheduleIntent.query) {
+                    addMessage(text, 'user'); // 💡 修復 2：確保成功排程時，使用者的原始指令會顯示在對話框中
+                    
+                    let targetAlertTime = Date.now() + scheduleIntent.intervalMs;
+                    let displayTimeStr = `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`;
+                    
+                    // 💡 修復 1：手動攔截語意中的具體時間(例如早上8點)，補足 LLM 沒抓到首發時間的問題
+                    const timeMatch = text.match(/(\d+)(?:點|時)(?:(\d+)(?:分)?)?/);
+                    if (timeMatch) {
+                        const timeInfo = parseTimeNatural(text);
+                        targetAlertTime = timeInfo.timestamp;
+                        // 如果該時間在今天已經過了，則自動順延到明天再首次執行
+                        if (targetAlertTime < Date.now()) {
+                            targetAlertTime += 86400000;
+                        }
+                        displayTimeStr = new Date(targetAlertTime).toLocaleString();
+                        scheduleIntent.isSpecificTimeMissing = false; // 取消補問階段
+                    }
+
                     const newSearchTask = { 
                         id: Date.now(), text: `🔄 自動化任務: ${scheduleIntent.query}`, done: false, 
-                        time: `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`, 
-                        alertTime: Date.now() + scheduleIntent.intervalMs, 
+                        time: displayTimeStr, 
+                        alertTime: targetAlertTime, 
                         repeatInterval: scheduleIntent.intervalMs, alertEnabled: true, alerted: false,
                         isAutoTask: true, taskQuery: scheduleIntent.query
                     };
@@ -3718,7 +3736,7 @@ window.startMultiAgentResearch = async function() {
                         addMessage(`🤖 收到！已為您排程「${scheduleIntent.query}」的自動任務。請問您希望每天的「幾點」執行呢？(例如: 早上8點)`, 'system');
                     } else {
                         renderTodos();
-                        addMessage(`🤖 收到！我已經建立排程任務，將會每 ${scheduleIntent.num} ${scheduleIntent.unit} 自動為您執行「${scheduleIntent.query}」。`, 'system');
+                        addMessage(`🤖 收到！我已經建立排程任務，將會從 ${new Date(targetAlertTime).toLocaleString()} 起，每 ${scheduleIntent.num} ${scheduleIntent.unit} 自動為您執行「${scheduleIntent.query}」。`, 'system');
                     }
                     input.value = '';
                     autoResizeInput(input); chatInitialInput = '';
