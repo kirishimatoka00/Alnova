@@ -86,26 +86,53 @@
 
     <div class="flex h-[100dvh] w-full relative">
         <!-- ================= 左側邊欄 ================= -->
-        <aside class="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-6 flex-shrink-0 z-10">
-            <div class="flex items-center space-x-3 mb-10 px-2">
-                <div class="w-10 h-10 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                    <i class="ph-bold ph-infinity text-white text-xl"></i>
+        <aside class="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-4 flex-shrink-0 z-10 overflow-hidden relative">
+            <div class="flex items-center space-x-3 mb-6 px-2 shrink-0">
+                <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i class="ph-bold ph-infinity text-white text-lg"></i>
                 </div>
-                <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 120</h1>
-                    <p class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">SSP EDITION</p>
+                <div class="overflow-hidden">
+                    <h1 class="text-lg font-bold text-white tracking-wide truncate">NOVA 120</h1>
                 </div>
             </div>
-            <nav class="flex-1 space-y-2">
-                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all"><i class="ph ph-chats-circle text-xl"></i><span class="font-medium">助理對話</span></button>
-                <button onclick="switchTab('schedule')" id="nav-schedule" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-calendar-check text-xl"></i><span class="font-medium">行程管理</span></button>
-                <button onclick="switchTab('notes')" id="nav-notes" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-notebook text-xl"></i><span class="font-medium">筆記/文件</span></button>
-                <button onclick="switchTab('audio')" id="nav-audio" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-waveform text-xl"></i><span class="font-medium">錄音紀錄</span></button>
-            </nav>
-            <div class="mt-auto space-y-3">
-                <button onclick="openSettings()" class="flex items-center space-x-2 text-xs text-slate-500 hover:text-slate-300 w-full px-2"><i class="ph ph-gear"></i><span>設定 & 備份</span></button>
-                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-                    <div class="flex items-center space-x-2"><i id="status-icon" class="ph-fill ph-globe text-blue-400 text-lg"></i><span id="status-name" class="font-bold text-sm">Gemini</span></div>
+            
+            <button onclick="createNewChat()" class="flex items-center space-x-2 w-full p-3 mb-4 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shrink-0 shadow-sm">
+                <i class="ph-bold ph-plus text-lg"></i>
+                <span class="font-medium text-sm">新增對話</span>
+            </button>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-1">
+                <div>
+                    <button onclick="toggleSidebarSection('history-section', 'history-icon')" class="flex items-center justify-between w-full p-2 text-slate-400 hover:text-white transition-colors group">
+                        <span class="text-xs font-bold tracking-wider">最近的對話</span>
+                        <i id="history-icon" class="ph-bold ph-caret-down transition-transform group-hover:text-white"></i>
+                    </button>
+                    <div id="history-section" class="space-y-1 mt-1">
+                        <div id="chat-history-list" class="text-sm text-slate-300">
+                            </div>
+                    </div>
+                </div>
+
+                <div>
+                    <button onclick="toggleSidebarSection('tools-section', 'tools-icon')" class="flex items-center justify-between w-full p-2 text-slate-400 hover:text-white transition-colors group">
+                        <span class="text-xs font-bold tracking-wider">工具與紀錄</span>
+                        <i id="tools-icon" class="ph-bold ph-caret-down transition-transform group-hover:text-white"></i>
+                    </button>
+                    <nav id="tools-section" class="space-y-1 mt-1">
+                        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="flex items-center space-x-3 w-full p-2 rounded-lg bg-slate-800 text-blue-400 transition-all text-sm"><i class="ph-fill ph-chats-circle text-lg"></i><span>助理對話</span></button>
+                        <button onclick="switchTab('schedule')" id="nav-schedule" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
+                        <button onclick="switchTab('notes')" id="nav-notes" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
+                        <button onclick="switchTab('audio')" id="nav-audio" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
+                    </nav>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-slate-800 shrink-0 space-y-3">
+                <button onclick="openSettings()" class="flex items-center space-x-3 text-sm text-slate-400 hover:text-white w-full p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                    <i class="ph-bold ph-gear text-lg"></i><span>設定 & 備份</span>
+                </button>
+                <div class="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+                    <div class="flex items-center space-x-2"><i id="status-icon" class="ph-fill ph-globe text-blue-400 text-base"></i><span id="status-name" class="font-bold text-xs">Gemini</span></div>
                     <p id="model-version-display" class="text-[10px] text-slate-500 mt-1">Ready</p>
                 </div>
             </div>
@@ -969,8 +996,10 @@
         const appState = {
             currentModel: 'gemini', grokModel: 'grok-multi', geminiModel: 'gemini-multi',
             chatFile: null, currentDeviceId: null,
-            docMonitorUrl: localStorage.getItem('nova_doc_url') || '', driveUrl: localStorage.getItem('nova_drive_url') || '',
+            docMonitorUrl: localStorage.getItem('nova_doc_url') || 
+'', driveUrl: localStorage.getItem('nova_drive_url') || '',
             messages: [], notes: [], todos: [], audioRecords: [], 
+            currentSessionId: localStorage.getItem('nova_current_session') || Date.now().toString(),
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
             keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'', aws_ak: localStorage.getItem('nova_key_aws_ak')||'', aws_sk: localStorage.getItem('nova_key_aws_sk')||'', aws_region: localStorage.getItem('nova_key_aws_region')||'ap-northeast-1' },
             isThinking: false, isListening: false, isNoteListening: false, noteVoiceActive: false, isSearchEnabled: false, isContinuous: false, manualLocIndex: 0,
@@ -1060,10 +1089,10 @@
                 if(el) {
                     if(id === tabId) {
                         el.classList.remove('hidden'); el.classList.add('flex');
-                        if(nav) { nav.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); nav.classList.remove('text-slate-400', 'hover:bg-slate-800'); }
+                        if(nav) { nav.classList.add('bg-slate-800', 'text-blue-400'); nav.classList.remove('text-slate-400', 'hover:bg-slate-800', 'bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); }
                     } else {
                         el.classList.add('hidden'); el.classList.remove('flex');
-                        if(nav) { nav.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); nav.classList.add('text-slate-400', 'hover:bg-slate-800'); }
+                        if(nav) { nav.classList.remove('bg-slate-800', 'text-blue-400', 'bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); nav.classList.add('text-slate-400', 'hover:bg-slate-800'); }
                     }
                 }
             });
@@ -1075,8 +1104,52 @@
             if(menu) menu.classList.toggle('hidden');
         };
 
+        // --- 新增：Gemini 風格對話與側邊欄管理 ---
+        window.toggleSidebarSection = function(sectionId, iconId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(iconId);
+            if (section.classList.contains('hidden')) {
+                section.classList.remove('hidden');
+                icon.classList.remove('-rotate-90');
+            } else {
+                section.classList.add('hidden');
+                icon.classList.add('-rotate-90');
+            }
+        };
+
+        window.createNewChat = function() {
+            appState.currentSessionId = Date.now().toString();
+            localStorage.setItem('nova_current_session', appState.currentSessionId);
+            renderMessages();
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+            switchTab('dashboard');
+        };
+
+        window.loadChatSession = function(sessionId) {
+            appState.currentSessionId = String(sessionId);
+            localStorage.setItem('nova_current_session', appState.currentSessionId);
+            renderMessages();
+            switchTab('dashboard');
+            const menu = document.getElementById('mobile-menu');
+            if(menu && !menu.classList.contains('hidden')) toggleMobileMenu();
+        };
+
+        window.deleteChatSession = function(sessionId, e) {
+            e.stopPropagation();
+            if(!confirm('確定要刪除這筆對話紀錄嗎？')) return;
+            const msgsToDelete = appState.messages.filter(m => String(m.sessionId) === String(sessionId) || (!m.sessionId && sessionId === 'legacy'));
+            msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
+            appState.messages = appState.messages.filter(m => String(m.sessionId) !== String(sessionId) && !(!m.sessionId && sessionId === 'legacy'));
+            
+            if (String(appState.currentSessionId) === String(sessionId) || (!appState.currentSessionId && sessionId === 'legacy')) {
+                appState.currentSessionId = Date.now().toString();
+                localStorage.setItem('nova_current_session', appState.currentSessionId);
+            }
+            renderMessages();
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+        };
+
         window.openSettings = function() { document.getElementById('settings-modal').classList.remove('hidden'); };
-        window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
         
         // --- 雙 AI 協作介面 (Dual AI UI) ---
         window.openDualAIModal = function() {
@@ -1356,12 +1429,24 @@
         }
 
         window.addMessage = function(text, sender, model = null, sources = [], file = null, actionData = null) {
-            const msg = { id: Date.now(), text, sender, model: model || appState.currentModel, time: getTime(), sources, file, actionData };
-            appState.messages.push(msg); saveToDB('messages', msg); renderMessages();
+            if (!appState.currentSessionId) {
+                appState.currentSessionId = Date.now().toString();
+                localStorage.setItem('nova_current_session', appState.currentSessionId);
+            }
+            const msg = { id: Date.now(), sessionId: appState.currentSessionId, text, sender, model: model ||
+appState.currentModel, time: getTime(), sources, file, actionData };
+            appState.messages.push(msg); saveToDB('messages', msg); 
+            renderMessages();
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
         };
-
-        window.clearChatHistory = function() {
-            if(confirm('確定要清空所有對話紀錄嗎？')) { appState.messages = []; clearStoreDB('messages'); renderMessages(); }
+window.clearChatHistory = function() {
+            if(confirm('確定要清空當前對話紀錄嗎？')) { 
+                const msgsToDelete = appState.messages.filter(m => String(m.sessionId) === String(appState.currentSessionId) || (!m.sessionId && !appState.currentSessionId));
+                msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
+                appState.messages = appState.messages.filter(m => String(m.sessionId) !== String(appState.currentSessionId) && !(!m.sessionId && !appState.currentSessionId));
+                renderMessages(); 
+                if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+            }
         };
 
         window.favoriteMessage = function(id) {
@@ -2152,12 +2237,20 @@
             }
         };
 
-        function renderAll() { renderMessages(); renderTodos(); renderFolderTabs(); renderNotes(); renderAudioRecords(); renderWeather(); }
+        function renderAll() { renderMessages(); renderTodos(); renderFolderTabs(); renderNotes(); renderAudioRecords(); renderWeather(); if(typeof renderChatHistoryList === 'function') renderChatHistoryList(); }
         
         // --- UI 渲染功能 (訊息) ---
         function renderMessages() { 
             const container = document.getElementById('chat-container'); if(!container) return;
-            container.innerHTML = appState.messages.map(msg => { 
+            
+            const sessionMsgs = appState.messages.filter(m => String(m.sessionId) === String(appState.currentSessionId) || (!m.sessionId && (!appState.currentSessionId || appState.currentSessionId === 'legacy')));
+            
+            if (sessionMsgs.length === 0) {
+                container.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-slate-500 opacity-50 space-y-4 pt-20"><i class="ph-thin ph-chats-circle text-6xl"></i><p>今天想聊些什麼呢？</p></div>`;
+                return;
+            }
+
+            container.innerHTML = sessionMsgs.map(msg => { 
                 
                 let displayMediaHTML = true;
                 if (appState.hideLiveCapture && msg.file && msg.file.name === 'Live_Capture.jpg') {
@@ -2236,8 +2329,50 @@
                         </div>
                     </div></div>`; 
             }).join(''); 
-            container.scrollTop = container.scrollHeight; 
+            container.scrollTop = container.scrollHeight;
         }
+
+        window.renderChatHistoryList = function() {
+            const listEl = document.getElementById('chat-history-list');
+            if (!listEl) return;
+            
+            const groups = {};
+            appState.messages.forEach(m => {
+                const sid = m.sessionId || 'legacy';
+                if (!groups[sid]) groups[sid] = [];
+                groups[sid].push(m);
+            });
+            
+            const sessionIds = Object.keys(groups).sort((a,b) => {
+                if (a === 'legacy') return 1;
+                if (b === 'legacy') return -1;
+                return Number(b) - Number(a); 
+            });
+            
+            if (sessionIds.length === 0) {
+                listEl.innerHTML = '<p class="text-xs text-slate-600 px-2 py-1">尚無歷史對話</p>';
+                return;
+            }
+            
+            listEl.innerHTML = sessionIds.map(sid => {
+                const msgs = groups[sid];
+                const firstUserMsg = msgs.find(m => m.sender === 'user');
+                let title = firstUserMsg ? firstUserMsg.text.substring(0, 15) : (sid === 'legacy' ? '舊對話紀錄' : '新對話');
+                if(firstUserMsg && firstUserMsg.text.length >= 15) title += '...';
+                
+                const isActive = String(appState.currentSessionId) === String(sid);
+                
+                return `
+                <div class="group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors mb-1 ${isActive ? 'bg-slate-800 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}" onclick="loadChatSession('${sid}')">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <i class="ph-bold ph-chat-circle text-base shrink-0"></i>
+                        <span class="text-xs truncate font-medium">${escapeHtml(title)}</span>
+                    </div>
+                    <button onclick="deleteChatSession('${sid}', event)" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 shrink-0 transition-opacity"><i class="ph-bold ph-trash"></i></button>
+                </div>
+                `;
+            }).join('');
+        };
 
         function renderThinkingState(show) { 
             const el = document.getElementById('thinking-indicator'); const container = document.getElementById('chat-container');
