@@ -1578,8 +1578,11 @@
             if(!t || !text) return;
             
             t.text = text;
+            if (t.isAutoSearch) t.searchQuery = text.replace('🔄 自動搜尋任務:', '').trim();
+            if (t.isAutoTask) t.taskQuery = text.replace('🔄 自動化任務:', '').trim();
+
             if(timeStr) { 
-                const d = new Date(timeStr); 
+                const d = new Date(timeStr);
                 t.alertTime = d.getTime(); 
                 t.time = d.toLocaleString(); 
                 t.alertEnabled = true;
@@ -3344,17 +3347,17 @@ async function checkScheduleIntent(text) {
             const schema = {
                 type: "OBJECT",
                 properties: {
-                    isScheduleSearch: { type: "BOOLEAN", description: "判斷使用者是否要求『每天/每週/定時』進行某個搜尋或追蹤任務" },
-                    query: { type: "STRING", description: "使用者想要搜尋或追蹤的關鍵字/主題" },
+                    isScheduleTask: { type: "BOOLEAN", description: "判斷使用者是否要求『每天/每週/定時』進行某個任務(如搜尋、畫圖、寫文章等)" },
+                    query: { type: "STRING", description: "使用者想要執行的具體指令內容(如:生成風景圖、找蘋果股價)" },
                     intervalMs: { type: "NUMBER", description: "轉換後的重複間隔毫秒數 (如每天=86400000, 沒說時間預設每天=86400000)" },
                     unit: { type: "STRING", description: "時間單位描述 (如 '天', '小時')" },
                     num: { type: "NUMBER", description: "數字 (如 1)" },
                     isSpecificTimeMissing: { type: "BOOLEAN", description: "是否按天循環但『未指定具體幾點』開始 (若為true系統會補問時間)" }
                 },
-                required: ["isScheduleSearch", "query", "intervalMs", "unit", "num", "isSpecificTimeMissing"]
+                required: ["isScheduleTask", "query", "intervalMs", "unit", "num", "isSpecificTimeMissing"]
             };
             const payload = {
-                systemInstruction: { parts: [{ text: "你是語意分析引擎，專門判斷使用者是否在設定『排程搜尋/自動追蹤』任務。只要語意相近（如每天幫我、幫我每日、定時找...）就視為 true。若只說『幫我找蘋果股價』而沒有『時間頻率』，則是 false。若按天循環但沒說幾點，isSpecificTimeMissing 設為 true。" }] },
+                systemInstruction: { parts: [{ text: "你是語意分析引擎，專門判斷使用者是否在設定『排程/自動/循環』任務。只要語意包含時間頻率（如每天幫我、定時畫圖、每週寫報告...）就視為 true。若沒有『時間頻率』則是 false。若按天循環但沒說幾點，isSpecificTimeMissing 設為 true。" }] },
                 contents: [{ role: "user", parts: [{ text: text }] }],
                 generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.1 }
             };
@@ -3696,27 +3699,29 @@ window.startMultiAgentResearch = async function() {
                 renderMessages();
                 const scheduleIntent = await checkScheduleIntent(text);
                 appState.messages.pop(); // 移除系統提示
-                renderMessages(); // 🌟【修復 UI Bug】：確保移除提示後刷新畫面，否則 loading 會卡住
+                renderMessages(); 
                 
-                if (scheduleIntent && scheduleIntent.isScheduleSearch && scheduleIntent.query) {
+                if (scheduleIntent && (scheduleIntent.isScheduleTask || scheduleIntent.isScheduleSearch) && scheduleIntent.query) {
                     const newSearchTask = { 
-                        id: Date.now(), text: `🔄 自動搜尋任務: ${scheduleIntent.query}`, done: false, 
+                        id: Date.now(), text: `🔄 自動化任務: ${scheduleIntent.query}`, done: false, 
                         time: `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`, 
                         alertTime: Date.now() + scheduleIntent.intervalMs, 
                         repeatInterval: scheduleIntent.intervalMs, alertEnabled: true, alerted: false,
-                        isAutoSearch: true, searchQuery: scheduleIntent.query
+                        isAutoTask: true, taskQuery: scheduleIntent.query
                     };
                     appState.todos.push(newSearchTask); saveToDB('todos', newSearchTask);
                     
                     if (scheduleIntent.isSpecificTimeMissing) {
-                        appState.pendingReminder = newSearchTask.id; appState.reminderStage = 2;
+                        appState.pendingReminder = newSearchTask.id;
+                        appState.reminderStage = 2;
                         renderTodos();
-                        addMessage(`🕵️‍♂️ 收到！已為您建立「${scheduleIntent.query}」的自動任務。請問您希望每天的「幾點」搜尋呢？(例如: 早上9點)`, 'system');
+                        addMessage(`🤖 收到！已為您排程「${scheduleIntent.query}」的自動任務。請問您希望每天的「幾點」執行呢？(例如: 早上8點)`, 'system');
                     } else {
                         renderTodos();
-                        addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會每 ${scheduleIntent.num} ${scheduleIntent.unit} 自動連網搜尋「${scheduleIntent.query}」並回報給你。`, 'system');
+                        addMessage(`🤖 收到！我已經建立排程任務，將會每 ${scheduleIntent.num} ${scheduleIntent.unit} 自動為您執行「${scheduleIntent.query}」。`, 'system');
                     }
-                    input.value = ''; autoResizeInput(input); chatInitialInput = '';
+                    input.value = '';
+                    autoResizeInput(input); chatInitialInput = '';
                     return;
                 }
             }
@@ -4404,23 +4409,29 @@ const checkReminders = async () => {
                         saveToDB('todos', t); 
                         renderTodos();
 
-                        // 判斷任務類型：自動搜尋 vs 一般鬧鐘
-                        if (t.isAutoSearch && t.searchQuery) {
-                            addMessage(`🔄 [排程搜尋觸發] 正在為您搜尋最新資訊：${t.searchQuery}...`, 'system');
+                        // 判斷任務類型：自動化任務 vs 一般鬧鐘
+                        if ((t.isAutoTask && t.taskQuery) || (t.isAutoSearch && t.searchQuery)) {
+                            const query = t.taskQuery || t.searchQuery;
+                            addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}...`, 'system');
                             try {
-                                let prompt = `請連網搜尋最新資訊：「${t.searchQuery}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
-                                // 強制開啟 enableSearch: true 交給支援連網的模型去處理
-                                let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: true });
+                                const isImageIntent = /^(畫|生成|產生|draw|generate)\s*(一張|一個|圖片|照片|圖|image|photo)/i.test(query.trim());
+                                let prompt = query;
+                                // 針對舊版資料相容，或者純文字找資料意圖強化搜尋提示
+                                if (!isImageIntent && t.isAutoSearch) {
+                                    prompt = `請連網搜尋最新資訊：「${query}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
+                                }
+                                
+                                let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: !isImageIntent });
                                 let finalOutputText = typeof res === 'string' ? res : (res.text || "(無文字)");
                                 
                                 if (finalOutputText && finalOutputText !== "(無文字)") {
-                                    addMessage(`📊 **排程搜尋報告 [${t.searchQuery}]**\n\n${finalOutputText}`, 'ai', appState.currentModel);
-                                    if(appState.autoTTS) speakText(`排程搜尋報告出爐：${t.searchQuery}`);
+                                    addMessage(`📊 **排程任務結果 [${query}]**\n\n${finalOutputText}`, 'ai', appState.currentModel, res.sources || [], res.file || null);
+                                    if(appState.autoTTS) speakText(`排程任務執行完畢：${query}`);
                                 } else {
-                                    addMessage(`⚠️ 排程搜尋 [${t.searchQuery}] 失敗：無法取得有效回覆。`, 'system');
+                                    addMessage(`⚠️ 排程任務 [${query}] 失敗：無法取得有效回覆。`, 'system');
                                 }
                             } catch (e) {
-                                addMessage(`⚠️ 排程搜尋異常：${e.message}`, 'system');
+                                addMessage(`⚠️ 排程任務異常：${e.message}`, 'system');
                             }
                         } else {
                             // 原有的一般鬧鐘彈窗與音效邏輯
