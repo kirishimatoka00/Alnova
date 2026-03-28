@@ -153,13 +153,45 @@
             </div>
 
             <!-- 手機版全螢幕彈出選單 -->
-            <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-40 bg-slate-950/95 pt-20 px-6 backdrop-blur-md">
-                <nav class="space-y-4">
-                    <button onclick="switchTab('dashboard'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl bg-slate-800 text-white"><i class="ph ph-chats-circle text-xl"></i><span>助理對話</span></button>
-                    <button onclick="switchTab('schedule'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-calendar-check text-xl"></i><span>行程管理</span></button>
-                    <button onclick="switchTab('notes'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-notebook text-xl"></i><span>筆記/文件</span></button>
-                    <button onclick="switchTab('audio'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-waveform text-xl"></i><span>錄音紀錄</span></button>
-                </nav>
+            <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-md flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center"><i class="ph-bold ph-infinity text-white"></i></div>
+                        <span class="text-lg font-bold text-white">NOVA 120</span>
+                    </div>
+                    <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-2xl"></i></button>
+                </div>
+                
+                <div class="p-4 shrink-0">
+                    <button onclick="createNewChat(); toggleMobileMenu();" class="flex items-center justify-center space-x-2 w-full p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shadow-sm">
+                        <i class="ph-bold ph-plus text-lg"></i>
+                        <span class="font-medium text-sm">新增對話</span>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">最近的對話</h3>
+                        <div id="mobile-chat-history-list" class="space-y-1 text-sm text-slate-300">
+                            </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">工具與紀錄</h3>
+                        <nav class="space-y-1">
+                            <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg bg-slate-800 text-blue-400 transition-all text-sm"><i class="ph-fill ph-chats-circle text-lg"></i><span>助理對話</span></button>
+                            <button onclick="switchTab('schedule'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
+                            <button onclick="switchTab('notes'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
+                            <button onclick="switchTab('audio'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
+                        </nav>
+                    </div>
+                </div>
+                
+                <div class="p-4 border-t border-slate-800 shrink-0">
+                    <button onclick="openSettings(); toggleMobileMenu();" class="flex items-center space-x-3 text-sm text-slate-400 hover:text-white w-full p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                        <i class="ph-bold ph-gear text-lg"></i><span>設定 & 備份</span>
+                    </button>
+                </div>
             </div>
 
             <!-- ================= 設定彈窗 (Settings Modal) ================= -->
@@ -1150,6 +1182,7 @@
         };
 
         window.openSettings = function() { document.getElementById('settings-modal').classList.remove('hidden'); };
+        window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
         
         // --- 雙 AI 協作介面 (Dual AI UI) ---
         window.openDualAIModal = function() {
@@ -1286,7 +1319,8 @@
                 messages: appState.messages,
                 notes: appState.notes,
                 todos: appState.todos,
-                audioRecords: appState.audioRecords
+                audioRecords: appState.audioRecords,
+                currentSessionId: appState.currentSessionId
             };
             
             const data = JSON.stringify(fullBackupData);
@@ -1349,6 +1383,14 @@
                     await restoreDB('notes', data.notes);
                     await restoreDB('todos', data.todos);
                     await restoreDB('audioRecords', data.audioRecords);
+
+                    if(data.currentSessionId) {
+                        appState.currentSessionId = data.currentSessionId;
+                        localStorage.setItem('nova_current_session', appState.currentSessionId);
+                    } else if (appState.messages.length > 0 && appState.messages[appState.messages.length - 1].sessionId) {
+                        appState.currentSessionId = appState.messages[appState.messages.length - 1].sessionId;
+                        localStorage.setItem('nova_current_session', appState.currentSessionId);
+                    }
 
                     // 4. 重新渲染畫面與 UI
                     renderAll();
@@ -2334,7 +2376,8 @@ window.clearChatHistory = function() {
 
         window.renderChatHistoryList = function() {
             const listEl = document.getElementById('chat-history-list');
-            if (!listEl) return;
+            const mobileListEl = document.getElementById('mobile-chat-history-list');
+            if (!listEl && !mobileListEl) return;
             
             const groups = {};
             appState.messages.forEach(m => {
@@ -2349,12 +2392,14 @@ window.clearChatHistory = function() {
                 return Number(b) - Number(a); 
             });
             
+            const emptyHtml = '<p class="text-xs text-slate-600 px-2 py-1">尚無歷史對話</p>';
             if (sessionIds.length === 0) {
-                listEl.innerHTML = '<p class="text-xs text-slate-600 px-2 py-1">尚無歷史對話</p>';
+                if (listEl) listEl.innerHTML = emptyHtml;
+                if (mobileListEl) mobileListEl.innerHTML = emptyHtml;
                 return;
             }
             
-            listEl.innerHTML = sessionIds.map(sid => {
+            const html = sessionIds.map(sid => {
                 const msgs = groups[sid];
                 const firstUserMsg = msgs.find(m => m.sender === 'user');
                 let title = firstUserMsg ? firstUserMsg.text.substring(0, 15) : (sid === 'legacy' ? '舊對話紀錄' : '新對話');
@@ -2372,6 +2417,9 @@ window.clearChatHistory = function() {
                 </div>
                 `;
             }).join('');
+            
+            if (listEl) listEl.innerHTML = html;
+            if (mobileListEl) mobileListEl.innerHTML = html;
         };
 
         function renderThinkingState(show) { 
