@@ -3347,17 +3347,20 @@ async function checkScheduleIntent(text) {
             const schema = {
                 type: "OBJECT",
                 properties: {
-                    isScheduleTask: { type: "BOOLEAN", description: "判斷使用者是否要求『每天/每週/定時』進行某個任務(如搜尋、畫圖、寫文章等)" },
-                    query: { type: "STRING", description: "使用者想要執行的具體指令內容(如:生成風景圖、找蘋果股價)" },
-                    intervalMs: { type: "NUMBER", description: "轉換後的重複間隔毫秒數 (如每天=86400000, 沒說時間預設每天=86400000)" },
-                    unit: { type: "STRING", description: "時間單位描述 (如 '天', '小時')" },
+                    isScheduleTask: { type: "BOOLEAN", description: "判斷使用者是否要求建立自動任務(包含『每天定時』或『單次指定時間』如:四點36分幫我畫圖)" },
+                    isOneTimeTask: { type: "BOOLEAN", description: "是否為單次任務(如:只說『四點36分幫我畫圖』沒說『每天』)。若是則為 true" },
+                    query: { type: "STRING", description: "使用者想要執行的具體指令內容(如:生成風景圖片、找股價)" },
+                    intervalMs: { type: "NUMBER", description: "重複間隔毫秒數 (單次任務則為 0)" },
+                    unit: { type: "STRING", description: "時間單位描述 (如 '天', '小時', 單次任務為 '次')" },
                     num: { type: "NUMBER", description: "數字 (如 1)" },
-                    isSpecificTimeMissing: { type: "BOOLEAN", description: "是否按天循環但『未指定具體幾點』開始 (若為true系統會補問時間)" }
+                    isSpecificTimeMissing: { type: "BOOLEAN", description: "是否為循環任務但『未指定具體幾點』開始 (若為true系統會補問時間)" },
+                    targetHour: { type: "NUMBER", description: "指定的具體『小時』(24小時制，如下午4點為 16)。若沒提具體幾點則為 -1" },
+                    targetMinute: { type: "NUMBER", description: "指定的具體『分鐘』。若沒提則為 0，只說幾點半則為 30，完全沒時間則為 -1" }
                 },
-                required: ["isScheduleTask", "query", "intervalMs", "unit", "num", "isSpecificTimeMissing"]
+                required: ["isScheduleTask", "isOneTimeTask", "query", "intervalMs", "unit", "num", "isSpecificTimeMissing", "targetHour", "targetMinute"]
             };
             const payload = {
-                systemInstruction: { parts: [{ text: "你是語意分析引擎，專門判斷使用者是否在設定『排程/自動/循環』任務。只要語意包含時間頻率（如每天幫我、定時畫圖、每週寫報告...）就視為 true。若沒有『時間頻率』則是 false。若按天循環但沒說幾點，isSpecificTimeMissing 設為 true。" }] },
+                systemInstruction: { parts: [{ text: "你是語意分析引擎，判斷使用者是否設定『自動任務』。只要語意包含『每天/每週定時』或『指定時間點』(如下午四點36分)，就視為 true。將時間精準轉換為24小時制的 targetHour 與 targetMinute (例如:下午四點36分為 16與36)。若沒提具體時間則為 -1。如果沒有說『每』，只是單純『明天/今天/幾點幾分幫我...』，請將 isOneTimeTask 設為 true，intervalMs 設為 0。" }] },
                 contents: [{ role: "user", parts: [{ text: text }] }],
                 generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.1 }
             };
@@ -3693,54 +3696,70 @@ window.startMultiAgentResearch = async function() {
                 return;
             }
 
-            // LLM 智慧判斷排程搜尋任務 (擴增關鍵字 '排程')
-            if (appState.keys.gemini && (text.includes('每') || text.includes('定時') || text.includes('循環') || text.includes('追蹤') || text.includes('排程'))) {
-                appState.messages.push({id: Date.now(), text: `🔄 正在分析排程意圖...`, sender: 'system', time: getTime()});
+            // LLM 智慧判斷排程或單次定時任務 (擴大觸發條件包含「點/分」等時間關鍵字)
+            const scheduleTrigger = text.includes('每') || text.includes('定時') || text.includes('循環') || text.includes('排程') || /(?:點|時|分).*?(?:幫|請|替|自動|生成|畫|找|搜尋|做)/.test(text);
+            
+            if (appState.keys.gemini && scheduleTrigger) {
+                appState.messages.push({id: Date.now(), text: `🔄 正在分析任務設定...`, sender: 'system', time: getTime()});
                 renderMessages();
                 const scheduleIntent = await checkScheduleIntent(text);
                 appState.messages.pop(); // 移除系統提示
                 renderMessages(); 
                 
                 if (scheduleIntent && (scheduleIntent.isScheduleTask || scheduleIntent.isScheduleSearch) && scheduleIntent.query) {
-                    addMessage(text, 'user'); // 💡 修復 2：確保成功排程時，使用者的原始指令會顯示在對話框中
                     
-                    let targetAlertTime = Date.now() + scheduleIntent.intervalMs;
-                    let displayTimeStr = `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`;
-                    
-                    // 💡 修復 1：手動攔截語意中的具體時間(例如早上8點)，補足 LLM 沒抓到首發時間的問題
-                    const timeMatch = text.match(/(\d+)(?:點|時)(?:(\d+)(?:分)?)?/);
-                    if (timeMatch) {
-                        const timeInfo = parseTimeNatural(text);
-                        targetAlertTime = timeInfo.timestamp;
-                        // 如果該時間在今天已經過了，則自動順延到明天再首次執行
-                        if (targetAlertTime < Date.now()) {
-                            targetAlertTime += 86400000;
-                        }
-                        displayTimeStr = new Date(targetAlertTime).toLocaleString();
-                        scheduleIntent.isSpecificTimeMissing = false; // 取消補問階段
-                    }
-
-                    const newSearchTask = { 
-                        id: Date.now(), text: `🔄 自動化任務: ${scheduleIntent.query}`, done: false, 
-                        time: displayTimeStr, 
-                        alertTime: targetAlertTime, 
-                        repeatInterval: scheduleIntent.intervalMs, alertEnabled: true, alerted: false,
-                        isAutoTask: true, taskQuery: scheduleIntent.query
-                    };
-                    appState.todos.push(newSearchTask); saveToDB('todos', newSearchTask);
-                    
-                    if (scheduleIntent.isSpecificTimeMissing) {
-                        appState.pendingReminder = newSearchTask.id;
-                        appState.reminderStage = 2;
-                        renderTodos();
-                        addMessage(`🤖 收到！已為您排程「${scheduleIntent.query}」的自動任務。請問您希望每天的「幾點」執行呢？(例如: 早上8點)`, 'system');
+                    // 防呆：如果是單次任務但 LLM 沒有抓到具體時間，則退回一般對話(不建立排程)
+                    if (scheduleIntent.isOneTimeTask && (scheduleIntent.targetHour === undefined || scheduleIntent.targetHour < 0)) {
+                        // 什麼都不做，讓程式繼續往下跑一般對話邏輯
                     } else {
-                        renderTodos();
-                        addMessage(`🤖 收到！我已經建立排程任務，將會從 ${new Date(targetAlertTime).toLocaleString()} 起，每 ${scheduleIntent.num} ${scheduleIntent.unit} 自動為您執行「${scheduleIntent.query}」。`, 'system');
+                        addMessage(text, 'user'); // 確保使用者的原始指令顯示在對話框中
+                        
+                        let targetAlertTime = Date.now() + scheduleIntent.intervalMs;
+                        let displayTimeStr = `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`;
+                        
+                        // 💡 直接使用 LLM 精準提取的 24 小時制目標時間 (完美解決中文「四點36分」的解析問題)
+                        if (scheduleIntent.targetHour !== undefined && scheduleIntent.targetHour >= 0) {
+                            const now = new Date();
+                            const target = new Date();
+                            target.setHours(scheduleIntent.targetHour, scheduleIntent.targetMinute || 0, 0, 0);
+                            
+                            // 若設定的時間在今天已經過了，則自動順延至明天
+                            if (target.getTime() <= now.getTime()) {
+                                target.setDate(target.getDate() + 1);
+                            }
+                            targetAlertTime = target.getTime();
+                            displayTimeStr = target.toLocaleString();
+                            scheduleIntent.isSpecificTimeMissing = false; // 已有明確時間，不須補問
+                        }
+                        
+                        if (scheduleIntent.isOneTimeTask) {
+                            displayTimeStr = `單次執行: ${displayTimeStr}`;
+                        }
+
+                        const newSearchTask = { 
+                            id: Date.now(), text: `🔄 自動化任務: ${scheduleIntent.query}`, done: false, 
+                            time: displayTimeStr, 
+                            alertTime: targetAlertTime, 
+                            repeatInterval: scheduleIntent.isOneTimeTask ? 0 : scheduleIntent.intervalMs, 
+                            alertEnabled: true, alerted: false,
+                            isAutoTask: true, taskQuery: scheduleIntent.query
+                        };
+                        appState.todos.push(newSearchTask); saveToDB('todos', newSearchTask);
+                        
+                        if (scheduleIntent.isSpecificTimeMissing && !scheduleIntent.isOneTimeTask) {
+                            appState.pendingReminder = newSearchTask.id;
+                            appState.reminderStage = 2;
+                            renderTodos();
+                            addMessage(`🤖 收到！已為您建立「${scheduleIntent.query}」的自動任務。請問您希望每天的「幾點」執行呢？(例如: 早上8點)`, 'system');
+                        } else {
+                            renderTodos();
+                            const actionTypeStr = scheduleIntent.isOneTimeTask ? "單次" : `每 ${scheduleIntent.num} ${scheduleIntent.unit}`;
+                            addMessage(`🤖 收到！已排定任務。將於 ${new Date(targetAlertTime).toLocaleString()} ${actionTypeStr}為您執行「${scheduleIntent.query}」。`, 'system');
+                        }
+                        input.value = '';
+                        autoResizeInput(input); chatInitialInput = '';
+                        return;
                     }
-                    input.value = '';
-                    autoResizeInput(input); chatInitialInput = '';
-                    return;
                 }
             }
             
