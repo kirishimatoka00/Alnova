@@ -3945,16 +3945,25 @@ window.startMultiAgentResearch = async function() {
                 }
 
                 const promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
-                let finalRes = await fetchAIResponse(promptToSent, modelToUse, { 
-                    enableSearch: enableSearchTool, 
-                    disableSearch: !enableSearchTool && injectedContext !== "",
-                    file: fileDataToPass,
-                    isAnalysis: !!appState.pendingAnalyzeContextId
-                });
-                
-                let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
-                if(typeof finalRes === 'string') addMessage(finalOutputText, 'ai', modelToUse);
-                else addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
+                let finalRes;
+        try {
+            finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", file: fileDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+        } catch (apiError) {
+            // 自動跳轉至 GROK 備援機制
+            if (modelToUse === 'gemini' && appState.keys.grok) {
+                addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
+                modelToUse = 'grok';
+                window.setModel('grok'); // 同步更新 UI 下拉選單與系統狀態
+                finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", file: fileDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+            } else {
+                throw apiError; // 若非 Gemini 或未填寫 Grok 金鑰，則把錯誤往外拋，由系統正常攔截
+            }
+        }
+
+        let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
+        
+        if(typeof finalRes === 'string') addMessage(finalOutputText, 'ai', modelToUse);
+        else addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
 
                 const aiMsgId = appState.messages[appState.messages.length - 1].id;
                 speakText(finalOutputText, false, String(aiMsgId));
@@ -3991,11 +4000,18 @@ window.startMultiAgentResearch = async function() {
         }
 
         async function fetchAIResponse(userText, model, options = {}) {
-            const fetchWithTimeout = async (url, fetchOpts, timeout = 60000) => { 
-                const controller = new AbortController(); const id = setTimeout(() => controller.abort(), timeout);
-                try { const response = await fetch(url, { ...fetchOpts, signal: controller.signal }); clearTimeout(id); return response; } 
-                catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時，檔案可能過大或處理過久 (60s)' : error.message); }
-            };
+            const fetchWithTimeout = async (url, fetchOpts, timeout = 600000) => {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { ...fetchOpts, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw new Error(error.name === 'AbortError' ? '連線逾時，檔案可能過大或處理過久 (600s)' : error.message);
+            }
+        };
 
             try {
                 const key = appState.keys[model]; if(!key) throw new Error(`未填寫 ${MODEL_CONFIG[model]?.name || model} API Key`);
