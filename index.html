@@ -1154,6 +1154,12 @@
         window.createNewChat = function() {
             appState.currentSessionId = Date.now().toString();
             localStorage.setItem('nova_current_session', appState.currentSessionId);
+            
+            // 💡 修復 1：建立新對話時，強制清除任何遺留的「待處理分析任務」與「暫存檔案」
+            appState.pendingAnalyzeContextId = null;
+            appState.pendingAnalyzeType = '';
+            appState.chatFile = null;
+            
             renderMessages();
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
             switchTab('dashboard');
@@ -1162,6 +1168,12 @@
         window.loadChatSession = function(sessionId) {
             appState.currentSessionId = String(sessionId);
             localStorage.setItem('nova_current_session', appState.currentSessionId);
+            
+            // 💡 修復 2：載入舊對話時，同樣強制清除遺留的任務
+            appState.pendingAnalyzeContextId = null;
+            appState.pendingAnalyzeType = '';
+            appState.chatFile = null;
+            
             renderMessages();
             switchTab('dashboard');
             const menu = document.getElementById('mobile-menu');
