@@ -1208,11 +1208,20 @@
             const tabVoice = document.createElement('div'); tabVoice.id = 'settings-tab-voice'; tabVoice.className = 'space-y-4 hidden';
             const tabUi = document.createElement('div'); tabUi.id = 'settings-tab-ui'; tabUi.className = 'space-y-4 hidden';
 
+            let isVoiceSection = false;
             children.forEach(el => {
-                const text = el.innerText || '';
-                if (text.includes('API') || text.includes('URL') || text.includes('Gas') || text.includes('Drive')) tabApi.appendChild(el);
-                else if (text.includes('語音') || text.includes('翻譯') || text.includes('TTS') || text.includes('語氣') || text.includes('長度') || text.includes('VAD')) tabVoice.appendChild(el);
-                else if (el.tagName !== 'HR') tabApi.appendChild(el);
+                const text = el.textContent || el.innerText || '';
+                
+                // 遇到 AWS 就將標記設為 true，之後的所有項目都會自動歸類到「語音/行為」
+                if (text.includes('AWS')) isVoiceSection = true;
+                
+                if (el.tagName !== 'HR') {
+                    if (isVoiceSection) {
+                        tabVoice.appendChild(el);
+                    } else {
+                        tabApi.appendChild(el);
+                    }
+                }
             });
 
             tabUi.innerHTML = `
