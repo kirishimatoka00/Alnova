@@ -2461,8 +2461,7 @@ window.clearChatHistory = function() {
             container.scrollTop = container.scrollHeight;
         }
 
-        window.renderChatHistoryList = function() {
-            window.togglePinSession = function(sid, e) {
+        window.togglePinSession = function(sid, e) {
             e.stopPropagation();
             if (!appState.pinnedSessions) appState.pinnedSessions = [];
             if (appState.pinnedSessions.includes(sid)) {
