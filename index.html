@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NOVA 120 SSP</title>
+
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,6 +14,7 @@
     <script src="https://unpkg.com/fix-webm-duration"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1500.0.min.js"></script>
     <!-- 引入 Google 字體 Inter -->
+    <script src="./telegram.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS 自訂設定檔 -->
@@ -207,7 +209,13 @@
                             </div>
                             <div class="border-t border-white/10 pt-2">
                                  <label class="block text-xs text-red-300 mb-1 font-bold"><i class="ph-fill ph-upload"></i> Google Drive 上傳 URL</label>
-                                 <input type="text" id="key-drive-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-red-500 outline-none" placeholder="(選填) 雲端備份 Apps Script URL">
+                                 <input type="text" id="key-drive-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-red-500 outline-none mb-2" placeholder="(選填) 雲端備份 Apps Script URL">
+                                 
+                                 <label class="block text-xs text-sky-300 mb-1 font-bold"><i class="ph-fill ph-telegram-logo"></i> Telegram Bot Token</label>
+                                 <input type="password" id="key-tg-token" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-sky-500 outline-none mb-2" placeholder="格式: 123456:ABC-DEF1234ghIkl...">
+                                 
+                                 <label class="block text-xs text-sky-300 mb-1 font-bold"><i class="ph-fill ph-chat-circle"></i> Telegram Chat ID</label>
+                                 <input type="text" id="key-tg-chatid" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-sky-500 outline-none" placeholder="您的專屬對話 ID (避免接收陌生人訊息)">
                             </div>
                         </div>
                         
@@ -1028,8 +1036,10 @@
         const appState = {
             currentModel: 'gemini', grokModel: 'grok-multi', geminiModel: 'gemini-multi',
             chatFile: null, currentDeviceId: null,
-            docMonitorUrl: localStorage.getItem('nova_doc_url') || 
-'', driveUrl: localStorage.getItem('nova_drive_url') || '',
+            docMonitorUrl: localStorage.getItem('nova_doc_url') || '', 
+            driveUrl: localStorage.getItem('nova_drive_url') || '',
+            tgToken: localStorage.getItem('nova_tg_token') || '',
+            tgChatId: localStorage.getItem('nova_tg_chatid') || '',
             messages: [], notes: [], todos: [], audioRecords: [], 
             currentSessionId: localStorage.getItem('nova_current_session') || Date.now().toString(),
             pinnedSessions: JSON.parse(localStorage.getItem('nova_pinned_sessions') || '[]'),
@@ -1255,10 +1265,13 @@
                 <button onclick="switchSettingsTab('voice')" id="tab-btn-voice" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">語音/行為</button>
                 <button onclick="switchSettingsTab('ui')" id="tab-btn-ui" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">外觀/主題</button>
             `;
-            container.parentNode.insertBefore(header, container);
+container.parentNode.insertBefore(header, container);
             container.setAttribute('data-tabbed', 'true');
             
             document.getElementById('key-theme-mode').value = appState.theme || 'dark';
+
+            const tgTokenEl = document.getElementById('key-tg-token'); if (tgTokenEl) tgTokenEl.value = appState.tgToken || '';
+            const tgChatIdEl = document.getElementById('key-tg-chatid'); if (tgChatIdEl) tgChatIdEl.value = appState.tgChatId || '';
         };
 
         window.switchSettingsTab = function(tab) {
@@ -1381,6 +1394,9 @@
             appState.docMonitorUrl = document.getElementById('key-doc-url').value.trim(); localStorage.setItem('nova_doc_url', appState.docMonitorUrl);
             appState.driveUrl = document.getElementById('key-drive-url').value.trim(); localStorage.setItem('nova_drive_url', appState.driveUrl);
             
+            appState.tgToken = document.getElementById('key-tg-token').value.trim(); localStorage.setItem('nova_tg_token', appState.tgToken);
+            appState.tgChatId = document.getElementById('key-tg-chatid').value.trim(); localStorage.setItem('nova_tg_chatid', appState.tgChatId);
+
             appState.voiceTimeout = parseInt(document.getElementById('key-voice-timeout').value) || 5; localStorage.setItem('nova_voice_timeout', appState.voiceTimeout);
             appState.translateBTimeout = parseInt(document.getElementById('key-translate-b-timeout').value) || 2; localStorage.setItem('nova_trans_b_timeout', appState.translateBTimeout);
             
@@ -1408,6 +1424,8 @@
                 keys: appState.keys, 
                 doc: appState.docMonitorUrl, 
                 drive: appState.driveUrl, 
+                tgToken: appState.tgToken,
+                tgChatId: appState.tgChatId,
                 voiceTimeout: appState.voiceTimeout, 
                 translateBTimeout: appState.translateBTimeout, 
                 vadMultiplier: appState.vadMultiplier, 
@@ -1465,7 +1483,15 @@
                     }
                     if(data.drive !== undefined) { 
                         appState.driveUrl = data.drive; 
-                        localStorage.setItem('nova_drive_url', data.drive); const el = document.getElementById('key-drive-url'); if(el) el.value = data.drive; }
+                        appState.driveUrl = data.drive;
+localStorage.setItem('nova_drive_url', data.drive); const el = document.getElementById('key-drive-url'); if(el) el.value = data.drive;
+}
+                    if(data.tgToken !== undefined) { 
+                        appState.tgToken = data.tgToken; localStorage.setItem('nova_tg_token', data.tgToken); const el = document.getElementById('key-tg-token'); if(el) el.value = data.tgToken; 
+                    }
+                    if(data.tgChatId !== undefined) { 
+                        appState.tgChatId = data.tgChatId; localStorage.setItem('nova_tg_chatid', data.tgChatId); const el = document.getElementById('key-tg-chatid'); if(el) el.value = data.tgChatId; 
+                    }
                     if(data.translateBTimeout !== undefined) { appState.translateBTimeout = data.translateBTimeout; localStorage.setItem('nova_trans_b_timeout', data.translateBTimeout); const el = document.getElementById('key-translate-b-timeout'); if(el) el.value = data.translateBTimeout; }
                     if(data.vadMultiplier !== undefined) { appState.vadMultiplier = data.vadMultiplier; localStorage.setItem('nova_vad_multiplier', data.vadMultiplier); const el = document.getElementById('key-vad-multiplier'); if(el) el.value = data.vadMultiplier; }
                     if(data.autoTTS !== undefined) { appState.autoTTS = data.autoTTS; localStorage.setItem('nova_auto_tts', data.autoTTS); const el = document.getElementById('key-auto-tts'); if(el) el.checked = data.autoTTS; }
@@ -1582,6 +1608,11 @@ appState.currentModel, time: getTime(), sources, file, actionData };
             appState.messages.push(msg); saveToDB('messages', msg); 
             renderMessages();
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+
+            // 💡 若是 AI 回覆，且有設定 TG Token，則自動同步推播至 Telegram
+            if (sender === 'ai' && typeof window.pushToTelegram === 'function') {
+                window.pushToTelegram(`🤖 NOVA 說:\n${text.substring(0, 500)}` + (text.length > 500 ? '...' : ''));
+            }
         };
 window.clearChatHistory = function() {
             if(confirm('確定要清空「當前」這筆對話紀錄嗎？(其他對話不會受影響)')) { 
@@ -4776,9 +4807,11 @@ const checkReminders = async () => {
                 for (let t of appState.todos) {
                     if (t.alertTime && t.alertEnabled !== false && !t.alerted && t.alertTime <= now && !t.done) {
                         
-                        // 處理循環時間推進
-                        if (t.repeatInterval && t.repeatInterval > 0) {
-                            t.alertTime += t.repeatInterval; 
+                        if (typeof window.pushToTelegram === 'function') {
+    window.pushToTelegram(`⏰ NOVA 排程觸發：${t.text}`);
+}
+// 處理循環時間推進 
+if (t.repeatInterval && t.repeatInterval > 0) { t.alertTime += t.repeatInterval; 
                             t.alerted = false; // 保持未提醒狀態以利下次觸發
                         } else {
                             t.alerted = true; 
