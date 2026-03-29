@@ -1609,9 +1609,32 @@ appState.currentModel, time: getTime(), sources, file, actionData };
             renderMessages();
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
 
-            // 💡 若是 AI 回覆，且有設定 TG Token，則自動同步推播至 Telegram
-            if (sender === 'ai' && typeof window.pushToTelegram === 'function') {
-                window.pushToTelegram(`🤖 NOVA 說:\n${text.substring(0, 500)}` + (text.length > 500 ? '...' : ''));
+            // 💡 修正 1：開放「系統訊息 (system)」也能推播，解決排程提示看不到的問題
+            // 💡 修正 2：攔截 Markdown 圖片網址，改呼叫 Telegram 的 sendPhoto API 顯示出真實圖片
+            if ((sender === 'ai' || sender === 'system') && appState.tgToken && appState.tgChatId) {
+                let cleanText = text.substring(0, 500) + (text.length > 500 ? '...' : '');
+                let prefix = sender === 'system' ? '⚙️ 系統提示:\n' : '🤖 NOVA 說:\n';
+                let finalMsg = prefix + cleanText;
+                
+                // 尋找文字中是否包含 Markdown 圖片 (例如 AI 畫圖生成的圖片)
+                let imgMatch = text.match(/!\[.*?\]\((https?:\/\/[^\s<]+)\)/);
+                let photoUrl = imgMatch ? imgMatch[1] : null;
+                
+                // 或檢查附檔是否為外部網址圖片
+                if (!photoUrl && file && file.category === 'image' && file.data && file.data.startsWith('http')) {
+                    photoUrl = file.data;
+                }
+
+                if (photoUrl) {
+                    // 若有圖片，呼叫 Telegram 的 sendPhoto API
+                    fetch(`https://api.telegram.org/bot${appState.tgToken}/sendPhoto`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: appState.tgChatId, photo: photoUrl, caption: finalMsg })
+                    }).catch(e => console.warn('TG Push Image Error', e));
+                } else if (typeof window.pushToTelegram === 'function') {
+                    // 只有一般文字訊息時，沿用原來的推播函數
+                    window.pushToTelegram(finalMsg);
+                }
             }
         };
 window.clearChatHistory = function() {
