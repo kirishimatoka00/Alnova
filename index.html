@@ -1212,8 +1212,11 @@
             children.forEach(el => {
                 const text = el.textContent || el.innerText || '';
                 
-                // 遇到 AWS 就將標記設為 true，之後的所有項目都會自動歸類到「語音/行為」
-                if (text.includes('AWS')) isVoiceSection = true;
+                // 💡 修正：嚴格限定只有遇到真正的設定欄位「AWS Access Key」時，才啟動切換開關
+                // 這樣就不會被頂部說明文字裡的 "AWS" 關鍵字給提早觸發了！
+                if (text.includes('AWS Access Key')) {
+                    isVoiceSection = true;
+                }
                 
                 if (el.tagName !== 'HR') {
                     if (isVoiceSection) {
