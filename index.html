@@ -3524,12 +3524,16 @@ window.clearChatHistory = function() {
             appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出重點摘要與結構化的會議紀錄。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。`;
             
             if (r.audioData) {
-                if(!confirm(`即將對「${r.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) return;
+                if(!confirm(`即將對「${r.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) {
+                    appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
+                }
                 appState.chatFile = { category: 'media', data: r.audioData, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.weba' };
                 showFilePreview(appState.chatFile.name, false, null); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
-                if(!confirm(`即將對「${r.title}」進行深度分析。\n\n請在接下來的視窗中，手動選取您的原始音檔 (.webm, .weba 等)。`)) return;
+                if(!confirm(`即將對「${r.title}」進行深度分析。\n\n請在接下來的視窗中，手動選取您的原始音檔 (.webm, .weba 等)。`)) {
+                    appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
+                }
                 document.getElementById('audio-analyze-input').click();
             }
         }
@@ -3543,16 +3547,20 @@ window.clearChatHistory = function() {
             appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出條理分明的重點摘要。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。`;
             
             if (n.audioData) {
-                if(!confirm(`即將對「${n.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) return;
+                if(!confirm(`即將對「${n.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) {
+                    appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
+                }
                 appState.chatFile = { category: 'media', data: n.audioData, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.weba' };
                 showFilePreview(appState.chatFile.name, false, null); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
-                if(!confirm(`即將對「${n.title}」進行深度分析。\n\n請在接下來的視窗中，選取該語音筆記的原始音檔。`)) return;
+                if(!confirm(`即將對「${n.title}」進行深度分析。\n\n請在接下來的視窗中，選取該語音筆記的原始音檔。`)) {
+                    appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
+                }
                 document.getElementById('audio-analyze-input').click();
             }
         }
-        
+
         function summarizeTextNote(id) {
             const n = appState.notes.find(x => String(x.id) === String(id)); if (!n) return;
             if (appState.currentModel !== 'gemini') { alert("文字深度分析建議使用 Gemini 模型，系統已自動為您切換。"); setModel('gemini'); }
@@ -3561,15 +3569,12 @@ window.clearChatHistory = function() {
             appState.pendingAnalyzeType = 'textNote';
             appState.pendingAnalyzePrompt = `請幫我深度分析並總結以下筆記內容，提取出最重要的關鍵字與結構化重點。\n\n【嚴格約束】：請「絕對忠於提供的筆記內容」，只做客觀的整理，絕對不要給出任何額外的個人建議、評論，也不要自行腦補外部資訊。若筆記內容過短或無具體意義，請直接回覆「筆記內容不足以產生有效摘要」。`;
 
-            if(!confirm(`即將對「${n.title}」進行 AI 深度分析。\n\n系統將自動為您提取重點摘要並附加於筆記底部！`)) return;
-
-            let cleanContent = n.isHtml ? n.content.replace(/<[^>]+>/g, '\n').replace(/\n+/g, '\n') : n.content;
+            if(!confirm(`即將對「${n.title}」進行深度摘要分析！`)) {
+                appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
+            }
             
-            appState.chatFile = { category: 'text', data: cleanContent, mime: 'text/plain', name: n.title + '.txt' };
-            showFilePreview(appState.chatFile.name, false, null); 
             switchTab('dashboard');
-            document.getElementById('user-input').value = appState.pendingAnalyzePrompt; 
-            handleSendMessage();
+            document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
         }
 
         // --- 網路搜尋與爬蟲功能 (WEB SCRAPER & SEARCH) ---
@@ -4001,6 +4006,12 @@ window.startMultiAgentResearch = async function() {
             const input = document.getElementById('user-input'); 
             let text = input.value.trim();
             const hasChatFile = appState.chatFile !== null;
+
+            // 💡 修復 3：只要使用者傳送的文字不是預設的 AI 任務 Prompt，代表已轉向一般對話，強制清除幽靈分析任務
+            if (appState.pendingAnalyzeContextId && text !== appState.pendingAnalyzePrompt) {
+                appState.pendingAnalyzeContextId = null;
+                appState.pendingAnalyzeType = '';
+            }
             // 優先攔截：SOS 緊急求救意圖
             const sosMatch = text.match(/^(call\s*911|call\s*119|救我|救救我|報警|救命|HELP)/i);
             if (sosMatch) {
