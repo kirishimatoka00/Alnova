@@ -1208,22 +1208,18 @@
             const tabVoice = document.createElement('div'); tabVoice.id = 'settings-tab-voice'; tabVoice.className = 'space-y-4 hidden';
             const tabUi = document.createElement('div'); tabUi.id = 'settings-tab-ui'; tabUi.className = 'space-y-4 hidden';
 
-            let isVoiceSection = false;
             children.forEach(el => {
+                if (el.tagName === 'HR') return; // 忽略舊版分隔線
+                
                 const text = el.textContent || el.innerText || '';
                 
-                // 💡 修正：嚴格限定只有遇到真正的設定欄位「AWS Access Key」時，才啟動切換開關
-                // 這樣就不會被頂部說明文字裡的 "AWS" 關鍵字給提早觸發了！
-                if (text.includes('AWS Access Key')) {
-                    isVoiceSection = true;
-                }
+                // 💡 針對每一個設定區塊進行「獨立」關鍵字判定
+                const isVoiceFeature = /AWS|Polly|語音|翻譯|TTS|語氣|長度|VAD|麥克風|朗讀|字幕/i.test(text);
                 
-                if (el.tagName !== 'HR') {
-                    if (isVoiceSection) {
-                        tabVoice.appendChild(el);
-                    } else {
-                        tabApi.appendChild(el);
-                    }
+                if (isVoiceFeature) {
+                    tabVoice.appendChild(el);
+                } else {
+                    tabApi.appendChild(el);
                 }
             });
 
