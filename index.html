@@ -1032,6 +1032,8 @@
 '', driveUrl: localStorage.getItem('nova_drive_url') || '',
             messages: [], notes: [], todos: [], audioRecords: [], 
             currentSessionId: localStorage.getItem('nova_current_session') || Date.now().toString(),
+            pinnedSessions: JSON.parse(localStorage.getItem('nova_pinned_sessions') || '[]'),
+            theme: localStorage.getItem('nova_theme') || 'dark',
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
             keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'', aws_ak: localStorage.getItem('nova_key_aws_ak')||'', aws_sk: localStorage.getItem('nova_key_aws_sk')||'', aws_region: localStorage.getItem('nova_key_aws_region')||'ap-northeast-1' },
             isThinking: false, isListening: false, isNoteListening: false, noteVoiceActive: false, isSearchEnabled: false, isContinuous: false, manualLocIndex: 0,
@@ -1181,9 +1183,82 @@
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
         };
 
-        window.openSettings = function() { document.getElementById('settings-modal').classList.remove('hidden'); };
+        window.applyTheme = function(theme) {
+            if(theme === 'light') {
+                document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
+                let style = document.getElementById('light-theme-fix');
+                if(!style) {
+                    style = document.createElement('style'); style.id = 'light-theme-fix';
+                    style.innerHTML = `img, video, .keep-color, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }`;
+                    document.head.appendChild(style);
+                }
+            } else {
+                document.documentElement.style.filter = '';
+                const style = document.getElementById('light-theme-fix');
+                if(style) style.remove();
+            }
+        };
+
+        window.initSettingsTabs = function() {
+            const container = document.querySelector('#settings-modal .overflow-y-auto');
+            if(!container || container.getAttribute('data-tabbed') === 'true') return;
+
+            const children = Array.from(container.children);
+            const tabApi = document.createElement('div'); tabApi.id = 'settings-tab-api'; tabApi.className = 'space-y-4';
+            const tabVoice = document.createElement('div'); tabVoice.id = 'settings-tab-voice'; tabVoice.className = 'space-y-4 hidden';
+            const tabUi = document.createElement('div'); tabUi.id = 'settings-tab-ui'; tabUi.className = 'space-y-4 hidden';
+
+            children.forEach(el => {
+                const text = el.innerText || '';
+                if (text.includes('API') || text.includes('URL') || text.includes('Gas') || text.includes('Drive')) tabApi.appendChild(el);
+                else if (text.includes('語音') || text.includes('翻譯') || text.includes('TTS') || text.includes('語氣') || text.includes('長度') || text.includes('VAD')) tabVoice.appendChild(el);
+                else if (el.tagName !== 'HR') tabApi.appendChild(el);
+            });
+
+            tabUi.innerHTML = `
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">介面主題配色 (自動套用於全設備)</label>
+                    <select id="key-theme-mode" class="w-full bg-slate-800 text-white border border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500">
+                        <option value="dark">🌙 黑夜模式 (Dark Mode)</option>
+                        <option value="light">☀️ 白晝模式 (Light Mode)</option>
+                    </select>
+                </div>
+            `;
+
+            container.innerHTML = '';
+            container.appendChild(tabApi); container.appendChild(tabVoice); container.appendChild(tabUi);
+
+            const header = document.createElement('div');
+            header.className = 'flex space-x-2 bg-slate-800 p-1 rounded-lg mb-4 shrink-0 mx-6 mt-4';
+            header.innerHTML = `
+                <button onclick="switchSettingsTab('api')" id="tab-btn-api" class="flex-1 py-2 text-xs font-bold rounded-md bg-slate-600 text-white transition-colors">API/路徑</button>
+                <button onclick="switchSettingsTab('voice')" id="tab-btn-voice" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">語音/行為</button>
+                <button onclick="switchSettingsTab('ui')" id="tab-btn-ui" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">外觀/主題</button>
+            `;
+            container.parentNode.insertBefore(header, container);
+            container.setAttribute('data-tabbed', 'true');
+            
+            document.getElementById('key-theme-mode').value = appState.theme || 'dark';
+        };
+
+        window.switchSettingsTab = function(tab) {
+            ['api', 'voice', 'ui'].forEach(t => {
+                document.getElementById('settings-tab-' + t).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById('tab-btn-' + t);
+                if(t === tab) {
+                    btn.classList.add('bg-slate-600', 'text-white'); btn.classList.remove('text-slate-400', 'hover:bg-slate-700');
+                } else {
+                    btn.classList.remove('bg-slate-600', 'text-white'); btn.classList.add('text-slate-400', 'hover:bg-slate-700');
+                }
+            });
+        };
+
+        window.openSettings = function() { 
+            if(typeof initSettingsTabs === 'function') initSettingsTabs();
+            document.getElementById('settings-modal').classList.remove('hidden'); 
+        };
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
-        
+
         // --- 雙 AI 協作介面 (Dual AI UI) ---
         window.openDualAIModal = function() {
             document.getElementById('plus-menu').classList.add('hidden');
@@ -1296,6 +1371,13 @@
             appState.ttsVoice = document.getElementById('key-tts-voice').value; localStorage.setItem('nova_tts_voice', appState.ttsVoice);
             appState.hideLiveCapture = document.getElementById('key-hide-live-capture').checked; localStorage.setItem('nova_hide_live_capture', appState.hideLiveCapture);
             appState.autoTTS = document.getElementById('key-auto-tts').checked; localStorage.setItem('nova_auto_tts', appState.autoTTS);
+
+            const themeModeEl = document.getElementById('key-theme-mode');
+            if (themeModeEl) {
+                appState.theme = themeModeEl.value;
+                localStorage.setItem('nova_theme', appState.theme);
+                applyTheme(appState.theme);
+            }
 
             closeSettings(); showToast("✅ 設定已儲存"); updateModelUI();
         };
@@ -1482,10 +1564,11 @@ appState.currentModel, time: getTime(), sources, file, actionData };
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
         };
 window.clearChatHistory = function() {
-            if(confirm('確定要清空當前對話紀錄嗎？')) { 
-                const msgsToDelete = appState.messages.filter(m => String(m.sessionId) === String(appState.currentSessionId) || (!m.sessionId && !appState.currentSessionId));
+            if(confirm('確定要清空「當前」這筆對話紀錄嗎？(其他對話不會受影響)')) { 
+                const targetSid = String(appState.currentSessionId || 'legacy');
+                const msgsToDelete = appState.messages.filter(m => String(m.sessionId || 'legacy') === targetSid);
                 msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
-                appState.messages = appState.messages.filter(m => String(m.sessionId) !== String(appState.currentSessionId) && !(!m.sessionId && !appState.currentSessionId));
+                appState.messages = appState.messages.filter(m => String(m.sessionId || 'legacy') !== targetSid);
                 renderMessages(); 
                 if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
             }
@@ -2279,7 +2362,11 @@ window.clearChatHistory = function() {
             }
         };
 
-        function renderAll() { renderMessages(); renderTodos(); renderFolderTabs(); renderNotes(); renderAudioRecords(); renderWeather(); if(typeof renderChatHistoryList === 'function') renderChatHistoryList(); }
+        function renderAll() { renderMessages(); renderTodos(); renderFolderTabs(); renderNotes(); renderAudioRecords(); 
+            renderWeather(); 
+            if(typeof renderChatHistoryList === 'function') renderChatHistoryList(); 
+            if(typeof applyTheme === 'function') applyTheme(appState.theme);
+        }
         
         // --- UI 渲染功能 (訊息) ---
         function renderMessages() { 
@@ -2375,6 +2462,19 @@ window.clearChatHistory = function() {
         }
 
         window.renderChatHistoryList = function() {
+            window.togglePinSession = function(sid, e) {
+            e.stopPropagation();
+            if (!appState.pinnedSessions) appState.pinnedSessions = [];
+            if (appState.pinnedSessions.includes(sid)) {
+                appState.pinnedSessions = appState.pinnedSessions.filter(id => id !== sid);
+            } else {
+                appState.pinnedSessions.push(sid);
+            }
+            localStorage.setItem('nova_pinned_sessions', JSON.stringify(appState.pinnedSessions));
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+        };
+
+        window.renderChatHistoryList = function() {
             const listEl = document.getElementById('chat-history-list');
             const mobileListEl = document.getElementById('mobile-chat-history-list');
             if (!listEl && !mobileListEl) return;
@@ -2386,7 +2486,13 @@ window.clearChatHistory = function() {
                 groups[sid].push(m);
             });
             
+            if (!appState.pinnedSessions) appState.pinnedSessions = JSON.parse(localStorage.getItem('nova_pinned_sessions') || '[]');
+            
             const sessionIds = Object.keys(groups).sort((a,b) => {
+                const isPinnedA = appState.pinnedSessions.includes(a);
+                const isPinnedB = appState.pinnedSessions.includes(b);
+                if (isPinnedA && !isPinnedB) return -1;
+                if (!isPinnedA && isPinnedB) return 1;
                 if (a === 'legacy') return 1;
                 if (b === 'legacy') return -1;
                 return Number(b) - Number(a); 
@@ -2406,14 +2512,19 @@ window.clearChatHistory = function() {
                 if(firstUserMsg && firstUserMsg.text.length >= 15) title += '...';
                 
                 const isActive = String(appState.currentSessionId) === String(sid);
+                const isPinned = appState.pinnedSessions.includes(sid);
+                const pinIcon = isPinned ? 'ph-fill ph-push-pin text-yellow-400' : 'ph-bold ph-push-pin';
                 
                 return `
                 <div class="group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors mb-1 ${isActive ? 'bg-slate-800 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}" onclick="loadChatSession('${sid}')">
-                    <div class="flex items-center gap-2 overflow-hidden">
+                    <div class="flex items-center gap-2 overflow-hidden w-[65%]">
                         <i class="ph-bold ph-chat-circle text-base shrink-0"></i>
                         <span class="text-xs truncate font-medium">${escapeHtml(title)}</span>
                     </div>
-                    <button onclick="deleteChatSession('${sid}', event)" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 shrink-0 transition-opacity"><i class="ph-bold ph-trash"></i></button>
+                    <div class="flex items-center space-x-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+                        <button onclick="togglePinSession('${sid}', event)" class="p-1 text-slate-500 hover:text-yellow-400 transition-colors"><i class="${pinIcon} text-sm"></i></button>
+                        <button onclick="deleteChatSession('${sid}', event)" class="p-1 text-slate-500 hover:text-red-400 transition-colors"><i class="ph-bold ph-trash text-sm"></i></button>
+                    </div>
                 </div>
                 `;
             }).join('');
@@ -4711,7 +4822,7 @@ const checkReminders = async () => {
                             const fileInput = document.getElementById('chat-file-input');
                             
                             // 模擬點擊上傳按鈕，把貼上的檔案交給原有的圖片處理系統
-                            if (file) {
+                            if (file) {z
                                 // 💡 修正：直接手動呼叫原有處理函式，完美繞過瀏覽器對 <input file> 的安全限制
                                 window.handleChatFileSelect({ target: { files: [file] } });
                             }
