@@ -1043,6 +1043,7 @@
             messages: [], notes: [], todos: [], audioRecords: [], 
             currentSessionId: localStorage.getItem('nova_current_session') || Date.now().toString(),
             pinnedSessions: JSON.parse(localStorage.getItem('nova_pinned_sessions') || '[]'),
+            chatTitles: JSON.parse(localStorage.getItem('nova_chat_titles') || '{}'),
             theme: localStorage.getItem('nova_theme') || 'dark',
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
             keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'', aws_ak: localStorage.getItem('nova_key_aws_ak')||'', aws_sk: localStorage.getItem('nova_key_aws_sk')||'', aws_region: localStorage.getItem('nova_key_aws_region')||'ap-northeast-1' },
@@ -1648,13 +1649,23 @@ window.clearChatHistory = function() {
             }
         };
 
-        window.favoriteMessage = function(id) {
+        window.favoriteMessage = function(id) { 
             const msg = appState.messages.find(m => String(m.id) === String(id));
-            if(msg) {
-                const note = { id: Date.now(), title: '收藏對話 ' + new Date().toLocaleDateString(), content: msg.text, date: new Date().toLocaleString(), type: 'text', folder: '未分類' };
-                if (msg.file && msg.file.category === 'image') note.images = [msg.file.data];
-                appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記");
-            }
+            if(msg) { 
+                // 💡 修正 2：將 Markdown (含表格) 預先轉換為 HTML 格式，讓筆記本能完美繼承樣式
+                let htmlContent = msg.text;
+                if (typeof marked !== 'undefined') {
+                    htmlContent = marked.parse(msg.text);
+                } else if (typeof parseMarkdown === 'function') {
+                    htmlContent = parseMarkdown(msg.text);
+                } else {
+                    htmlContent = msg.text.replace(/\n/g, '<br>');
+                }
+                
+                const note = { id: Date.now(), title: '收藏對話 ' + new Date().toLocaleDateString(), content: htmlContent, isHtml: true, date: new Date().toLocaleString(), type: 'text', folder: '未分類' };
+                if (msg.file && msg.file.category === 'image') note.images = [msg.file.data]; 
+                appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記！(表格格式已保留)"); 
+            } 
         };
 
         window.deleteMessage = function(id) {
@@ -2547,6 +2558,22 @@ window.clearChatHistory = function() {
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
         };
 
+        window.renameChatSession = function(sid, e) {
+            e.stopPropagation();
+            const currentTitle = (appState.chatTitles && appState.chatTitles[sid]) ? appState.chatTitles[sid] : "";
+            const newName = prompt("請輸入新的對話標籤名稱 (留空則恢復自動命名)：", currentTitle);
+            if (newName !== null) {
+                if (!appState.chatTitles) appState.chatTitles = {};
+                if (newName.trim() === "") {
+                    delete appState.chatTitles[sid];
+                } else {
+                    appState.chatTitles[sid] = newName.trim();
+                }
+                localStorage.setItem('nova_chat_titles', JSON.stringify(appState.chatTitles));
+                if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+            }
+        };
+
         window.renderChatHistoryList = function() {
             const listEl = document.getElementById('chat-history-list');
             const mobileListEl = document.getElementById('mobile-chat-history-list');
@@ -2581,8 +2608,11 @@ window.clearChatHistory = function() {
             const html = sessionIds.map(sid => {
                 const msgs = groups[sid];
                 const firstUserMsg = msgs.find(m => m.sender === 'user');
-                let title = firstUserMsg ? firstUserMsg.text.substring(0, 15) : (sid === 'legacy' ? '舊對話紀錄' : '新對話');
-                if(firstUserMsg && firstUserMsg.text.length >= 15) title += '...';
+                let defaultTitle = firstUserMsg ? firstUserMsg.text.substring(0, 15) : (sid === 'legacy' ? '舊對話紀錄' : '新對話');
+                if(firstUserMsg && firstUserMsg.text.length >= 15) defaultTitle += '...';
+                
+                // 💡 修正 1：優先使用您自訂的標籤名稱
+                let title = (appState.chatTitles && appState.chatTitles[sid]) ? appState.chatTitles[sid] : defaultTitle;
                 
                 const isActive = String(appState.currentSessionId) === String(sid);
                 const isPinned = appState.pinnedSessions.includes(sid);
@@ -2590,13 +2620,14 @@ window.clearChatHistory = function() {
                 
                 return `
                 <div class="group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors mb-1 ${isActive ? 'bg-slate-800 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}" onclick="loadChatSession('${sid}')">
-                    <div class="flex items-center gap-2 overflow-hidden w-[65%]">
+                    <div class="flex items-center gap-2 overflow-hidden w-[50%]">
                         <i class="ph-bold ph-chat-circle text-base shrink-0"></i>
                         <span class="text-xs truncate font-medium">${escapeHtml(title)}</span>
                     </div>
                     <div class="flex items-center space-x-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
-                        <button onclick="togglePinSession('${sid}', event)" class="p-1 text-slate-500 hover:text-yellow-400 transition-colors"><i class="${pinIcon} text-sm"></i></button>
-                        <button onclick="deleteChatSession('${sid}', event)" class="p-1 text-slate-500 hover:text-red-400 transition-colors"><i class="ph-bold ph-trash text-sm"></i></button>
+                        <button onclick="renameChatSession('${sid}', event)" class="p-1 text-slate-500 hover:text-blue-400 transition-colors" title="重新命名"><i class="ph-bold ph-pencil-simple text-sm"></i></button>
+                        <button onclick="togglePinSession('${sid}', event)" class="p-1 text-slate-500 hover:text-yellow-400 transition-colors" title="釘選"><i class="${pinIcon} text-sm"></i></button>
+                        <button onclick="deleteChatSession('${sid}', event)" class="p-1 text-slate-500 hover:text-red-400 transition-colors" title="刪除"><i class="ph-bold ph-trash text-sm"></i></button>
                     </div>
                 </div>
                 `;
@@ -4378,7 +4409,18 @@ window.startMultiAgentResearch = async function() {
         }
 
         async function fetchAIResponse(userText, model, options = {}) {
-            const fetchWithTimeout = async (url, fetchOpts, timeout = 600000) => {
+        // 💡 修正 3：防幻覺機制 - 若為多 AI 協作 (multi 模型)、深度研究或資料分析，強制在底層附加嚴格查證指令
+        const isMultiAI = (model && model.includes('multi')) || (appState.currentModel && appState.currentModel.includes('multi'));
+        const isResearch = options.isDeepResearch || (userText && userText.includes('研究')) || (userText && userText.includes('比對'));
+        
+        if (isMultiAI || isResearch) {
+            const antiHallucinationPrompt = `\n\n【最高約束指令】：必須按照實際網路搜尋及我提供的資料，嚴格比對，絕對不能捏造數據，且必須在回覆中提供數據來源的連結。`;
+            if (userText && !userText.includes('不能捏造數據')) {
+                userText += antiHallucinationPrompt;
+            }
+        }
+
+        const fetchWithTimeout = async (url, fetchOpts, timeout = 300000) => {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
             try {
