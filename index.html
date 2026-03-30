@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NOVA 120 SSP</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="icon.png">
 
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
@@ -1652,19 +1655,12 @@ window.clearChatHistory = function() {
         window.favoriteMessage = function(id) { 
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if(msg) { 
-                // 💡 修正 2：將 Markdown (含表格) 預先轉換為 HTML 格式，讓筆記本能完美繼承樣式
-                let htmlContent = msg.text;
-                if (typeof marked !== 'undefined') {
-                    htmlContent = marked.parse(msg.text);
-                } else if (typeof parseMarkdown === 'function') {
-                    htmlContent = parseMarkdown(msg.text);
-                } else {
-                    htmlContent = msg.text.replace(/\n/g, '<br>');
-                }
+                // 💡 修正：直接呼叫系統內建的 formatMessage 來處理所有 Markdown 與表格，無須依賴外部套件
+                let finalContent = typeof formatMessage === 'function' ? formatMessage(msg.text) : msg.text.replace(/\n/g, '<br>');
                 
-                const note = { id: Date.now(), title: '收藏對話 ' + new Date().toLocaleDateString(), content: htmlContent, isHtml: true, date: new Date().toLocaleString(), type: 'text', folder: '未分類' };
+                const note = { id: Date.now(), title: '收藏對話 ' + new Date().toLocaleDateString(), content: finalContent, isHtml: true, date: new Date().toLocaleString(), type: 'text', folder: '未分類' };
                 if (msg.file && msg.file.category === 'image') note.images = [msg.file.data]; 
-                appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記！(表格格式已保留)"); 
+                appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記！(表格與格式已保留)");
             } 
         };
 
