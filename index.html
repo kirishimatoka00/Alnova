@@ -13,7 +13,7 @@
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- 引入 WebM 錄音時長修復工具 -->
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://unpkg.com/fix-webm-duration"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1500.0.min.js"></script>
     <!-- 引入 Google 字體 Inter -->
@@ -1081,16 +1081,43 @@
         const MODEL_CONFIG = {
             gemini: { name: 'Gemini', color: 'text-blue-400', bg: 'bg-blue-600', icon: 'ph-globe' }, grok: { name: 'Grok', color: 'text-slate-100', bg: 'bg-slate-600', icon: 'ph-lightning' }, groq: { name: 'Groq', color: 'text-rose-400', bg: 'bg-rose-600', icon: 'ph-rocket' }, cohere: { name: 'Cohere', color: 'text-violet-400', bg: 'bg-violet-600', icon: 'ph-cpu' }, gpt: { name: 'OpenAI', color: 'text-emerald-400', bg: 'bg-emerald-600', icon: 'ph-cpu' }
         };
-
         function getTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
         
         function formatMessage(text) { 
-            if (!text) return ''; 
-            let images = [];
-            let tempText = text.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
+            if (!text) return '';
+
+            // --- 新增：處理 PPT 生成標記 ---
+            let pptButtonHtml = '';
+            let tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
+                try {
+                    let pptData = JSON.parse(jsonStr);
+                    if (pptData && pptData.slides) {
+                        let base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(pptData))));
+                        pptButtonHtml = `<div class="mt-4 p-4 bg-slate-800/80 border border-emerald-500/50 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-emerald-900/50 rounded flex items-center justify-center"><i class="ph-fill ph-presentation-chart text-2xl text-emerald-400"></i></div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white">AI 簡報產生完成</h4>
+                                    <p class="text-xs text-slate-400">${escapeHtml(pptData.title) || '簡報檔案'} (${pptData.slides.length} 頁)</p>
+                                </div>
+                            </div>
+                            <button onclick="downloadGeneratedPPT('${base64Data}')" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                                <i class="ph-bold ph-download-simple"></i> 下載 .pptx 檔案
+                            </button>
+                        </div>`;
+                        return ''; // 從原本對話文字中移除 JSON 區塊
+                    }
+                } catch(e) {
+                    console.error('PPT JSON Parse Error:', e);
+                }
+                return match;
+            });
+
+let images = [];
+            tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
             });
-            let safe = tempText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+let safe = tempText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>'); 
            // 放寬解析條件：支援 http, https, sms, tel, mailto 等各種連結協定
             safe = safe.replace(/\[([^\]]+)\]\(([^)\s<]+)\)|(https?:\/\/[^\s<)\]]+)/g, function(match, mdTitle, mdUrl, rawUrl) {
@@ -1113,14 +1140,16 @@
                     if(cells.length === 0) continue;
                     html += '<tr class="hover:bg-slate-800/50">';
                     cells.forEach(c => html += `<td class="border border-slate-700 px-4 py-2 text-slate-200">${c.trim()}</td>`);
-                    html += '</tr>';
+html += '</tr>';
                 }
                 html += '</tbody></table></div>';
-                return html;
+return html;
             });        
         // 原本的 return 保持在最後面
-        return safe.replace(/\n/g, '<br>'); 
-        }
+        let finalHtml = safe.replace(/\n/g, '<br>');
+        if (pptButtonHtml) finalHtml += pptButtonHtml;
+        return finalHtml;
+}
 
         function escapeHtml(t){return t?t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}
 
@@ -2392,15 +2421,67 @@ window.clearChatHistory = function() {
             const textArea = document.createElement("textarea");
             textArea.value = msg.text;
             textArea.style.top = "0"; textArea.style.left = "0"; textArea.style.position = "fixed";
-            document.body.appendChild(textArea); textArea.focus(); textArea.select();
+            document.body.appendChild(textArea); textArea.focus(); textArea.focus(); textArea.select();
             try { document.execCommand('copy'); showToast("✅ 訊息已複製到剪貼簿！"); } 
-            catch (err) { showToast("❌ 複製失敗"); }
+            catch (err) { showToast("❌ 複製失敗");
+}
             document.body.removeChild(textArea);
         };
 
-        function base64ToBlob(base64URI) {
+        // --- 新增：PPT 生成與下載函數 ---
+        window.downloadGeneratedPPT = function(base64Data) {
+            try {
+                let jsonStr = decodeURIComponent(escape(atob(base64Data)));
+                let pptData = JSON.parse(jsonStr);
+                
+                let pptx = new PptxGenJS();
+                pptx.layout = 'LAYOUT_16x9';
+                
+                // 封面頁
+                let coverSlide = pptx.addSlide();
+                coverSlide.background = { color: "1E293B" }; // 深色背景
+                coverSlide.addText(pptData.title || "AI 生成簡報", { x: 1, y: 2, w: "80%", h: 1.5, fontSize: 44, bold: true, color: "FFFFFF", align: "center" });
+                if(pptData.subtitle) {
+                    coverSlide.addText(pptData.subtitle, { x: 1, y: 3.5, w: "80%", h: 1, fontSize: 24, color: "94A3B8", align: "center" });
+                }
+
+                // 內容頁
+                if (pptData.slides && Array.isArray(pptData.slides)) {
+                    pptData.slides.forEach(slideData => {
+                        let slide = pptx.addSlide();
+                        slide.background = { color: "F8FAFC" }; // 淺色背景
+                        
+                        // 標題
+                        if (slideData.title) {
+                            slide.addText(slideData.title, { x: 0.5, y: 0.5, w: "90%", h: 1, fontSize: 32, bold: true, color: "0F172A" });
+                            slide.addShape(pptx.ShapeType.line, { x: 0.5, y: 1.4, w: "90%", h: 0, line: { color: "3B82F6", width: 2 } });
+                        }
+                        
+                        // 內文
+                        if (slideData.content) {
+                            let yPos = 1.6;
+                            if (Array.isArray(slideData.content)) {
+                                let bulletData = slideData.content.map(text => ({ text: text, options: { bullet: true, color: "334155", fontSize: 20, breakLine: true } }));
+                                slide.addText(bulletData, { x: 0.5, y: yPos, w: "90%", h: 3.5, align: "left", valign: "top", lineSpacing: 32 });
+                            } else {
+                                slide.addText(slideData.content, { x: 0.5, y: yPos, w: "90%", h: 3.5, fontSize: 20, color: "334155", align: "left", valign: "top" });
+                            }
+                        }
+                    });
+                }
+                
+                let filename = (pptData.title || "NOVA_Presentation") + ".pptx";
+                pptx.writeFile({ fileName: filename });
+                showToast("✅ PPT 下載中...");
+            } catch (e) {
+                console.error("PPT Generation Error:", e);
+                alert("❌ PPT 產生失敗: " + e.message);
+            }
+        };
+
+function base64ToBlob(base64URI) {
             const splitIndex = base64URI.indexOf(',');
-            const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
+const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
             const byteString = atob(base64URI.slice(splitIndex + 1));
             const ab = new ArrayBuffer(byteString.length);
             const ia = new Uint8Array(ab);
@@ -4303,17 +4384,16 @@ window.startMultiAgentResearch = async function() {
                 const reminderMatch = text.match(/^(?:提醒|reminder)(.*)$/i);
                 if (reminderMatch) {
                     const content = reminderMatch[1].trim() || "未命名事項"; const newTodo = { id: Date.now(), text: content, done: false, time: '詢問中...', alerted: false, alertEnabled: true };
-                    appState.todos.push(newTodo); saveToDB('todos', newTodo); appState.pendingReminder = newTodo.id; appState.reminderStage = 1; renderTodos();
-                    addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`, 'system');
-                    speakText(` 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`);
-                    return;
-                }
+                    appState.todos.push(newTodo); saveToDB('todos', newTodo); appState.pendingReminder = newTodo.id; appState.reminderStage = 1; renderTodos(); addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`, 'system'); speakText(` 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`); return; } let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n";
+if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 最高強制指令】：\n1. 絕對脫離被動機器人模式！你現在是一位極具主動性、思維敏捷的真人頂級顧問。\n2. 【動態語意斷橋機制】：每次收到新問題時，請務必先在內心判斷「最新問題是否與歷史對話相關」。若判定為『全新獨立話題』，請立刻切斷與前文的關聯，完全忽略舊對話的情境與設定，以乾淨的狀態回答新問題！\n3. 當使用者提出需求時，必須主動連網搜尋資料並給出洞察。\n4. **絕對強制**：每一次的回覆最後，都必須自主挖掘盲點，主動向使用者提出「一個引導式的好問題」，像人類對話一樣持續追問深挖。\n5. 除非使用者明確表示滿意、停止，否則不准單方面結束對話！\n"; } 
 
-                let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n";
-                if (appState.deepDiveMode) {
-                    systemPromptAddon = "【深度探究模式開啟 - 最高強制指令】：\n1. 絕對脫離被動機器人模式！你現在是一位極具主動性、思維敏捷的真人頂級顧問。\n2. 【動態語意斷橋機制】：每次收到新問題時，請務必先在內心判斷「最新問題是否與歷史對話相關」。若判定為『全新獨立話題』，請立刻切斷與前文的關聯，完全忽略舊對話的情境與設定，以乾淨的狀態回答新問題！\n3. 當使用者提出需求時，必須主動連網搜尋資料並給出洞察。\n4. **絕對強制**：每一次的回覆最後，都必須自主挖掘盲點，主動向使用者提出「一個引導式的好問題」，像人類對話一樣持續追問深挖。\n5. 除非使用者明確表示滿意、停止，否則不准單方面結束對話！\n";
-                }
-                let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode;
+            // --- 新增：攔截 PPT 簡報意圖，強制回傳 JSON 格式 ---
+            if (text.includes("簡報") || text.includes("PPT") || text.includes("ppt") || text.includes("Ppt")) {
+                systemPromptAddon += `\n【💡 特殊技能觸發】：使用者希望製作 PPT 簡報。請你蒐集並整理完資訊後，嚴格在對話最後面使用以下 JSON 格式輸出(並用 \`\`\`json 和 \`\`\` 包著)，系統會自動攔截並轉換為真正的 .pptx 檔案給使用者下載：\n\`\`\`json\n{\n  "title": "簡報主標題",\n  "subtitle": "簡報副標題 (選填)",\n  "slides": [\n    { "title": "第一頁標題", "content": ["重點項目1", "重點項目2"] },\n    { "title": "第二頁標題", "content": ["段落或重點..."] }\n  ]\n}\n\`\`\`\n絕對要保證 JSON 格式正確！\n`;
+            }
+
+let injectedContext = "";
+let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode;
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
