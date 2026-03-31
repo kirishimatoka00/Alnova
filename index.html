@@ -1692,13 +1692,33 @@ window.clearChatHistory = function() {
                 appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記！(表格與格式已保留)");
             } 
         };
-
         window.deleteMessage = function(id) {
-            appState.messages = appState.messages.filter(m => String(m.id) !== String(id)); deleteFromDB('messages', id); renderMessages();
+            appState.messages = appState.messages.filter(m => String(m.id) !== String(id));
+            deleteFromDB('messages', id); renderMessages();
+        };
+
+        window.generatePPTFromMessage = function(id) {
+            const msg = appState.messages.find(m => String(m.id) === String(id));
+            if (!msg || !msg.text) return;
+            switchTab('dashboard');
+            document.getElementById('user-input').value = `幫我把這些內容做成簡報 (PPT)：\n\n${msg.text.substring(0, 3000)}`;
+            handleSendMessage();
+            showToast("✅ 已發送製作 PPT 指令");
+        };
+
+        window.generatePPTFromNote = function(id) {
+            const n = appState.notes.find(x => String(x.id) === String(id));
+            if (!n) return;
+            switchTab('dashboard');
+            let contentText = n.isHtml ? n.content.replace(/<[^>]+>/g, '\n').replace(/&nbsp;/g, ' ') : n.content;
+            document.getElementById('user-input').value = `幫我把這篇筆記做成簡報 (PPT)：\n\n【${n.title}】\n${contentText.substring(0, 3000)}`;
+            handleSendMessage();
+            showToast("✅ 已發送製作 PPT 指令");
         };
 
         window.autoResizeInput = function(el) {
-            el.style.height = 'auto'; el.style.height = (el.scrollHeight < 120 ? el.scrollHeight : 120) + 'px';
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight < 120 ? el.scrollHeight : 120) + 'px';
             if(el.value === '') el.style.height = 'auto';
         };
 
@@ -2615,6 +2635,7 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                         <div class="msg-actions absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="playMessageAudio(${msg.id})" class="p-1.5 ${isPlayingMsg ?'text-blue-400':'text-slate-500'} hover:text-purple-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="語音朗讀(點擊可停止)"><i class="ph-bold ${isPlayingMsg ?'ph-stop-circle animate-pulse':'ph-speaker-high'} text-xs"></i></button>
                             <button onclick="copyMessageText(${msg.id})" class="p-1.5 text-slate-500 hover:text-white transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="複製文字"><i class="ph-bold ph-copy text-xs"></i></button>
+                            <button onclick="generatePPTFromMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-emerald-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="製作 PPT"><i class="ph-bold ph-presentation-chart text-xs"></i></button>
                             <button onclick="favoriteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-yellow-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="收藏至筆記"><i class="ph-bold ph-star text-xs"></i></button>
                             <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="刪除"><i class="ph-bold ph-trash text-xs"></i></button>
                         </div>
@@ -2854,6 +2875,7 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                 } else {
                     extraAudioButtons += `<button onclick="summarizeTextNote('${n.id}')" class="text-xs bg-purple-900/50 border border-purple-500/50 hover:bg-purple-800/50 px-2 py-1.5 rounded text-purple-200 transition-colors flex items-center gap-1"><i class="ph-bold ph-sparkle"></i> AI 分析</button>`;
                 }
+                extraAudioButtons += `<button onclick="generatePPTFromNote('${n.id}')" class="text-xs bg-emerald-900/50 border border-emerald-500/50 hover:bg-emerald-800/50 px-2 py-1.5 rounded text-emerald-200 transition-colors flex items-center gap-1 ml-1"><i class="ph-bold ph-presentation-chart"></i> 製作 PPT</button>`;
                 
                 let imgHtml = '';
                 const displayImages = n.images || (n.image ? [n.image] : []);
