@@ -4458,15 +4458,17 @@ injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
                         if (urlMatch) {
                             const url = urlMatch[0];
                             if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                                enableSearchTool = true;
-                                systemPromptAddon += `\n【重要指令：使用者提供了一個 YouTube 影片連結。請務必使用你的原生 YouTube 解析能力或搜尋工具，讀取該影片的標題、內容摘要與字幕重點，並給出詳細的評論與摘要。】`;
-                                addMessage(`🔍 正在解析 YouTube 影片內容...`, 'system');
+                                addMessage(`🔍 正在獲取 YouTube 影片資訊...`, 'system');
+                                const ytContent = await fetchUrlViaGas(url);
+                                if (ytContent) injectedContext = `\n\n[YouTube 影片資訊擷取]:\n${ytContent}\n\n`;
+                                if (appState.keys.gemini && modelToUse === 'gemini') enableSearchTool = true;
+                                systemPromptAddon += `\n【重要防幻覺指令：這是一個 YouTube 影片連結。請優先閱讀上方[YouTube 影片資訊擷取]內的「標題」與「描述」。若需更多內容，請使用 Search 工具「搜尋該影片標題」來獲取資訊後再進行摘要。絕對禁止在缺乏資訊時憑空捏造無關的內容！】`;
                             }
                             else if (!url.includes('twitter')) { addMessage(`🔍 抓取網頁中...`, 'system'); const content = await fetchUrlViaGas(url); if (content) injectedContext = `\n\n[網頁內容]:\n${content}\n\n`;
                             else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(網頁抓取失敗，請使用 Search 工具搜尋此連結)`; }
                             } 
                             else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true;
-systemPromptAddon += `(請搜尋此連結)`; }
+        systemPromptAddon += `(請搜尋此連結)`; }
                         }
                     }
 
