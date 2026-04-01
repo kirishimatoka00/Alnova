@@ -16,6 +16,7 @@
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://unpkg.com/fix-webm-duration"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1500.0.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- 引入 Google 字體 Inter -->
     <script src="./telegram.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1762,12 +1763,25 @@ handleSendMessage(); }
             for (let file of files) {
                 const isImage = file.type.startsWith('image/');
                 const isMedia = file.type.startsWith('audio') || file.type.startsWith('video');
-                const isText = file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md');
+                const isExcel = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') || file.name.toLowerCase().endsWith('.csv');
+                const isText = file.type.startsWith('text/') || file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md') || isExcel;
                 const category = isImage ? 'image' : (isMedia ? 'media' : (isText ? 'text' : 'document'));
                 const reader = new FileReader();
                 const data = await new Promise(resolve => {
-                    reader.onload = evt => resolve(evt.target.result);
-                    if (category === 'text') reader.readAsText(file);
+                    reader.onload = evt => {
+                        if (isExcel) {
+                            try {
+                                // 修正: 將 ArrayBuffer 轉換為 Uint8Array，避免 XLSX 讀取發生語法與型態錯誤
+                                const dataUint8 = new Uint8Array(evt.target.result);
+                                const wb = XLSX.read(dataUint8, { type: 'array' });
+                                let res = "";
+                                wb.SheetNames.forEach(name => { res += `[Sheet: ${name}]\n` + XLSX.utils.sheet_to_csv(wb.Sheets[name]) + "\n\n"; });
+                                resolve(res);
+                            } catch(e) { resolve("Excel解析失敗: " + e.message); }
+                        } else resolve(evt.target.result);
+                    };
+                    if (isExcel) reader.readAsArrayBuffer(file);
+                    else if (category === 'text') reader.readAsText(file);
                     else reader.readAsDataURL(file);
                 });
                 appState.chatFiles.push({ category, name: file.name, mime: file.type || 'application/octet-stream', data: data });
@@ -3908,12 +3922,25 @@ async function checkScheduleIntent(text) {
             for (let file of files) {
                 const isImage = file.type.startsWith('image/');
                 const isMedia = file.type.startsWith('audio') || file.type.startsWith('video');
-                const isText = file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md');
+                const isExcel = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') || file.name.toLowerCase().endsWith('.csv');
+                const isText = file.type.startsWith('text/') || file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md') || isExcel;
                 const category = isImage ? 'image' : (isMedia ? 'media' : (isText ? 'text' : 'document'));
                 const reader = new FileReader();
                 const data = await new Promise(resolve => {
-                    reader.onload = evt => resolve(evt.target.result);
-                    if (category === 'text') reader.readAsText(file);
+                    reader.onload = evt => {
+                        if (isExcel) {
+                            try {
+                                // 修正: 將 ArrayBuffer 轉換為 Uint8Array，避免 XLSX 讀取發生語法與型態錯誤
+                                const dataUint8 = new Uint8Array(evt.target.result);
+                                const wb = XLSX.read(dataUint8, { type: 'array' });
+                                let res = "";
+                                wb.SheetNames.forEach(name => { res += `[Sheet: ${name}]\n` + XLSX.utils.sheet_to_csv(wb.Sheets[name]) + "\n\n"; });
+                                resolve(res);
+                            } catch(e) { resolve("Excel解析失敗: " + e.message); }
+                        } else resolve(evt.target.result);
+                    };
+                    if (isExcel) reader.readAsArrayBuffer(file);
+                    else if (category === 'text') reader.readAsText(file);
                     else reader.readAsDataURL(file);
                 });
                 appState.agentFiles.push({ category, name: file.name, mime: file.type || 'application/octet-stream', data: data });
