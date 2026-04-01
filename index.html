@@ -1086,7 +1086,7 @@
             let pptButtonHtml = '';
             let excelButtonHtml = ''; 
             let images = []; // 💡 重要修正：新增此行，防止圖片處理時 ReferenceError
-            tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
+            let tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
                 try {
                     let pptData = JSON.parse(jsonStr);
                     if (pptData && pptData.slides) {
@@ -1097,8 +1097,9 @@
                 } catch(e) { console.error('PPT JSON Parse Error:', e); }
                 return match;
             });
+            tempText = tempText.replace(/
+http://googleusercontent.com/immersive_entry_chip/0
                        
-let images = [];
             tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
             });
