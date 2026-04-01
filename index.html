@@ -1085,8 +1085,8 @@
             // 💡 關鍵修正：確保變數在最外層宣告，解決 ReferenceError 導致的所有按鈕失效
             let pptButtonHtml = '';
             let excelButtonHtml = ''; 
-
-            let tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
+            let images = []; // 💡 重要修正：新增此行，防止圖片處理時 ReferenceError
+            tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
                 try {
                     let pptData = JSON.parse(jsonStr);
                     if (pptData && pptData.slides) {
@@ -1131,9 +1131,9 @@ html += '</tr>';
                 html += '</tbody></table></div>';
 return html;
             });        
-        // 原本的 return 保持在最後面
         let finalHtml = safe.replace(/\n/g, '<br>');
         if (pptButtonHtml) finalHtml += pptButtonHtml;
+        if (excelButtonHtml) finalHtml += excelButtonHtml; // 💡 重要修正：確保 Excel 按鈕也能顯示
         return finalHtml;
 }
 
