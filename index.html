@@ -1111,6 +1111,10 @@
                 return match;
             });
 
+// === ↓↓↓ 請將中間這段插入到這裡 ↓↓↓ ===
+            tempText = tempText.replace(/
+http://googleusercontent.com/immersive_entry_chip/0
+
 let images = [];
             tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
@@ -2506,6 +2510,8 @@ window.downloadGeneratedExcel = function(base64Data, filename) {
                 alert("❌ EXCEL 產生失敗: " + e.message);
             }
         };
+
+        window.copyMessageText = function(id) {
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (!msg) return;
             const textArea = document.createElement("textarea");
