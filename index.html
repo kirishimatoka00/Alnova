@@ -1097,10 +1097,13 @@
                 } catch(e) { console.error('PPT JSON Parse Error:', e); }
                 return match;
             });
-                       tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
+                       
+let images = [];
+            tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
             });
 let safe = tempText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>'); 
            // 放寬解析條件：支援 http, https, sms, tel, mailto 等各種連結協定
             safe = safe.replace(/\[([^\]]+)\]\(([^)\s<]+)\)|(https?:\/\/[^\s<)\]]+)/g, function(match, mdTitle, mdUrl, rawUrl) {
