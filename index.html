@@ -1111,10 +1111,8 @@
                 return match;
             });
 
-            tempText = tempText.replace(/
+tempText = tempText.replace(/
 http://googleusercontent.com/immersive_entry_chip/0
-
-let images = [];
             tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
             });
