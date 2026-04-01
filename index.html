@@ -1101,7 +1101,6 @@
             });
 
             // 💡 加入 EXCEL 的解析邏輯
-            tempText = tempText.replace(/
                        
             tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
