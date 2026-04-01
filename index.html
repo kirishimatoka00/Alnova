@@ -1082,10 +1082,12 @@
         function formatMessage(text) { 
             if (!text) return '';
             
-            // 💡 關鍵修正：確保變數在最外層宣告，解決 ReferenceError 導致的所有按鈕失效
+            // 💡 確保變數只宣告一次
             let pptButtonHtml = '';
-            let excelButtonHtml = ''; 
-            let images = []; // 💡 重要修正：新增此行，防止圖片處理時 ReferenceError
+            let excelButtonHtml = '';
+            let images = []; 
+            
+            // 💡 確保 tempText 正確宣告與賦值
             let tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
                 try {
                     let pptData = JSON.parse(jsonStr);
@@ -1097,6 +1099,8 @@
                 } catch(e) { console.error('PPT JSON Parse Error:', e); }
                 return match;
             });
+
+            // 💡 加入 EXCEL 的解析邏輯
             tempText = tempText.replace(/
 http://googleusercontent.com/immersive_entry_chip/0
                        
