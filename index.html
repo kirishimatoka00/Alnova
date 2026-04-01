@@ -5,10 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NOVA 120 SSP</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <link rel="apple-touch-icon" href="icon.png">
-
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1105,6 +1101,19 @@
             tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
             });
+// 💡 新增：攔截 Base64 Data URI 網址 (處理 AI 直接輸出的檔案連結)
+            let dataUriButtonsHtml = '';
+            tempText = tempText.replace(/\[([^\]]+)\]\((data:[^)\s]+;base64,[^)\s]+)\)/ig, function(match, title, dataUri) {
+                let isExcel = dataUri.includes('spreadsheetml') || dataUri.includes('ms-excel') || dataUri.includes('csv');
+                let iconClass = isExcel ? 'ph-table text-green-400' : 'ph-file-arrow-down text-blue-400';
+                let bgClass = isExcel ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500';
+                let iconBgClass = isExcel ? 'bg-green-900/50' : 'bg-blue-900/50';
+                let ext = (isExcel && !title.includes('.')) ? '.xlsx' : '';
+                
+                dataUriButtonsHtml += `<div class="mt-4 p-4 bg-slate-800/80 border border-slate-600 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm"><div class="flex items-center gap-3"><div class="w-10 h-10 ${iconBgClass} rounded flex items-center justify-center"><i class="ph-fill ${iconClass} text-2xl"></i></div><div><h4 class="text-sm font-bold text-white">檔案已準備好</h4><p class="text-xs text-slate-400">${escapeHtml(title)}</p></div></div><a href="${dataUri}" download="${escapeHtml(title)}${ext}" class="w-full mt-2 ${bgClass} text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="ph-bold ph-download-simple"></i> 下載</a></div>`;
+                return ''; // 隱藏原始的雜亂網址連結
+            });
+
 let safe = tempText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>'); 
