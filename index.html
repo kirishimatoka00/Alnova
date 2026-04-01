@@ -1111,7 +1111,6 @@
                 return match;
             });
 
-// === ↓↓↓ 請將中間這段插入到這裡 ↓↓↓ ===
             tempText = tempText.replace(/
 http://googleusercontent.com/immersive_entry_chip/0
 
@@ -2476,7 +2475,7 @@ handleSendMessage(); }
         };
         
         window.copyMessageText = function(id) {
-window.downloadGeneratedExcel = function(base64Data, filename) {
+        window.downloadGeneratedExcel = function(base64Data, filename) {
             try {
                 // 將 Base64 還原為 JSON 字串
                 let jsonStr = decodeURIComponent(escape(atob(base64Data)));
