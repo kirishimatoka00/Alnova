@@ -1082,8 +1082,10 @@
         function formatMessage(text) { 
             if (!text) return '';
 
-            // --- 新增：處理 PPT 生成標記 ---
+            // --- 新增：處理 PPT 與 EXCEL 生成標記 ---
             let pptButtonHtml = '';
+            let excelButtonHtml = '';
+
             let tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
                 try {
                     let pptData = JSON.parse(jsonStr);
@@ -2470,6 +2472,40 @@ handleSendMessage(); }
         };
         
         window.copyMessageText = function(id) {
+window.downloadGeneratedExcel = function(base64Data, filename) {
+            try {
+                // 將 Base64 還原為 JSON 字串
+                let jsonStr = decodeURIComponent(escape(atob(base64Data)));
+                let excelData = JSON.parse(jsonStr);
+                
+                // 建立新的活頁簿
+                let wb = XLSX.utils.book_new();
+                
+                // 處理每個 Sheet
+                if (excelData.sheets && Array.isArray(excelData.sheets)) {
+                    excelData.sheets.forEach(sheet => {
+                        let wsName = sheet.name || "Sheet1";
+                        let wsData = sheet.data || [];
+                        let ws = XLSX.utils.aoa_to_sheet(wsData);
+                        XLSX.utils.book_append_sheet(wb, ws, wsName);
+                    });
+                } else if (excelData.data) {
+                     // 處理單一 Sheet 的情況
+                     let ws = XLSX.utils.aoa_to_sheet(excelData.data);
+                     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+                } else {
+                     throw new Error("無效的 Excel 資料格式");
+                }
+                
+                // 導出檔案
+                let exportFilename = (filename || excelData.filename || "NOVA_Export") + ".xlsx";
+                XLSX.writeFile(wb, exportFilename);
+                showToast("✅ EXCEL 下載中...");
+            } catch (e) {
+                console.error("Excel Generation Error:", e);
+                alert("❌ EXCEL 產生失敗: " + e.message);
+            }
+        };
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (!msg) return;
             const textArea = document.createElement("textarea");
