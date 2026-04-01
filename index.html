@@ -1097,10 +1097,7 @@
                 } catch(e) { console.error('PPT JSON Parse Error:', e); }
                 return match;
             });
-
-            tempText = tempText.replace(/
-http://googleusercontent.com/immersive_entry_chip/1
-            tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
+                       tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
             });
 let safe = tempText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
