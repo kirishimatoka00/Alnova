@@ -1081,38 +1081,25 @@
         
         function formatMessage(text) { 
             if (!text) return '';
-
-            // --- 新增：處理 PPT 與 EXCEL 生成標記 ---
+            
+            // 💡 關鍵修正：確保變數在最外層宣告，解決 ReferenceError 導致的所有按鈕失效
             let pptButtonHtml = '';
-            let excelButtonHtml = '';
+            let excelButtonHtml = ''; 
 
             let tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
                 try {
                     let pptData = JSON.parse(jsonStr);
                     if (pptData && pptData.slides) {
                         let base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(pptData))));
-                        pptButtonHtml = `<div class="mt-4 p-4 bg-slate-800/80 border border-emerald-500/50 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-emerald-900/50 rounded flex items-center justify-center"><i class="ph-fill ph-presentation-chart text-2xl text-emerald-400"></i></div>
-                                <div>
-                                    <h4 class="text-sm font-bold text-white">AI 簡報產生完成</h4>
-                                    <p class="text-xs text-slate-400">${escapeHtml(pptData.title) || '簡報檔案'} (${pptData.slides.length} 頁)</p>
-                                </div>
-                            </div>
-                            <button onclick="downloadGeneratedPPT('${base64Data}')" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                                <i class="ph-bold ph-download-simple"></i> 下載 .pptx 檔案
-                            </button>
-                        </div>`;
-                        return ''; // 從原本對話文字中移除 JSON 區塊
+                        pptButtonHtml = `<div class="mt-4 p-4 bg-slate-800/80 border border-emerald-500/50 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-emerald-900/50 rounded flex items-center justify-center"><i class="ph-fill ph-presentation-chart text-2xl text-emerald-400"></i></div><div><h4 class="text-sm font-bold text-white">AI 簡報產生完成</h4><p class="text-xs text-slate-400">${escapeHtml(pptData.title) || '簡報檔案'} (${pptData.slides.length} 頁)</p></div></div><button onclick="downloadGeneratedPPT('${base64Data}')" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 .pptx 檔案</button></div>`;
+                        return ''; 
                     }
-                } catch(e) {
-                    console.error('PPT JSON Parse Error:', e);
-                }
+                } catch(e) { console.error('PPT JSON Parse Error:', e); }
                 return match;
             });
 
-tempText = tempText.replace(/
-http://googleusercontent.com/immersive_entry_chip/0
+            tempText = tempText.replace(/
+http://googleusercontent.com/immersive_entry_chip/1
             tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
                 images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
             });
@@ -2473,6 +2460,7 @@ handleSendMessage(); }
         };
         
         window.downloadGeneratedExcel = function(base64Data, filename) {
+
             try {
                 // 將 Base64 還原為 JSON 字串
                 let jsonStr = decodeURIComponent(escape(atob(base64Data)));
