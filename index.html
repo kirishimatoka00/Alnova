@@ -1682,11 +1682,13 @@ window.clearChatHistory = function() {
         window.favoriteMessage = function(id) {
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (msg) {
-                let finalContent = msg.text;
+                // 💡 修正：將 Markdown 內容轉換為 HTML 以保留表格與排版格式
+                let finalContent = formatMessage(msg.text);
                 if (msg.actionData) finalContent += `<br><br><div class="bg-slate-800 p-3 rounded border border-slate-700 text-sm"><strong>分析結果：</strong><br>${msg.actionData.result}</div>`;
                 const note = { id: Date.now(), title: '收藏對話 ' + new Date().toLocaleDateString(), content: finalContent, isHtml: true, date: new Date().toLocaleString(), type: 'text', folder: '未分類' };
                 // 💡 修正：確保多檔案格式下的所有圖片都能被正確收藏進筆記
-                let msgFiles = msg.files && msg.files.length > 0 ? msg.files : (msg.file ? [msg.file] : []);
+                let msgFiles = msg.files && msg.files.length > 0 ?
+msg.files : (msg.file ? [msg.file] : []);
                 let imageFiles = msgFiles.filter(f => f.category === 'image');
                 if (imageFiles.length > 0) note.images = imageFiles.map(f => f.data);
                 appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記！(表格與格式已保留)");
