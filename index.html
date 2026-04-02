@@ -4556,6 +4556,10 @@ let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearch
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
+// --- 新增：攔截 Excel 報表意圖，強制回傳 JSON 格式 ---
+            if (text.toUpperCase().includes("EXCEL") || text.includes("報表") || text.includes("試算表") || text.includes("表格")) {
+                systemPromptAddon += `\n【💡 特殊技能觸發】：使用者要求下載 Excel 檔案或處理表格。請你處理完資料後，嚴格使用以下 JSON 格式輸出 (並用 \`\`\`json 和 \`\`\` 包著)，系統會自動轉換為真實的 .xlsx 檔案給使用者下載。**絕對不要捏造 https://example.com 等假網址！**\n\`\`\`json\n{\n  "excel": true,\n  "filename": "AI_Report",\n  "data": [\n    ["標題1", "標題2", "標題3"],\n    ["數值A", "數值B", "數值C"]\n  ]\n}\n\`\`\`\n注意：data 必須是一個乾淨的二維陣列 (Array of Arrays)！\n`;
+            }
 
                 if (filesDataToPass && filesDataToPass.length > 0) {
                     filesDataToPass.forEach(f => {
