@@ -1109,25 +1109,18 @@
             let dataUriButtonsHtml = '';
             tempText = tempText.replace(/\[([^\]]+)\]\((data:[^)\s]+;base64,[^)\s]+)\)/ig, function(match, title, dataUri) {
                 let isExcel = dataUri.includes('spreadsheetml') || dataUri.includes('ms-excel') || dataUri.includes('csv');
-                let iconClass = isExcel ? 'ph-file-xls' : 'ph-file-ppt';
-            let bgClass = isExcel ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500';
-            let iconBgClass = isExcel ? 'bg-green-900/50' : 'bg-blue-900/50';
+                let iconClass = isExcel ? 'ph-table text-green-400' : 'ph-file-arrow-down text-blue-400';
+                let bgClass = isExcel ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500';
+                let iconBgClass = isExcel ? 'bg-green-900/50' : 'bg-blue-900/50';
             let ext = (isExcel && !title.includes('.')) ?
             '.xlsx' : '';
 
-            // 🌟 新增：將 Data URI 轉換成瀏覽器原生的 Blob URL，完美支援左鍵下載與右鍵另存
-            let blobUrl = dataUri; 
-            try {
-                const blob = base64ToBlob(dataUri);
-                blobUrl = URL.createObjectURL(blob);
-            } catch(e) {
-                console.error("Blob URL 轉換失敗", e);
-            }
-
-            dataUriButtonsHtml += `<div class="mt-4 p-4 bg-slate-800/80 border border-slate-600 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm"><div class="flex items-center gap-3"><div class="w-10 h-10 ${iconBgClass} rounded flex items-center justify-center"><i class="ph-fill ${iconClass} text-2xl"></i></div><div><h4 class="text-sm font-bold text-white">檔案已準備好</h4><p class="text-xs text-slate-400">${escapeHtml(title)}</p></div></div><a href="${blobUrl}" download="${escapeHtml(title)}${ext}" class="w-full mt-2 ${bgClass} text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="ph-bold ph-download-simple"></i> 下載</a></div>`;
+            let safeTitle = escapeHtml(title).replace(/'/g, "\\'"); // 🌟 避免檔名有單引號導致程式錯誤
+            dataUriButtonsHtml += `<div class="mt-4 p-4 bg-slate-800/80 border border-slate-600 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm"><div class="flex items-center gap-3"><div class="w-10 h-10 ${iconBgClass} rounded flex items-center justify-center"><i class="ph-fill ${iconClass} text-2xl"></i></div><div><h4 class="text-sm font-bold text-white">檔案已準備好</h4><p class="text-xs text-slate-400">${escapeHtml(title)}</p></div></div><button onclick="downloadDataUriFile('${dataUri}', '${safeTitle}${ext}')" class="w-full mt-2 ${bgClass} text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="ph-bold ph-download-simple"></i> 下載</button></div>`;
             return ''; // 隱藏原始的雜亂網址連結
-        });        
-        let finalHtml = safe.replace(/\n/g, '<br>');
+            });
+
+let safe = tempText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>'); 
            // 放寬解析條件：支援 http, https, sms, tel, mailto 等各種連結協定
