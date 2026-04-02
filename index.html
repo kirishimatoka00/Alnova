@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NOVA 120 SSP</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="icon.png">
+
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1145,7 +1149,9 @@ return html;
             });        
         let finalHtml = safe.replace(/\n/g, '<br>');
         if (pptButtonHtml) finalHtml += pptButtonHtml;
-        if (excelButtonHtml) finalHtml += excelButtonHtml; // 💡 重要修正：確保 Excel 按鈕也能顯示
+        if (excelButtonHtml) finalHtml += excelButtonHtml;
+        if (dataUriButtonsHtml) finalHtml += dataUriButtonsHtml; // 🌟 補上這行，將檔案下載按鈕加入最終畫面
+// 💡 重要修正：確保 Excel 按鈕也能顯示
         return finalHtml;
 }
 
