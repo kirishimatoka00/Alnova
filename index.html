@@ -4298,6 +4298,33 @@ window.startMultiAgentResearch = async function() {
             }
         };
 
+// ====== 新增：觸發 Power Automate 專屬函數 ======
+        async function triggerPowerAutomateFlow(rawText) {
+            // ⚠️ 如果手機與電腦連同一個 Wi-Fi，請將 127.0.0.1 替換為您電腦的 IPv4 網址 (如 192.168.x.x)
+            const paWebhookUrl = "http://127.0.0.1:5000/run-pad"; 
+            addMessage(`⏳ 正在呼叫遠端 Power Automate 執行流程...`, 'system');
+            
+            let actionCmd = "default";
+            // 簡單判斷關鍵字 (依您的需求可自行增加)
+            if (rawText.includes("報表") || rawText.includes("report")) actionCmd = "report";
+            else actionCmd = rawText.split(' ')[0]; // 預設將第一個字詞當作流程名稱
+
+            try {
+                const response = await fetch(paWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: actionCmd, rawText: rawText })
+                });
+                if (response.ok) {
+                    addMessage(`✅ Power Automate 指令已成功送出！`, 'system');
+                } else {
+                    addMessage(`❌ 觸發失敗，伺服器回應錯誤碼: ${response.status}`, 'system');
+                }
+            } catch (error) {
+                addMessage(`⚠️ 連線至伺服器發生錯誤: ${error.message} (請確認 Python 伺服器已啟動)`, 'system');
+            }
+        }
+
         
         // --- 核心訊息發送與處理邏輯 ---
         async function handleSendMessage() {
@@ -4333,6 +4360,16 @@ window.startMultiAgentResearch = async function() {
                 appState.pendingAnalyzeContextId = null;
                 appState.pendingAnalyzeType = '';
             }
+
+// ====== 新增：Power Automate 指令攔截器 ======
+            if (text.toLowerCase().startsWith("/pa ")) {
+                const commandText = text.substring(4).trim();
+                input.value = ''; autoResizeInput(input); chatInitialInput = '';
+                addMessage(`⚡ 執行自動化指令：${commandText}`, 'user');
+                triggerPowerAutomateFlow(commandText);
+                return;
+            }
+
             // 優先攔截：SOS 緊急求救意圖
             const sosMatch = text.match(/^(call\s*911|call\s*119|救我|救救我|報警|救命|HELP)/i);
             if (sosMatch) {
