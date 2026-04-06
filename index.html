@@ -629,13 +629,17 @@
                             </button>
                             
                             <button id="translate-btn" onclick="toggleTranslateMode()" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 transition-colors active:scale-95">
-                                <i id="translate-icon" class="ph-bold ph-translate text-2xl"></i><span id="translate-btn-text" class="text-[10px] font-bold">即時口譯</span>
+                                 <i id="translate-icon" class="ph-bold ph-translate text-2xl"></i><span id="translate-btn-text" class="text-[10px] font-bold">即時口譯</span>
                             </button>
                         </div>
 
-                        <!-- 底部主輸入列 -->
+<div id="translate-settings" class="hidden w-full bg-slate-900 border-t border-slate-800 p-2 justify-center items-center gap-2 z-40 text-xs">
+                            <select id="trans-lang-a" class="bg-slate-800 text-white p-1.5 rounded outline-none border border-slate-700"><option value="auto">自動偵測語言</option><option value="zh-TW">中文</option><option value="en">英文</option><option value="ja">日文</option><option value="ko">韓文</option></select>
+                            <i class="ph-bold ph-arrows-left-right text-slate-500"></i>
+                            <select id="trans-lang-b" class="bg-slate-800 text-white p-1.5 rounded outline-none border border-slate-700"><option value="zh-TW">翻譯為中文</option><option value="en">翻譯為英文</option><option value="ja">翻譯為日文</option><option value="ko">翻譯為韓文</option></select>
+                        </div>
+
                         <div class="flex items-end gap-2 w-full relative z-50 p-2">
-                            <!-- 展開附加選單按鈕 -->
                             <button onclick="togglePlusMenu()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-300 hover:text-white shrink-0 transition-transform flex items-center justify-center active:scale-90 h-[40px] w-[40px]">
                                 <i class="ph-bold ph-plus text-xl transition-transform" id="plus-icon"></i>
                             </button>
@@ -3228,11 +3232,14 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                 icon.classList.remove('animate-pulse', 'text-blue-400');
                 textEl.innerText = "即時口譯";
                 
+document.getElementById('translate-settings').classList.add('hidden');
+                document.getElementById('translate-settings').classList.remove('flex');
+                
                 appState.voiceTimeout = parseInt(localStorage.getItem('nova_voice_timeout')) || 5;
                 
-                stopTranslateBAndSend(true); // Force stop & discard chunk
+                stopTranslateBAndSend(true);
+                // Force stop & discard chunk
                 window.speechSynthesis.cancel();
-                
                 addMessage("🌐 全自動即時口譯已關閉，麥克風已完全釋放。", 'system');
                 
                 if (recognition && appState.isContinuous) {
@@ -3247,12 +3254,13 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                 btn.classList.remove('text-slate-300', 'bg-slate-800', 'border-slate-700');
                 icon.classList.add('animate-pulse', 'text-blue-400');
                 textEl.innerText = "口譯中...";
-                
-                addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您說話完畢，等待設定秒數後立即送出翻譯。AI 回覆期間麥克風會自動完全關閉以防干擾。\n**👉 系統已啟動收音，請直接對著設備說話！**\n*(如需結束，您可以直接點選上方閃爍的紅燈，或是直接對麥克風說出「結束口譯」或「停止翻譯」)*", 'system');
+
+                document.getElementById('translate-settings').classList.remove('hidden');
+                document.getElementById('translate-settings').classList.add('flex');
+addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您說話完畢，等待設定秒數後立即送出翻譯。AI 回覆期間麥克風會自動完全關閉以防干擾。\n**👉 系統已啟動收音，請直接對著設備說話！**\n*(如需結束，您可以直接點選上方閃爍的紅燈，或是直接對麥克風說出「結束口譯」或「停止翻譯」)*", 'system');
                 
                 // 【NOVA 101 SP】防呆鎖：設定為 true，確保第一次收音前，絕對不會有任何系統聲音發出
                 appState.translateMuteUntilFirstCapture = true;
-                
                 setTimeout(() => { startTranslateBAutoRecord(); }, 1500); 
                 
                 document.getElementById('plus-menu').classList.add('hidden');
@@ -3481,43 +3489,69 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                 appState.isThinking = true;
                 renderThinkingState(true);
                 try {
-                    // 防護網 3: AI 幻覺攔截器 (嚴厲禁止輸出預設回覆)
-                    let prompt = "你是一位專業的同步口譯員。請直接聽取這段音檔中的對話並進行翻譯。如果說的是中文，請翻譯成自然流暢的英文；如果說的是任何外文，請翻譯成繁體中文。請『只輸出最終的翻譯結果文字』，絕對不要包含任何解釋、原文、拼音或個人評論。\n\n***極度重要防幻覺指令：如果音檔中只有雜音、風扇聲、沒有明顯可辨識的人類說話聲，請你務必只回傳「[NO_SPEECH]」這幾個字，絕對不要幻覺出「Thank you」、「Bye」等任何字詞！***";
+const langA = document.getElementById('trans-lang-a').options[document.getElementById('trans-lang-a').selectedIndex].text;
+                    const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text;
                     
+                    let prompt = `你是一位專業的同步口譯員。請直接聽取這段音檔中的對話並進行翻譯。
+要求：
+1. 若來源設定為「自動偵測語言」，請判斷說話者的語言，若為${langB}則不翻或翻為中文，否則一律翻譯成${langB}。
+2. 若有明確來源語言，請將輸入轉換為目標語言。
+3. 嚴格以 JSON 格式輸出，絕對不要包含任何其他解釋文字。格式如下：
+\`\`\`json
+{
+  "original": "聽到的原文內容",
+  "translated": "翻譯後的結果"
+}
+\`\`\`
+***極度重要防幻覺指令：如果音檔中只有雜音、風扇聲、沒有明顯可辨識的人類說話聲，請務必只回傳「[NO_SPEECH]」，絕對不要幻覺出「Thank you」等字詞！***`;
+
+                    const origGeminiModel = appState.geminiModel;
+                    appState.geminiModel = 'gemini-3.1-flash-live-preview'; // 強制使用最快模型
+
                     let res = await fetchAIResponse(prompt, 'gemini', { 
                         file: { category: 'media', data: base64dataWithPrefix, mime: mediaRecorder?.mimeType || 'audio/webm', name: 'Voice_Input.weba' } 
                     });
-                    let finalTxt = typeof res === 'string' ? res : res.text;
                     
-                    let checkCmd = finalTxt.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
+                    appState.geminiModel = origGeminiModel; // 恢復設定
 
-                    // --- 攔截 AI 幻覺雜音 (如果沒有人聲，直接靜默捨棄，不播報不進入迴圈) ---
-                    if (checkCmd.includes('[no_speech]') || finalTxt.includes('[NO_SPEECH]')) {
-                        console.log("[NOVA] 攔截到 AI 幻覺雜音或無人聲，靜默重啟收音...");
-                        if (appState.translateMode === 'auto') {
-                            setTimeout(startTranslateBAutoRecord, 500);
-                        }
-                        appState.isThinking = false;
-                        renderThinkingState(false);
+                    let rawTxt = typeof res === 'string' ? res : res.text;
+                    let checkCmd = rawTxt.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
+
+                    // --- 攔截 AI 幻覺雜音 ---
+                    if (checkCmd.includes('[no_speech]') || rawTxt.includes('[NO_SPEECH]')) {
+                        console.log("[NOVA] 攔截到 AI 幻覺雜音，靜默重啟收音...");
+                        if (appState.translateMode === 'auto') setTimeout(startTranslateBAutoRecord, 500);
+                        appState.isThinking = false; renderThinkingState(false);
                         return;
                     }
 
-                    // --- 攔截語音停止指令 (AI 翻譯結果判斷) ---
+                    // --- 解析 JSON 雙語結果 ---
+                    let displayTxt = rawTxt;
+                    let speakTxt = rawTxt;
+                    try {
+                        let jsonStr = rawTxt.replace(/```json/g, '').replace(/```/g, '').trim();
+                        let parsed = JSON.parse(jsonStr);
+                        if (parsed.original && parsed.translated) {
+                            displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
+                            speakTxt = parsed.translated;
+                            checkCmd = parsed.translated.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
+                        }
+                    } catch(e) { speakTxt = rawTxt; }
+
+                    // --- 攔截語音停止指令 ---
                     if (checkCmd.includes('結束口譯') || checkCmd.includes('關閉口譯') || checkCmd.includes('stoptranslation') || checkCmd.includes('endtranslation') || checkCmd === 'stop' || checkCmd.includes('停止翻譯')) {
                         addMessage("✅ 已聽到您的語音中止指令，全自動口譯已結束。", 'system');
                         toggleTranslateMode(true);
-                        appState.isThinking = false;
-                        renderThinkingState(false);
+                        appState.isThinking = false; renderThinkingState(false);
                         return;
                     }
                     
-                    addMessage(finalTxt, 'ai', 'gemini');
-                    
+                    addMessage(displayTxt, 'ai', 'gemini');
                     if (appState.translateMode === 'auto') {
                         const aiMsgId = appState.messages[appState.messages.length - 1].id;
-                        speakText(finalTxt, false, String(aiMsgId));
+                        speakText(speakTxt, false, String(aiMsgId));
                     }
-                } catch(e) {
+} catch(e) {
                     addMessage("翻譯失敗：" + e.message, 'system');
                     if (appState.translateMode === 'auto') setTimeout(startTranslateBAutoRecord, 2000);
                 } finally {
@@ -4647,15 +4681,26 @@ injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
                         if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(text); } catch (e) {} }
                         if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(text);
                         if (searchResultText) { injectedContext += `\n\n[系統自動連網搜尋結果，請參考此最新資訊來回答使用者的問題]:\n${searchResultText}\n\n`; } 
-                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system'); }
+                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system');
+                        }
                     }
                 }
 
-                const promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
-        let finalRes;
+let promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
+                if (appState.translateMode !== 'off') {
+                    const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text;
+                    promptToSent = `請進行文字翻譯。\n要翻譯的內容：${text}\n要求：\n1. 若為${langB}則翻為中文，否則翻為${langB}。\n2. 嚴格以 JSON 格式輸出：\n\`\`\`json\n{\n  "original": "原文內容",\n  "translated": "翻譯後的結果"\n}\n\`\`\``;
+                }
+
+                let finalRes;
         try {
+            let origGeminiModel = appState.geminiModel;
+            if (appState.translateMode !== 'off') appState.geminiModel = 'gemini-3.1-flash-live-preview';
+            
             finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
-        } catch (apiError) {
+            
+            if (appState.translateMode !== 'off') appState.geminiModel = origGeminiModel;
+} catch (apiError) {
             // 自動跳轉至 GROK 備援機制
             if (modelToUse === 'gemini' && appState.keys.grok) {
                 addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
@@ -4663,19 +4708,31 @@ injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
                 window.setModel('grok'); // 同步更新 UI 下拉選單與系統狀態
                 finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
             } else {
-                throw apiError; // 若非 Gemini 或未填寫 Grok 金鑰，則把錯誤往外拋，由系統正常攔截
+                throw apiError;
+                // 若非 Gemini 或未填寫 Grok 金鑰，則把錯誤往外拋，由系統正常攔截
             }
         }
 
-        let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
+let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
+        let textToSpeak = finalOutputText;
         
+        if (appState.translateMode !== 'off') {
+            try {
+                let jsonStr = finalOutputText.replace(/```json/g, '').replace(/```/g, '').trim();
+                let parsed = JSON.parse(jsonStr);
+                if (parsed.original && parsed.translated) {
+                    finalOutputText = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
+                    textToSpeak = parsed.translated;
+                }
+            } catch(e) {}
+        }
+
         if(typeof finalRes === 'string') addMessage(finalOutputText, 'ai', modelToUse);
         else addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
-
-                const aiMsgId = appState.messages[appState.messages.length - 1].id;
-                speakText(finalOutputText, false, String(aiMsgId));
-
-                if (appState.pendingAnalyzeContextId) {
+        
+        const aiMsgId = appState.messages[appState.messages.length - 1].id;
+        speakText(textToSpeak, false, String(aiMsgId));
+if (appState.pendingAnalyzeContextId) {
                     if (appState.pendingAnalyzeType === 'voiceNote') {
                         const n = appState.notes.find(x => String(x.id) === String(appState.pendingAnalyzeContextId));
                         if (n) { n.content += `\n\n====================\n[AI 完整轉錄與分析 (${MODEL_CONFIG[modelToUse]?.name})]\n${finalRes.text||finalRes}`; saveToDB('notes', n); renderNotes(); addMessage(`✅ 分析完成！逐字稿與摘要已自動儲存至筆記「${n.title}」的內文中。`, 'system'); }
