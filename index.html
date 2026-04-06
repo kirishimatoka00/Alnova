@@ -3516,8 +3516,9 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                     appState.geminiModel = origGeminiModel; // 恢復設定
 
                     let rawTxt = typeof res === 'string' ? res : res.text;
+                    
                     // --- 關鍵修復：徹底清除 Gemini 內部的來源標籤網址雜訊 ---
-                    rawTxt = rawTxt.replace(/https?:\/\/googleusercontent\.com\/immersive_entry_chip\/\d+/g, '');
+                    rawTxt = rawTxt.replace(/https?:\/\/[^\s]+/g, '');
 
                     // 將所有非字母、非中文字元過濾掉，進行最嚴格的雜音比對
                     let pureTextForCheck = rawTxt.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase();
@@ -3528,38 +3529,26 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                     let isHallucination = false;
                     let checkCmd = ""; // 💡 確保 checkCmd 存在
 
-                    
-try {
-    let jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        let parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.original && parsed.translated) {
-            displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
-            speakTxt = parsed.translated;
-
-            // ✅ 正確的 checkCmd 寫法
-            checkCmd = parsed.translated
-              .replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '')
-              .toLowerCase();
-
-            let origCheck = parsed.original
-              .replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '')
-              .toLowerCase();
-
-            if (
-                origCheck.includes('nospeech') ||
-                origCheck.includes('無語音') ||
-                origCheck.includes('無內容') ||
-                origCheck.includes('聽不清楚')
-            ) {
-                isHallucination = true;
-            }
-        }
-    }
-} catch (e) {
-    speakTxt = rawTxt.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '');
-}
-
+                    try {
+                        let jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            let parsed = JSON.parse(jsonMatch[0]);
+                            if (parsed.original && parsed.translated) {
+                                displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
+                                speakTxt = parsed.translated;
+                                
+                                // 💡 修正 1：正確的字串過濾語法
+                                checkCmd = parsed.translated.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase(); 
+                                
+                                let origCheck = parsed.original.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase();
+                                if (origCheck.includes('nospeech') || origCheck.includes('無語音') || origCheck.includes('無內容') || origCheck.includes('聽不清楚')) {
+                                    isHallucination = true;
+                                }
+                            }
+                        }
+                    } catch(e) { 
+                        // 💡 修正 2：補回完整的 catch 處理區塊
+                        speakTxt = replace(/\{|\}/g, '');
 
                     // --- 攔截 AI 幻覺雜音 (放在 JSON 解析之後，判斷更精準) ---
                     if (isHallucination || checkCmd.includes('[no_speech]') || rawTxt.includes('[NO_SPEECH]') || checkCmd === '無語音' || checkCmd === '無內容') {
