@@ -629,11 +629,12 @@
                             </button>
                             
                             <button id="translate-btn" onclick="toggleTranslateMode()" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 transition-colors active:scale-95">
-                                 <i id="translate-icon" class="ph-bold ph-translate text-2xl"></i><span id="translate-btn-text" class="text-[10px] font-bold">即時口譯</span>
+                                <i id="translate-icon" class="ph-bold ph-translate text-2xl"></i><span id="translate-btn-text" class="text-[10px] font-bold">即時口譯</span>
                             </button>
                         </div>
 
 <div id="translate-settings" class="hidden w-full bg-slate-900 border-t border-slate-800 p-2 justify-center items-center gap-2 z-40 text-xs">
+                            <select id="trans-input-mode" onchange="handleTransModeChange()" class="bg-slate-800 text-purple-400 font-bold p-1.5 rounded outline-none border border-slate-700"><option value="voice">純語音</option><option value="text">純打字</option></select>
                             <select id="trans-lang-a" class="bg-slate-800 text-white p-1.5 rounded outline-none border border-slate-700"><option value="auto">自動偵測語言</option><option value="zh-TW">中文</option><option value="en">英文</option><option value="ja">日文</option><option value="ko">韓文</option></select>
                             <i class="ph-bold ph-arrows-left-right text-slate-500"></i>
                             <select id="trans-lang-b" class="bg-slate-800 text-white p-1.5 rounded outline-none border border-slate-700"><option value="zh-TW">翻譯為中文</option><option value="en">翻譯為英文</option><option value="ja">翻譯為日文</option><option value="ko">翻譯為韓文</option></select>
@@ -3274,22 +3275,45 @@ document.getElementById('translate-settings').classList.add('hidden');
                 btn.classList.remove('text-slate-300', 'bg-slate-800', 'border-slate-700');
                 icon.classList.add('animate-pulse', 'text-blue-400');
                 textEl.innerText = "口譯中...";
-
                 document.getElementById('translate-settings').classList.remove('hidden');
                 document.getElementById('translate-settings').classList.add('flex');
-addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您說話完畢，等待設定秒數後立即送出翻譯。AI 回覆期間麥克風會自動完全關閉以防干擾。\n**👉 系統已啟動收音，請直接對著設備說話！**\n*(如需結束，您可以直接點選上方閃爍的紅燈，或是直接對麥克風說出「結束口譯」或「停止翻譯」)*", 'system');
+                
+                // 💡 修正：依據目前選取的輸入模式給予不同的提示，並決定是否啟動收音
+                const inputMode = document.getElementById('trans-input-mode') ? document.getElementById('trans-input-mode').value : 'voice';
+                const modeMsg = inputMode === 'voice' ? 
+                    "**👉 系統已啟動收音，請直接對著設備說話！**\n*(如需結束，請點選上方閃爍紅燈，或對麥克風說「結束口譯」)*" : 
+                    "**👉 目前為純打字模式，請直接在下方輸入文字進行口譯！**";
+                addMessage(`🌐 **即時口譯已啟動！**\n系統會自動判定來源與目標語言進行翻譯。\n${modeMsg}`, 'system');
                 
                 // 【NOVA 101 SP】防呆鎖：設定為 true，確保第一次收音前，絕對不會有任何系統聲音發出
                 appState.translateMuteUntilFirstCapture = true;
-                setTimeout(() => { startTranslateBAutoRecord(); }, 1500); 
-                
+                if (inputMode === 'voice') {
+                    setTimeout(() => { startTranslateBAutoRecord(); }, 1500);
+                }
                 document.getElementById('plus-menu').classList.add('hidden');
                 document.getElementById('plus-icon').classList.remove('rotate-45');
             }
         }
 
+        // 💡 新增：處理模式切換的事件函數
+        window.handleTransModeChange = function() {
+            const mode = document.getElementById('trans-input-mode').value;
+            if (appState.translateMode !== 'off') {
+                if (mode === 'text') {
+                    stopTranslateBAndSend(true); // 強制中斷並捨棄當前錄音
+                    addMessage("⌨️ 已切換為【純打字】口譯模式，麥克風已關閉。", "system");
+                } else {
+                    addMessage("🎙️ 已切換為【純語音】口譯模式，麥克風開啟中...", "system");
+                    setTimeout(() => { startTranslateBAutoRecord(); }, 500);
+                }
+            }
+        };
+
         async function startTranslateBAutoRecord() {
             if (appState.translateMode !== 'auto') return;
+            
+            // 💡 修正：若是打字模式，絕對不要啟動麥克風與 VAD
+            if (document.getElementById('trans-input-mode') && document.getElementById('trans-input-mode').value === 'text') return;
 
             // 防護網 1: 硬體狀態鎖 (如果在發聲，絕對不啟動麥克風，防止迴圈)
             if (window.speechSynthesis.speaking) {
@@ -4602,29 +4626,16 @@ window.startMultiAgentResearch = async function() {
                 }
 
                 let displayMessage = text;
-if (!text && filesDataToPass.length > 0) {
-                displayMessage = `[夾帶檔案/畫面: ${filesDataToPass.map(f=>f.name).join(', ')}]`;
-            }
-            addMessage(displayMessage, 'user', null, [], filesDataToPass);
-            
-            input.value = '';
-            autoResizeInput(input);
-            chatInitialInput = '';
-            clearChatFile();
-            
-            // 💡 修正：若在翻譯模式下打字送出，立刻鎖死狀態並關閉麥克風，直到 TTS 唸完才會解鎖
-            if (appState.translateMode !== 'off') {
-                appState.isTTSPlaying = true; // 借用 TTS 鎖定狀態來阻斷 VAD 判斷
-                releaseMicrophone();          // 瞬間切斷麥克風硬體連線
-            }
-
-            if (appState.isContinuous) {
-                if (recognition) {
-                    try { recognition.abort(); } catch(e){}
+if (!text && filesDataToPass.length > 0) { displayMessage = `[夾帶檔案/畫面: ${filesDataToPass.map(f=>f.name).join(', ')}]`; }
+                
+                addMessage(displayMessage, 'user', null, [], filesDataToPass);
+input.value = ''; autoResizeInput(input); chatInitialInput = ''; clearChatFile(); 
+                
+                if (appState.isContinuous) {
+                    if (recognition) { try { recognition.abort(); } catch(e){} }
                 }
-            }
-            
-            renderThinkingState(true);
+                
+                renderThinkingState(true);
 
                 if (appState.pendingReminder && appState.reminderStage > 0) {
                      const todo = appState.todos.find(t => t.id === appState.pendingReminder);
