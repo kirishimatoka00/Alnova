@@ -3503,7 +3503,7 @@ const langA = document.getElementById('trans-lang-a').options[document.getElemen
   "translated": "翻譯後的結果"
 }
 \`\`\`
-***極度重要防幻覺指令：如果音檔中只有雜音、風扇聲、沒有明顯可辨識的人類說話聲，請務必只回傳「[NO_SPEECH]」，絕對不要幻覺出「Thank you」等字詞！***`;
+***極度重要防幻覺指令：如果音檔中只有背景雜音、電流聲、沒有明確的人類說話聲，或聽不清楚，請務必在 original 與 translated 皆輸出「[NO_SPEECH]」。嚴格禁止自行腦補或幻覺出「Thank you」、「謝謝」或「無語音」等字詞！***`;
 
                     const origGeminiModel = appState.geminiModel;
                     appState.geminiModel = 'gemini-3.1-flash-live-preview'; // 強制使用最快模型
@@ -3517,17 +3517,11 @@ const langA = document.getElementById('trans-lang-a').options[document.getElemen
                     let rawTxt = typeof res === 'string' ? res : res.text;
                     let checkCmd = rawTxt.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
 
-                    // --- 攔截 AI 幻覺雜音 ---
-                    if (checkCmd.includes('[no_speech]') || rawTxt.includes('[NO_SPEECH]')) {
-                        console.log("[NOVA] 攔截到 AI 幻覺雜音，靜默重啟收音...");
-                        if (appState.translateMode === 'auto') setTimeout(startTranslateBAutoRecord, 500);
-                        appState.isThinking = false; renderThinkingState(false);
-                        return;
-                    }
-
-                    // --- 解析 JSON 雙語結果 ---
+                    // --- 先解析 JSON 雙語結果 ---
                     let displayTxt = rawTxt;
                     let speakTxt = rawTxt;
+                    let isHallucination = false;
+                    
                     try {
                         let jsonStr = rawTxt.replace(/```json/g, '').replace(/```/g, '').trim();
                         let parsed = JSON.parse(jsonStr);
@@ -3535,8 +3529,22 @@ const langA = document.getElementById('trans-lang-a').options[document.getElemen
                             displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
                             speakTxt = parsed.translated;
                             checkCmd = parsed.translated.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
+                            
+                            // 檢查原文是否為常見的雜音幻覺 (包含無語音、聽不清楚等)
+                            let origCheck = parsed.original.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
+                            if (origCheck.includes('[no_speech]') || origCheck === '無語音' || origCheck === '無內容' || origCheck === '聽不清楚') {
+                                isHallucination = true;
+                            }
                         }
                     } catch(e) { speakTxt = rawTxt; }
+
+                    // --- 攔截 AI 幻覺雜音 (放在 JSON 解析之後，判斷更精準) ---
+                    if (isHallucination || checkCmd.includes('[no_speech]') || rawTxt.includes('[NO_SPEECH]') || checkCmd === '無語音' || checkCmd === '無內容') {
+                        console.log("[NOVA] 攔截到 AI 幻覺雜音，靜默重啟收音...");
+                        if (appState.translateMode === 'auto') setTimeout(startTranslateBAutoRecord, 500);
+                        appState.isThinking = false; renderThinkingState(false);
+                        return;
+                    }
 
                     // --- 攔截語音停止指令 ---
                     if (checkCmd.includes('結束口譯') || checkCmd.includes('關閉口譯') || checkCmd.includes('stoptranslation') || checkCmd.includes('endtranslation') || checkCmd === 'stop' || checkCmd.includes('停止翻譯')) {
