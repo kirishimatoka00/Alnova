@@ -3515,25 +3515,21 @@ const langA = document.getElementById('trans-lang-a').options[document.getElemen
                     appState.geminiModel = origGeminiModel; // 恢復設定
 
                     let rawTxt = typeof res === 'string' ? res : res.text;
-                    let checkCmd = rawTxt.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
-
-                    // --- 先解析 JSON 雙語結果 ---
-                    let displayTxt = rawTxt;
-                    let speakTxt = rawTxt;
-                    let isHallucination = false;
-                    
                     try {
-                        let jsonStr = rawTxt.replace(/```json/g, '').replace(/```/g, '').trim();
-                        let parsed = JSON.parse(jsonStr);
-                        if (parsed.original && parsed.translated) {
-                            displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
-                            speakTxt = parsed.translated;
-                            checkCmd = parsed.translated.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
-                            
-                            // 檢查原文是否為常見的雜音幻覺 (包含無語音、聽不清楚等)
-                            let origCheck = parsed.original.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
-                            if (origCheck.includes('[no_speech]') || origCheck === '無語音' || origCheck === '無內容' || origCheck === '聽不清楚') {
-                                isHallucination = true;
+                        // 使用 Regex 精準萃取大括號內的 JSON，無視 AI 前後夾帶的廢話
+                        let jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            let parsed = JSON.parse(jsonMatch[0]);
+                            if (parsed.original && parsed.translated) {
+                                displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
+                                speakTxt = parsed.translated; // 確保只唸出翻譯結果
+                                checkCmd = parsed.translated.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
+                                
+                                // 檢查原文是否為常見的雜音幻覺 (包含無語音、聽不清楚等)
+                                let origCheck = parsed.original.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
+                                if (origCheck.includes('[no_speech]') || origCheck === '無語音' || origCheck === '無內容' || origCheck === '聽不清楚') {
+                                    isHallucination = true;
+                                }
                             }
                         }
                     } catch(e) { speakTxt = rawTxt; }
@@ -4726,11 +4722,14 @@ let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text |
         
         if (appState.translateMode !== 'off') {
             try {
-                let jsonStr = finalOutputText.replace(/```json/g, '').replace(/```/g, '').trim();
-                let parsed = JSON.parse(jsonStr);
-                if (parsed.original && parsed.translated) {
-                    finalOutputText = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
-                    textToSpeak = parsed.translated;
+                // 同樣使用 Regex 精準萃取文字翻譯模式下的 JSON
+                let jsonMatch = finalOutputText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    let parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.original && parsed.translated) {
+                        finalOutputText = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
+                        textToSpeak = parsed.translated; // 確保打字模式下也只唸翻譯
+                    }
                 }
             } catch(e) {}
         }
