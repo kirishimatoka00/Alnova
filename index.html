@@ -2395,20 +2395,21 @@ return; }
                 appState.playingMsgId = msgId;
                 queueContinueLoopCb = continueLoop;
                 
-                // 💡 修正 2：不論當前是否為翻譯模式，只要文字符合翻譯結果特徵就進行攔截與擷取
                 let cleanText = text;
-                try {
-                    let jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) {
-                        let parsed = JSON.parse(jsonMatch[0]);
-                        if (parsed.translated) {
-                            cleanText = parsed.translated.toLowerCase() !== "nospeech" ? parsed.translated : "";
+
+                // 💡 修正 2：優化擷取邏輯，無論全半形冒號，只要有「翻譯」字樣，強制只取後方內容，徹底封殺原文唸出
+                const transMatch = cleanText.match(/(?:\*\*翻譯(?:結果)?[:：]\*\*|翻譯(?:結果)?[:：])([\s\S]+)/);
+                if (transMatch && transMatch[1]) {
+                    cleanText = transMatch[1].trim();
+                } else {
+                    try {
+                        let jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            let parsed = JSON.parse(jsonMatch[0]);
+                            if (parsed.translated) cleanText = parsed.translated.toLowerCase() !== "nospeech" ? parsed.translated : "";
                         }
-                    }
-                } catch(e) {}
-                
-                const transMatch = cleanText.match(/(?:\*\*翻譯(?:結果)?：\*\*|翻譯(?:結果)?：)([\s\S]+)/);
-                if (transMatch && transMatch[1]) cleanText = transMatch[1].trim();
+                    } catch(e) {}
+                }
                 
                 cleanText = cleanText.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
                 cleanText = cleanText.replace(/\(?系統提示：[^\)]+\)?/g, '').trim();
@@ -3257,15 +3258,15 @@ document.getElementById('translate-settings').classList.add('hidden');
                 document.getElementById('translate-settings').classList.remove('flex');
                 
                 appState.voiceTimeout = parseInt(localStorage.getItem('nova_voice_timeout')) || 5;
-                
-                stopTranslateBAndSend(true);
-                // Force stop & discard chunk
+                stopTranslateBAndSend(true); // Force stop & discard chunk
                 window.speechSynthesis.cancel();
                 addMessage("🌐 全自動即時口譯已關閉，麥克風已完全釋放。", 'system');
                 
-                if (recognition && appState.isContinuous) {
-                    setTimeout(()=>recognition.start(), 300);
-                }
+                // 💡 修正 1-1：關閉口譯時，確保輸入框恢復正常可用狀態
+                const inputEl = document.getElementById('user-input');
+                if (inputEl) { inputEl.disabled = false; inputEl.placeholder = "輸入訊息..."; inputEl.classList.remove('opacity-50', 'cursor-not-allowed'); }
+
+                if (recognition && appState.isContinuous) { setTimeout(()=>recognition.start(), 300); }
             } else {
                 if (appState.isLiveMode) toggleLiveMode(false);
                 if (appState.isContinuous) toggleContinuous();
@@ -3285,6 +3286,14 @@ document.getElementById('translate-settings').classList.add('hidden');
                     "**👉 目前為純打字模式，請直接在下方輸入文字進行口譯！**";
                 addMessage(`🌐 **即時口譯已啟動！**\n系統會自動判定來源與目標語言進行翻譯。\n${modeMsg}`, 'system');
                 
+                // 💡 修正 1-2：啟動口譯時，如果為純語音模式，立刻將打字區反灰禁用
+                const inputEl = document.getElementById('user-input');
+                if (inputMode === 'voice' && inputEl) {
+                    inputEl.disabled = true; inputEl.placeholder = "純語音模式下已禁用鍵盤輸入..."; inputEl.classList.add('opacity-50', 'cursor-not-allowed'); inputEl.value = '';
+                } else if (inputEl) {
+                    inputEl.disabled = false; inputEl.placeholder = "輸入訊息..."; inputEl.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+
                 // 【NOVA 101 SP】防呆鎖：設定為 true，確保第一次收音前，絕對不會有任何系統聲音發出
                 appState.translateMuteUntilFirstCapture = true;
                 if (inputMode === 'voice') {
@@ -3296,14 +3305,20 @@ document.getElementById('translate-settings').classList.add('hidden');
         }
 
         // 💡 新增：處理模式切換的事件函數
+        // 💡 新增：處理模式切換的事件函數
         window.handleTransModeChange = function() {
             const mode = document.getElementById('trans-input-mode').value;
+            const inputEl = document.getElementById('user-input'); // 取得輸入框
             if (appState.translateMode !== 'off') {
                 if (mode === 'text') {
                     stopTranslateBAndSend(true); // 強制中斷並捨棄當前錄音
                     addMessage("⌨️ 已切換為【純打字】口譯模式，麥克風已關閉。", "system");
+                    // 💡 修正 1-3：切換為打字時，解鎖輸入框
+                    if (inputEl) { inputEl.disabled = false; inputEl.placeholder = "輸入訊息..."; inputEl.classList.remove('opacity-50', 'cursor-not-allowed'); }
                 } else {
                     addMessage("🎙️ 已切換為【純語音】口譯模式，麥克風開啟中...", "system");
+                    // 💡 修正 1-3：切換為語音時，反灰禁用輸入框
+                    if (inputEl) { inputEl.disabled = true; inputEl.placeholder = "純語音模式下已禁用鍵盤輸入..."; inputEl.classList.add('opacity-50', 'cursor-not-allowed'); inputEl.value = ''; }
                     setTimeout(() => { startTranslateBAutoRecord(); }, 500);
                 }
             }
