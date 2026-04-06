@@ -3516,20 +3516,18 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                     appState.geminiModel = origGeminiModel; // 恢復設定
 
                     let rawTxt = typeof res === 'string' ? res : res.text;
-                    
                     // --- 關鍵修復：徹底清除 Gemini 內部的來源標籤網址雜訊 ---
-                    // 使用 \d+ 可以一併清除 /0, /1, /2 等所有標籤
                     rawTxt = rawTxt.replace(/https?:\/\/googleusercontent\.com\/immersive_entry_chip\/\d+/g, '');
 
                     // 將所有非字母、非中文字元過濾掉，進行最嚴格的雜音比對
                     let pureTextForCheck = rawTxt.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase();
 
-                    // --- 先解析 JSON 雙語結果 ---
+                    // --- 先將所有需要的變數在最外層宣告，避免 is not defined 錯誤 ---
                     let displayTxt = rawTxt;
                     let speakTxt = rawTxt;
-                    
-                    let isHallucination = false; // 💡 修正 1：加回變數宣告，徹底解決 isHallucination is not defined 造成的無限報錯迴圈
-                    
+                    let isHallucination = false;
+                    let checkCmd = ""; // 💡 確保 checkCmd 存在
+
                     try {
                         let jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
                         if (jsonMatch) {
@@ -3537,15 +3535,15 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                             if (parsed.original && parsed.translated) {
                                 displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
                                 speakTxt = parsed.translated;
+                                checkCmd = parsed.translated.rawTxt.replace(/.toLowerCase(); // 💡 成功解析時賦值
                                 
-                                // 💡 修正 2：加回 JSON 內部的原文雜音判斷，雙重過濾防呆
                                 let origCheck = parsed.original.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase();
                                 if (origCheck.includes('nospeech') || origCheck.includes('無語音') || origCheck.includes('無內容') || origCheck.includes('聽不清楚')) {
                                     isHallucination = true;
                                 }
                             }
                         }
-                    } catch(e) { speakTxt = rawTxt; }
+                    } catch(e) { speakTxt = rawTxt.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '') }
 
                     // --- 攔截 AI 幻覺雜音 (放在 JSON 解析之後，判斷更精準) ---
                     if (isHallucination || checkCmd.includes('[no_speech]') || rawTxt.includes('[NO_SPEECH]') || checkCmd === '無語音' || checkCmd === '無內容') {
