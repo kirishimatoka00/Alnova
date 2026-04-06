@@ -1061,6 +1061,10 @@
                 try {
                     const res = await fetch(appState.driveUrl, {
                         method: 'POST',
+                        redirect: 'follow', // 💡 修正：允許 GAS 的重新導向
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8' // 💡 修正：使用 text/plain 避免觸發 CORS 預檢請求被擋
+                        },
                         body: JSON.stringify({ action: "sync_up", filename: "NOVA120livebackup", data: fullBackupData })
                     });
                     if(res.ok) lastLiveSyncTime = fullBackupData.timestamp;
