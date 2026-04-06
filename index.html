@@ -2379,12 +2379,12 @@ handleSendMessage(); }
             if (!force && appState.translateMode === 'auto' && appState.translateMuteUntilFirstCapture) { continueLoop(); return; }
             if (!shouldAutoPlay && !force) return;
             if (!text || text.trim() === "") { continueLoop(); return; }
-            if (!force && !appState.autoTTS) { continueLoop(); return; }
+            if (!force && !appState.autoTTS) { continueLoop();
+return; }
 
-            // 💡 修正 1：無論手動或自動，語音播放前強制切斷麥克風硬體連線，確保零干擾
-            if (appState.translateMode !== 'off') {
-                releaseMicrophone();
-            }
+            // 💡 修正 1：無條件鎖死播放狀態後，再切斷麥克風，防止底層 API 突發重啟
+            appState.isTTSPlaying = true; 
+            releaseMicrophone();
 
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -2394,20 +2394,20 @@ handleSendMessage(); }
                 appState.playingMsgId = msgId;
                 queueContinueLoopCb = continueLoop;
                 
-                // 💡 修正 2：若是翻譯模式，解析 JSON 僅抽取翻譯後的內容來朗讀
+                // 💡 修正 2：不論當前是否為翻譯模式，只要文字符合翻譯結果特徵就進行攔截與擷取
                 let cleanText = text;
-                if (appState.translateMode !== 'off') {
-                    try {
-                        let jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-                        if (jsonMatch) {
-                            let parsed = JSON.parse(jsonMatch[0]);
-                            cleanText = parsed.translated && parsed.translated.toLowerCase() !== "nospeech" ? parsed.translated : "";
+                try {
+                    let jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        let parsed = JSON.parse(jsonMatch[0]);
+                        if (parsed.translated) {
+                            cleanText = parsed.translated.toLowerCase() !== "nospeech" ? parsed.translated : "";
                         }
-                    } catch(e) {
-                        let m = cleanText.match(/"translated"\s*:\s*"([^"]*)"/);
-                        if (m) cleanText = m[1] && m[1].toLowerCase() !== "nospeech" ? m[1] : "";
                     }
-                }
+                } catch(e) {}
+                
+                const transMatch = cleanText.match(/(?:\*\*翻譯(?:結果)?：\*\*|翻譯(?:結果)?：)([\s\S]+)/);
+                if (transMatch && transMatch[1]) cleanText = transMatch[1].trim();
                 
                 cleanText = cleanText.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
                 cleanText = cleanText.replace(/\(?系統提示：[^\)]+\)?/g, '').trim();
