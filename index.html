@@ -3516,7 +3516,12 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                     appState.geminiModel = origGeminiModel; // 恢復設定
 
                     let rawTxt = typeof res === 'string' ? res : res.text;
-                    // 將所有非字母、非中文字元過濾掉，進行最嚴格的雜音比對 (解決 AI 加空格或括號導致的漏網之魚)
+                    
+                    // --- 關鍵修復：徹底清除 Gemini 內部的來源標籤網址雜訊 ---
+                    // 使用 \d+ 可以一併清除 /0, /1, /2 等所有標籤
+                    rawTxt = rawTxt.replace(/https?:\/\/googleusercontent\.com\/immersive_entry_chip\/\d+/g, '');
+
+                    // 將所有非字母、非中文字元過濾掉，進行最嚴格的雜音比對
                     let pureTextForCheck = rawTxt.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase();
 
                     // --- 先解析 JSON 雙語結果 ---
@@ -4718,11 +4723,14 @@ let promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
         }
 
 let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
+        
+        // --- 關鍵修復：徹底清除 Gemini 內部的來源標籤網址雜訊 ---
+        finalOutputText = finalOutputText.replace(/https?:\/\/googleusercontent\.com\/immersive_entry_chip\/\d+/g, '');
+        
         let textToSpeak = finalOutputText;
         
         if (appState.translateMode !== 'off') {
             try {
-                // 同樣使用 Regex 精準萃取文字翻譯模式下的 JSON
                 let jsonMatch = finalOutputText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     let parsed = JSON.parse(jsonMatch[0]);
