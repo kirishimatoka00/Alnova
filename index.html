@@ -4602,16 +4602,29 @@ window.startMultiAgentResearch = async function() {
                 }
 
                 let displayMessage = text;
-if (!text && filesDataToPass.length > 0) { displayMessage = `[夾帶檔案/畫面: ${filesDataToPass.map(f=>f.name).join(', ')}]`; }
-                
-                addMessage(displayMessage, 'user', null, [], filesDataToPass);
-input.value = ''; autoResizeInput(input); chatInitialInput = ''; clearChatFile(); 
-                
-                if (appState.isContinuous) {
-                    if (recognition) { try { recognition.abort(); } catch(e){} }
+if (!text && filesDataToPass.length > 0) {
+                displayMessage = `[夾帶檔案/畫面: ${filesDataToPass.map(f=>f.name).join(', ')}]`;
+            }
+            addMessage(displayMessage, 'user', null, [], filesDataToPass);
+            
+            input.value = '';
+            autoResizeInput(input);
+            chatInitialInput = '';
+            clearChatFile();
+            
+            // 💡 修正：若在翻譯模式下打字送出，立刻鎖死狀態並關閉麥克風，直到 TTS 唸完才會解鎖
+            if (appState.translateMode !== 'off') {
+                appState.isTTSPlaying = true; // 借用 TTS 鎖定狀態來阻斷 VAD 判斷
+                releaseMicrophone();          // 瞬間切斷麥克風硬體連線
+            }
+
+            if (appState.isContinuous) {
+                if (recognition) {
+                    try { recognition.abort(); } catch(e){}
                 }
-                
-                renderThinkingState(true);
+            }
+            
+            renderThinkingState(true);
 
                 if (appState.pendingReminder && appState.reminderStage > 0) {
                      const todo = appState.todos.find(t => t.id === appState.pendingReminder);
