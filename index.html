@@ -3548,7 +3548,7 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                         }
                     } catch(e) { 
                         // 💡 修正 2：補回完整的 catch 處理區塊
-                        speakTxt = replace(/\{|\}/g, '');
+                        speakTxt = replace(/\{|\}/g, ''); }
 
                     // --- 攔截 AI 幻覺雜音 (放在 JSON 解析之後，判斷更精準) ---
                     if (isHallucination || checkCmd.includes('[no_speech]') || rawTxt.includes('[NO_SPEECH]') || checkCmd === '無語音' || checkCmd === '無內容') {
