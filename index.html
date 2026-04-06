@@ -3489,12 +3489,13 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                 appState.isThinking = true;
                 renderThinkingState(true);
                 try {
-const langA = document.getElementById('trans-lang-a').options[document.getElementById('trans-lang-a').selectedIndex].text;
-                    const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text;
+// 修正：將下拉選單文字中的「翻譯為」剃除，避免 AI 語意混亂當機
+                    const langA = document.getElementById('trans-lang-a').options[document.getElementById('trans-lang-a').selectedIndex].text.replace('翻譯為', '');
+                    const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text.replace('翻譯為', '');
                     
                     let prompt = `你是一位專業的同步口譯員。請直接聽取這段音檔中的對話並進行翻譯。
 要求：
-1. 若來源設定為「自動偵測語言」，請判斷說話者的語言，若為${langB}則不翻或翻為中文，否則一律翻譯成${langB}。
+1. 若來源為自動偵測，請判斷說話者的語言，若為「${langB}」則不翻或翻為中文，否則一律翻譯成「${langB}」。
 2. 若有明確來源語言，請將輸入轉換為目標語言。
 3. 嚴格以 JSON 格式輸出，絕對不要包含任何其他解釋文字。格式如下：
 \`\`\`json
@@ -3503,7 +3504,7 @@ const langA = document.getElementById('trans-lang-a').options[document.getElemen
   "translated": "翻譯後的結果"
 }
 \`\`\`
-***極度重要防幻覺指令：如果音檔中只有背景雜音、電流聲、沒有明確的人類說話聲，或聽不清楚，請務必在 original 與 translated 皆輸出「[NO_SPEECH]」。嚴格禁止自行腦補或幻覺出「Thank you」、「謝謝」或「無語音」等字詞！***`;
+***極度重要防幻覺指令：如果音檔中只有背景雜音、電流聲、聽不清楚，請務必在 original 與 translated 皆直接輸出「nospeech」(不要加任何括號)。嚴禁自行腦補「Thank you」、「謝謝」等字詞！***`;
 
                     const origGeminiModel = appState.geminiModel;
                     appState.geminiModel = 'gemini-3.1-flash-live-preview'; // 強制使用最快模型
@@ -3515,21 +3516,20 @@ const langA = document.getElementById('trans-lang-a').options[document.getElemen
                     appState.geminiModel = origGeminiModel; // 恢復設定
 
                     let rawTxt = typeof res === 'string' ? res : res.text;
+                    // 將所有非字母、非中文字元過濾掉，進行最嚴格的雜音比對 (解決 AI 加空格或括號導致的漏網之魚)
+                    let pureTextForCheck = rawTxt.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase();
+
+                    // --- 先解析 JSON 雙語結果 ---
+                    let displayTxt = rawTxt;
+                    let speakTxt = rawTxt;
+                    
                     try {
-                        // 使用 Regex 精準萃取大括號內的 JSON，無視 AI 前後夾帶的廢話
                         let jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
                         if (jsonMatch) {
                             let parsed = JSON.parse(jsonMatch[0]);
                             if (parsed.original && parsed.translated) {
                                 displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
-                                speakTxt = parsed.translated; // 確保只唸出翻譯結果
-                                checkCmd = parsed.translated.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
-                                
-                                // 檢查原文是否為常見的雜音幻覺 (包含無語音、聽不清楚等)
-                                let origCheck = parsed.original.replace(/[\s.,!?"'。，！？]/g, '').toLowerCase();
-                                if (origCheck.includes('[no_speech]') || origCheck === '無語音' || origCheck === '無內容' || origCheck === '聽不清楚') {
-                                    isHallucination = true;
-                                }
+                                speakTxt = parsed.translated;
                             }
                         }
                     } catch(e) { speakTxt = rawTxt; }
