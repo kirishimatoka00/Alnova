@@ -3528,6 +3528,8 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                     let displayTxt = rawTxt;
                     let speakTxt = rawTxt;
                     
+                    let isHallucination = false; // 💡 修正 1：加回變數宣告，徹底解決 isHallucination is not defined 造成的無限報錯迴圈
+                    
                     try {
                         let jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
                         if (jsonMatch) {
@@ -3535,6 +3537,12 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                             if (parsed.original && parsed.translated) {
                                 displayTxt = `**【原文】**\n${parsed.original}\n\n**【翻譯】**\n${parsed.translated}`;
                                 speakTxt = parsed.translated;
+                                
+                                // 💡 修正 2：加回 JSON 內部的原文雜音判斷，雙重過濾防呆
+                                let origCheck = parsed.original.replace(/[^a-zA-Z\u4e00-\u9fa5]/g, '').toLowerCase();
+                                if (origCheck.includes('nospeech') || origCheck.includes('無語音') || origCheck.includes('無內容') || origCheck.includes('聽不清楚')) {
+                                    isHallucination = true;
+                                }
                             }
                         }
                     } catch(e) { speakTxt = rawTxt; }
