@@ -2381,6 +2381,11 @@ handleSendMessage(); }
             if (!text || text.trim() === "") { continueLoop(); return; }
             if (!force && !appState.autoTTS) { continueLoop(); return; }
 
+            // 💡 修正 1：無論手動或自動，語音播放前強制切斷麥克風硬體連線，確保零干擾
+            if (appState.translateMode !== 'off') {
+                releaseMicrophone();
+            }
+
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 currentPollyAudio.pause(); 
@@ -2389,7 +2394,22 @@ handleSendMessage(); }
                 appState.playingMsgId = msgId;
                 queueContinueLoopCb = continueLoop;
                 
-                let cleanText = text.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
+                // 💡 修正 2：若是翻譯模式，解析 JSON 僅抽取翻譯後的內容來朗讀
+                let cleanText = text;
+                if (appState.translateMode !== 'off') {
+                    try {
+                        let jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            let parsed = JSON.parse(jsonMatch[0]);
+                            cleanText = parsed.translated && parsed.translated.toLowerCase() !== "nospeech" ? parsed.translated : "";
+                        }
+                    } catch(e) {
+                        let m = cleanText.match(/"translated"\s*:\s*"([^"]*)"/);
+                        if (m) cleanText = m[1] && m[1].toLowerCase() !== "nospeech" ? m[1] : "";
+                    }
+                }
+                
+                cleanText = cleanText.replace(/[*_#`\[\]]/g, '').replace(/(https?:\/\/[^\s]+)/g, "網址連結");
                 cleanText = cleanText.replace(/\(?系統提示：[^\)]+\)?/g, '').trim();
                 cleanText = cleanText.replace(/✨ 圖片生成成功！已為您附在下方。/g, '為您生成圖片如下');
                 cleanText = cleanText.replace(/【研究員.*?】\n/g, '').replace(/【審查員.*?】\n/g, '');
@@ -3330,15 +3350,15 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                         return;
                     }
 
-                    // 強制中斷保險 (即使開始錄音中被 TTS 突發打斷)
-                    if (window.speechSynthesis.speaking && isSpeaking) {
-                        isSpeaking = false;
-                        silenceStart = Date.now();
-                    }
-
-                    const elapsed = Date.now() - initTime;
-                    vadAnalyser.getByteFrequencyData(dataArray);
-                    let sum = 0;
+            // 強制中斷保險 (即使開始錄音中被 TTS 突發打斷)
+            // 💡 修正：增加 appState.isTTSPlaying 判斷，涵蓋 Polly 高音質語音狀態
+            if ((window.speechSynthesis.speaking || appState.isTTSPlaying) && isSpeaking) {
+                isSpeaking = false;
+                silenceStart = Date.now();
+            }
+            const elapsed = Date.now() - initTime;
+            vadAnalyser.getByteFrequencyData(dataArray);
+            let sum = 0;
                     for(let i = 0; i < bufferLength; i++) { sum += dataArray[i]; }
                     let avgVolume = sum / bufferLength;
 
@@ -3371,14 +3391,14 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
                     }
 
                     // 計算當下觸發的動態門檻 = 基底噪音 x 設定的倍數
-                    const dynamicThreshold = baselineVolume * appState.vadMultiplier;
-
-                    if (avgVolume > dynamicThreshold && !window.speechSynthesis.speaking) {
-                        consecutiveLoud++;
-                        silenceStart = Date.now(); // 重置靜音計時
-
-                        // 3. 防誤觸機制：必須連續 3 次 (300ms) 都在動態門檻之上，才判定為真正開始說話
-                        if (consecutiveLoud >= 3 && !isSpeaking) {
+            const dynamicThreshold = baselineVolume * appState.vadMultiplier;
+            // 💡 修正：增加 appState.isTTSPlaying，徹底防止 AI 講話時觸發麥克風收音
+            if (avgVolume > dynamicThreshold && !window.speechSynthesis.speaking && !appState.isTTSPlaying) {
+                consecutiveLoud++;
+                silenceStart = Date.now(); // 重置靜音計時
+                
+                // 3. 防誤觸機制：必須連續 3 次 (300ms) 都在動態門檻之上，才判定為真正開始說話
+                if (consecutiveLoud >= 3 && !isSpeaking) {
                             isSpeaking = true;
                             speakStartTime = Date.now();
                             const statusText = document.getElementById('recording-status-text');
