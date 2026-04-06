@@ -3462,15 +3462,17 @@ document.getElementById('translate-settings').classList.add('hidden');
                                             mediaRecorder.onstop = () => {
                                                 audioChunks = [];
                                                 if (appState.translateMode === 'auto') {
-                                                    mediaRecorder.onstop = processTranslateB; // 還原正常的處理函數
-                                                    translateDiscardNext = false;
-                                                    try { 
-                                                        appState.recordingStartTime = Date.now();
-                                                        mediaRecorder.start(500); 
-                                                    } catch(e){}
-                                                }
-                                            };
-                                            mediaRecorder.stop();
+                                            mediaRecorder.onstop = processTranslateB; // 還原正常的處理函數
+                                            translateDiscardNext = false;
+                                            try {
+                                                // 💡 修正 2：確保在重新收音(start)前，陣列是絕對純淨的狀態
+                                                audioChunks = [];
+                                                appState.recordingStartTime = Date.now();
+                                                mediaRecorder.start(500);
+                                            } catch(e){}
+                                        }
+                                    };
+                                    mediaRecorder.stop();
                                         }
                                     } catch(e){}
                                     
@@ -3496,11 +3498,16 @@ document.getElementById('translate-settings').classList.add('hidden');
                     vadInterval = setInterval(vadTick, 100);
                 }
 
-                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                // 💡 修正 1：在設定監聽器前再次強制清空陣列，並嚴格限制只接收「當前」Recorder 的資料
+                audioChunks = []; 
+                mediaRecorder.ondataavailable = e => {
+                    if (e.target === mediaRecorder && e.data.size > 0) {
+                        audioChunks.push(e.data);
+                    }
+                };
                 mediaRecorder.onstop = processTranslateB;
                 appState.recordingStartTime = Date.now();
                 mediaRecorder.start(500);
-
                 document.getElementById('recording-status').classList.remove('hidden'); 
                 document.getElementById('recording-status').classList.add('flex');
                 document.getElementById('recording-status-text').innerText = "系統準備中... (忽略初始雜音)";
@@ -3527,11 +3534,13 @@ document.getElementById('translate-settings').classList.add('hidden');
             
             // 【NOVA 101 SP】防呆鎖解除：只要有成功抓到音檔送出，就代表第一次收音完成，可以解鎖語音了
             appState.translateMuteUntilFirstCapture = false;
-            
+
             let recordDuration = Date.now() - (appState.recordingStartTime || Date.now());
-            let audioBlob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
-            audioChunks = [];
-            
+            // 💡 修正 3：打包送出前複製一份陣列，然後立刻將全域 audioChunks 徹底淨空，防堵非同步殘留
+            const chunksToProcess = [...audioChunks];
+            audioChunks = []; 
+            let audioBlob = new Blob(chunksToProcess, { type: mediaRecorder?.mimeType || 'audio/webm' });
+
             // 修復 WebM duration
             if (audioBlob.type.includes('webm') && typeof ysFixWebmDuration !== 'undefined') {
                 audioBlob = await new Promise(resolve => {
