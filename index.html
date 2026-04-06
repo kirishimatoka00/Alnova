@@ -3507,11 +3507,8 @@ addMessage("🌐 **全自動語音直譯已啟動！**\n系統會自動偵測您
 ***極度重要防幻覺指令：如果音檔中只有背景雜音、電流聲、聽不清楚，請務必在 original 與 translated 皆直接輸出「nospeech」(不要加任何括號)。嚴禁自行腦補「Thank you」、「謝謝」等字詞！***`;
 
                     const origGeminiModel = appState.geminiModel;
-                    appState.geminiModel = 'gemini-3.1-flash-live-preview'; // 強制使用最快模型
-
-                    let res = await fetchAIResponse(prompt, 'gemini', { 
-                        file: { category: 'media', data: base64dataWithPrefix, mime: mediaRecorder?.mimeType || 'audio/webm', name: 'Voice_Input.weba' } 
-                    });
+appState.geminiModel = 'gemini-2.5-flash'; // 💡 順便修正：原本的 3.1-flash-live-preview 模型名稱不存在，建議改為現有的 2.5-flash 或 3-flash-preview
+let res = await fetchAIResponse(prompt, 'gemini', { files: [{ category: 'media', data: base64dataWithPrefix, mime: mediaRecorder?.mimeType || 'audio/webm', name: 'Voice_Input.weba' }] });
                     
                     appState.geminiModel = origGeminiModel; // 恢復設定
 
