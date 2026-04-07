@@ -1738,18 +1738,20 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
                         appState.weather.loc = "定位中...";
                         renderWeather();
                         const cityName = await getCityName(lat, lon);
-                        appState.weather.loc = cityName;
-                        fetchWeather(lat, lon);
-                    },
-                    (err) => { 
-                        console.warn("Location error:", err); 
-                        appState.lastLat = appState.manualLocs[0].lat;
-                        appState.lastLon = appState.manualLocs[0].lon;
-                        appState.weather.loc = appState.manualLocs[0].name;
-                        fetchWeather(appState.manualLocs[0].lat, appState.manualLocs[0].lon);
-                        appState.manualLocIndex = 1;
-                    },
-                    { timeout: 10000 }
+                    appState.weather.loc = cityName;
+                    renderWeather(); // 🌟 新增：確保取得城市後立刻解除「定位中...」的畫面顯示
+                    fetchWeather(lat, lon);
+                },
+                (err) => { 
+                    console.warn("Location error:", err); 
+                    appState.lastLat = appState.manualLocs[0].lat;
+                    appState.lastLon = appState.manualLocs[0].lon;
+                    appState.weather.loc = appState.manualLocs[0].name;
+                    renderWeather(); // 🌟 新增：若定位失敗退回預設城市，也立刻解除「定位中...」
+                    fetchWeather(appState.manualLocs[0].lat, appState.manualLocs[0].lon);
+                    appState.manualLocIndex = 1;
+                },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 } // 🌟 修改：加入高精確度設定 (enableHighAccuracy)
                 );
             } else if (isInit) {
                 cycleManualLocation();
