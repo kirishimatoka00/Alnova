@@ -1733,6 +1733,8 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
                     async (pos) => { 
                         const lat = pos.coords.latitude;
                         const lon = pos.coords.longitude;
+                        appState.lastLat = lat;
+                        appState.lastLon = lon;
                         appState.weather.loc = "定位中...";
                         renderWeather();
                         const cityName = await getCityName(lat, lon);
@@ -1741,6 +1743,8 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
                     },
                     (err) => { 
                         console.warn("Location error:", err); 
+                        appState.lastLat = appState.manualLocs[0].lat;
+                        appState.lastLon = appState.manualLocs[0].lon;
                         appState.weather.loc = appState.manualLocs[0].name;
                         fetchWeather(appState.manualLocs[0].lat, appState.manualLocs[0].lon);
                         appState.manualLocIndex = 1;
@@ -1758,6 +1762,8 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
                 tryGetLocation();
             } else {
                 const loc = appState.manualLocs[appState.manualLocIndex - 1];
+                appState.lastLat = loc.lat;
+                appState.lastLon = loc.lon;
                 appState.weather.loc = loc.name;
                 fetchWeather(loc.lat, loc.lon);
             }
@@ -4836,12 +4842,19 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
             }
 
 let injectedContext = "";
-let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode;
+                let modelToUse = appState.currentModel;
+                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || text.includes('附近') || text.includes('最近的');
+                
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
+                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。`;
+                    if (appState.lastLat && appState.lastLon) {
+                        systemPromptAddon += `使用者的 GPS 座標為緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。`;
+                    }
+                    systemPromptAddon += `若使用者問及「我在哪」等問題請根據此資訊回答。若尋找附近商家或機構(如加油站等)，請強制啟動 Search 工具搜尋該座標附近，列表呈現(包含店名、距離、評價等)，並且務必為每一項加上 Google Maps 導航連結，格式為：[點此導航至 店名](https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat||''},${appState.lastLon||''}&destination=店名)。)`;
                 }
-// --- 新增：攔截 Excel 報表意圖，強制回傳 JSON 格式 ---
-            if (text.toUpperCase().includes("EXCEL") || text.includes("報表") || text.includes("試算表") || text.includes("表格")) {
+
+                // --- 新增：攔截 Excel 報表意圖，強制回傳 JSON 格式 ---
+                if (text.toUpperCase().includes("EXCEL") || text.includes("報表") || text.includes("試算表") || text.includes("表格")) {
                 systemPromptAddon += `\n【💡 特殊技能觸發】：使用者要求下載 Excel 檔案或處理表格。請你處理完資料後，嚴格使用以下 JSON 格式輸出 (並用 \`\`\`json 和 \`\`\` 包著)，系統會自動轉換為真實的 .xlsx 檔案給使用者下載。**絕對不要捏造 https://example.com 等假網址！**\n\`\`\`json\n{\n  "excel": true,\n  "filename": "AI_Report",\n  "data": [\n    ["標題1", "標題2", "標題3"],\n    ["數值A", "數值B", "數值C"]\n  ]\n}\n\`\`\`\n注意：data 必須是一個乾淨的二維陣列 (Array of Arrays)！\n`;
             }
 
