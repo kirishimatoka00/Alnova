@@ -4946,13 +4946,12 @@ let injectedContext = "";
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
-                        // 🌟 修正 1：增強贅字過濾，確保「離我最近的加油站」會被乾淨地過濾成「加油站」
                         const userQueryTarget = text.replace(/離我最近的|離我最近|離我|附近有什麼|我附近|附近|最近的|最近|在哪裡|在哪|地點|地址|導航|怎麼走|距離|我的位置|幫我找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
                         
                         const userLat = parseFloat(appState.lastLat);
                         const userLon = parseFloat(appState.lastLon);
                         
-                        // 逆地址解析 (Reverse Geocoding)
+                        // 1. 逆地址解析 (Geocoding)
                         let realAddress = appState.weather?.fullLoc || appState.weather?.loc || "精確位址解析中...";
                         try {
                             const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${userLat},${userLon}&language=zh-TW&key=${appState.keys.gmaps}`);
@@ -4965,7 +4964,7 @@ let injectedContext = "";
                             }
                         } catch (err) { console.warn("Geocoding failed", err.message); }
 
-                        // 取得周邊地點 (Places API)
+                        // 2. 取得周邊地點 (Places API)
                         const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
                             method: 'POST', 
                             headers: { 
@@ -4980,7 +4979,13 @@ let injectedContext = "";
                         });
                         
                         const placeRawText = await placeRes.text();
-                        const placeData = placeRawText ? JSON.parse(placeRawText) : {};
+                        // 🛡️ 終極防護：確保 Places API 真的是回傳 JSON (以 { 開頭) 才解析，否則拋出文字錯誤
+                        let placeData = {};
+                        if (placeRes.ok && placeRawText.trim().startsWith('{')) {
+                            placeData = JSON.parse(placeRawText);
+                        } else {
+                            throw new Error(`Google API 拒絕存取 (403 Forbidden)。請檢查 Google Cloud「憑證」中的「API 金鑰限制」，確保 Places/Routes/Geocoding 皆已加入允許清單。詳細訊息: ${placeRawText}`);
+                        }
                         
                         let mapContext = "【Google Maps API 真實數據】\n";
                         mapContext += `📍 目前您的精確座標：緯度 ${userLat.toFixed(6)}, 經度 ${userLon.toFixed(6)}\n`;
@@ -5016,7 +5021,8 @@ let injectedContext = "";
                                             });
                                             
                                             const routeRawText = await routeRes.text();
-                                            if (routeRes.ok && routeRawText) {
+                                            // 🛡️ 終極防護：確保 Routes API 回傳的也是合法 JSON
+                                            if (routeRes.ok && routeRawText.trim().startsWith('{')) {
                                                 const routeData = JSON.parse(routeRawText);
                                                 if (routeData.routes && routeData.routes.length > 0) { 
                                                     const dist = (routeData.routes[0].distanceMeters / 1000).toFixed(1);
@@ -5030,21 +5036,19 @@ let injectedContext = "";
                                 }
                             } 
                             
-                            // 成功找到時，傳遞給 AI
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
                             } 
                             systemPromptAddon += `\n【系統指令】：你現在是地圖助理，請直接整理上述真實地址與交通數據，不要回答預設的台北地點。\n`; 
                         } else {
                             addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
-                            
-                            // 🌟 修正 2：如果找不到，嚴格命令 AI 承認找不到，禁止產生幻覺！
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
                             } 
                             systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
                         }
                     } catch (e) { 
+                        // 這裡會安全攔截所有錯誤，並印在對話框中，不會再當機了！
                         console.error("Maps API 發生嚴重錯誤:", e.message);
                         addMessage(`⚠️ 地圖資料抓取失敗 (${e.message})`, 'system');
                     }
