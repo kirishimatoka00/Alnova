@@ -5045,30 +5045,7 @@ let injectedContext = "";
                     }
                 }
 
-                // 🌟 確保在呼叫 API 前，宣告 promptToSent (通常就是我們處理好的 text 變數)
-                let promptToSent = text; 
-
-                // 執行 API 呼叫
-                try {
-                    finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
-                    appState.geminiModel = origGeminiModel;
-                } catch (apiError) {
-                    // 自動跳轉至 GROK 備援機制
-                    if (modelToUse === 'gemini' && appState.keys.grok) {
-                        addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
-                        modelToUse = 'grok';
-                        window.setModel('grok');
-                        finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
-                    } else {
-                        throw apiError; 
-                    }
-                } finally {
-                    // 🌟 神不知鬼不覺地還原：API 呼叫結束後，把歷史紀錄裡的文字「改回」您原本輸入的字，維持 UI 正常顯示！
-                    if (isLocationIntent && lastMsgIndex !== -1 && originalUserMessage !== "") {
-                        appState.currentChat.messages[lastMsgIndex].content = originalUserMessage;
-                    }
-                }
-
+                // --- 處理附檔內容 ---
                 if (filesDataToPass && filesDataToPass.length > 0) {
                     filesDataToPass.forEach(f => {
                         if (f.category === 'text' && f.data && !f.data.startsWith('data:')) {
@@ -5076,18 +5053,26 @@ let injectedContext = "";
                         }
                     });
                 } 
+
+                // --- 處理網址與搜尋邏輯 ---
                 if (appState.translateMode === 'off') {
                     const searchMatch = text.match(/^(?:幫我找|幫我搜尋|搜尋|search)\s*(.*)$/i);
                     if (searchMatch) {
-                        const searchKeyword = searchMatch[1].trim() ||
-"今日新聞"; addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); let searchResultText = "";
-                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchKeyword);
-                        } catch (e) { addMessage(`⚠️ ${e.message}`, 'system'); } }
-                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchKeyword);
-                        else if (!searchResultText && appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(請使用 Search 工具)`;
+                        const searchKeyword = searchMatch[1].trim() || "今日新聞"; 
+                        addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); 
+                        let searchResultText = "";
+                        if (appState.keys.serpapi) { 
+                            try { searchResultText = await searchViaSerpApi(searchKeyword); } catch (e) { addMessage(`⚠️ ${e.message}`, 'system'); } 
                         }
-                        if (searchResultText) { text = `請根據以下搜尋結果摘要回答：\n\n${searchResultText}`;
-injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
+                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchKeyword);
+                        else if (!searchResultText && appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(請使用 Search 工具)`; }
+                        
+                        if (searchResultText) { 
+                            text = `請根據以下搜尋結果摘要回答：\n\n${searchResultText}`;
+                            injectedContext = ""; 
+                            systemPromptAddon = ""; 
+                            enableSearchTool = false; 
+                        }
                     } else {
                         const urlMatch = text.match(/https?:\/\/[^\s]+/);
                         if (urlMatch) {
@@ -5100,64 +5085,69 @@ injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
                                     const noembedData = await noembedRes.json();
                                     if (noembedData && noembedData.title) ytContent = `影片標題: ${noembedData.title}\n頻道作者: ${noembedData.author_name || '未知'}`;
                                 } catch(e) { console.warn("Noembed 解析失敗", e); }
-                                if (!ytContent) ytContent = await fetchUrlViaGas(url); // 備援機制
+                                if (!ytContent) ytContent = await fetchUrlViaGas(url);
                                 if (ytContent) injectedContext = `\n\n[YouTube 影片資訊擷取]:\n${ytContent}\n\n`;
                                 if (appState.keys.gemini && modelToUse === 'gemini') enableSearchTool = true;
                                 systemPromptAddon += `\n【重要防幻覺指令：這是一個 YouTube 影片連結。請優先閱讀上方[YouTube 影片資訊擷取]內的「標題」與「描述」。若需更多內容，請使用 Search 工具「搜尋該影片標題」來獲取資訊後再進行摘要。絕對禁止在缺乏資訊時憑空捏造無關的內容！】`;
+                            } else if (!url.includes('twitter')) { 
+                                addMessage(`🔍 抓取網頁中...`, 'system'); 
+                                const content = await fetchUrlViaGas(url); 
+                                if (content) injectedContext = `\n\n[網頁內容]:\n${content}\n\n`;
+                                else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(網頁抓取失敗，請使用 Search 工具搜尋此連結)`; }
+                            } else if (appState.keys.gemini && modelToUse === 'gemini') { 
+                                enableSearchTool = true;
+                                systemPromptAddon += `(請搜尋此連結)`; 
                             }
-                            else if (!url.includes('twitter')) { addMessage(`🔍 抓取網頁中...`, 'system'); const content = await fetchUrlViaGas(url); if (content) injectedContext = `\n\n[網頁內容]:\n${content}\n\n`;
-                            else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(網頁抓取失敗，請使用 Search 工具搜尋此連結)`; }
-                            } 
-                            else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true;
-        systemPromptAddon += `(請搜尋此連結)`; }
                         }
                     }
 
                     if (enableSearchTool && modelToUse !== 'gemini' && !searchMatch) {
                         addMessage(`🌐 (代理連網) 正在透過網路搜尋相關資訊...`, 'system'); let searchResultText = "";
-                        // ✅ 若偵測到「附近」意圖，將精確地名和 GPS 座標一起帶入搜尋 query
                         const isNearbyQuery = text.includes('附近') || text.includes('最近的') || text.includes('周邊');
-                        const locationPrefix = (isNearbyQuery && appState.weather.loc && appState.weather.loc !== '未定位')
-                            ? `${appState.weather.loc} ` : '';
+                        const locationPrefix = (isNearbyQuery && appState.weather.loc && appState.weather.loc !== '未定位') ? `${appState.weather.loc} ` : '';
                         const searchQuery = locationPrefix + text.replace(/附近|最近的|周邊/g, '');
                         const searchLat = isNearbyQuery ? appState.lastLat : null;
                         const searchLon = isNearbyQuery ? appState.lastLon : null;
                         if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchQuery, searchLat, searchLon); } catch (e) {} }
                         if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchQuery);
                         if (searchResultText) { injectedContext += `\n\n[系統自動連網搜尋結果，請參考此最新資訊來回答使用者的問題]:\n${searchResultText}\n\n`; }
-                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system');
-                        }
+                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system'); }
                     }
                 }
 
-let promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
+                // 🌟 正確的單一提示詞組合
+                let promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
                 if (appState.translateMode !== 'off') {
                     const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text;
                     promptToSent = `請進行文字翻譯。\n要翻譯的內容：${text}\n要求：\n1. 若為${langB}則翻為中文，否則翻為${langB}。\n2. 嚴格以 JSON 格式輸出：\n\`\`\`json\n{\n  "original": "原文內容",\n  "translated": "翻譯後的結果"\n}\n\`\`\``;
                 }
 
+                // 🌟 唯一且正確的 API 呼叫區塊
                 let finalRes;
-        try {
-            let origGeminiModel = appState.geminiModel;
-            if (appState.translateMode !== 'off') appState.geminiModel = 'gemini-3.1-flash-live-preview';
-            
-            finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
-            
-            if (appState.translateMode !== 'off') appState.geminiModel = origGeminiModel;
-} catch (apiError) {
-            // 自動跳轉至 GROK 備援機制
-            if (modelToUse === 'gemini' && appState.keys.grok) {
-                addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
-                modelToUse = 'grok';
-                window.setModel('grok'); // 同步更新 UI 下拉選單與系統狀態
-                finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
-            } else {
-                throw apiError;
-                // 若非 Gemini 或未填寫 Grok 金鑰，則把錯誤往外拋，由系統正常攔截
-            }
-        }
+                try {
+                    let origGeminiModel = appState.geminiModel;
+                    if (appState.translateMode !== 'off') appState.geminiModel = 'gemini-3.1-flash-live-preview';
+                    
+                    finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+                    
+                    if (appState.translateMode !== 'off') appState.geminiModel = origGeminiModel;
+                } catch (apiError) {
+                    if (modelToUse === 'gemini' && appState.keys.grok) {
+                        addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
+                        modelToUse = 'grok';
+                        window.setModel('grok'); 
+                        finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+                    } else {
+                        throw apiError;
+                    }
+                } finally {
+                    // 🌟 神不知鬼不覺地還原歷史紀錄文字
+                    if (isLocationIntent && lastMsgIndex !== -1 && originalUserMessage !== "") {
+                        appState.currentChat.messages[lastMsgIndex].content = originalUserMessage;
+                    }
+                }
 
-let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
+                let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
         
         // --- 關鍵修復：徹底清除 Gemini 內部的來源標籤網址雜訊 ---
         finalOutputText = finalOutputText.replace(/https?:\/\/googleusercontent\.com\/immersive_entry_chip\/\d+/g, '');
