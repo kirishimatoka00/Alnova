@@ -4946,25 +4946,26 @@ let injectedContext = "";
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
-                        // 1. 解析搜尋關鍵字
-                        const userQueryTarget = text.replace(/附近|最近|在哪|地點|地址|導航|怎麼走|距離|我附近|附近有什麼|我的位置|幫我找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
+                        // 🌟 修正 1：增強贅字過濾，確保「離我最近的加油站」會被乾淨地過濾成「加油站」
+                        const userQueryTarget = text.replace(/離我最近的|離我最近|離我|附近有什麼|我附近|附近|最近的|最近|在哪裡|在哪|地點|地址|導航|怎麼走|距離|我的位置|幫我找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
                         
-                        // 2. 強制轉為浮點數確保精確度
                         const userLat = parseFloat(appState.lastLat);
                         const userLon = parseFloat(appState.lastLon);
                         
-                        // 🌟 核心修正 A：逆地址解析 (Reverse Geocoding)
-                        // 直接拿 GPS 座標去問 Google 真實地址，不再用不準的天氣 IP 定位
-                        let realAddress = "定位中...";
+                        // 逆地址解析 (Reverse Geocoding)
+                        let realAddress = appState.weather?.fullLoc || appState.weather?.loc || "精確位址解析中...";
                         try {
                             const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${userLat},${userLon}&language=zh-TW&key=${appState.keys.gmaps}`);
-                            const geoData = await geoRes.json();
-                            if (geoData.results && geoData.results.length > 0) {
-                                realAddress = geoData.results[0].formatted_address;
+                            const geoRawText = await geoRes.text();
+                            if (geoRes.ok && geoRawText.trim().startsWith('{')) {
+                                const geoData = JSON.parse(geoRawText);
+                                if (geoData.results && geoData.results.length > 0) {
+                                    realAddress = geoData.results[0].formatted_address;
+                                }
                             }
-                        } catch (err) { console.warn("Geocoding failed", err); }
+                        } catch (err) { console.warn("Geocoding failed", err.message); }
 
-                        // 3. 取得周邊地點 (Places API)
+                        // 取得周邊地點 (Places API)
                         const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
                             method: 'POST', 
                             headers: { 
@@ -4974,8 +4975,6 @@ let injectedContext = "";
                             }, 
                             body: JSON.stringify({ 
                                 textQuery: userQueryTarget, 
-                                // 🌟 核心修正 B：將 locationBias 改為 locationRestriction
-                                // 強制鎖定在座標半徑 5 公里內，絕對不會跑到台北去！
                                 locationRestriction: { circle: { center: { latitude: userLat, longitude: userLon }, radius: 5000.0 } } 
                             }) 
                         });
@@ -4991,48 +4990,59 @@ let injectedContext = "";
                             const topPlaces = placeData.places.slice(0, 3);
                             for (let i = 0; i < topPlaces.length; i++) { 
                                 const p = topPlaces[i]; 
-                                mapContext += `🚩 ${i+1}. ${p.displayName?.text} (評分: ${p.rating||'無'})\n地址: ${p.formattedAddress}\n`; 
+                                mapContext += `🚩 ${i+1}. ${p.displayName?.text || '未知名稱'} (評分: ${p.rating||'無'})\n地址: ${p.formattedAddress || '無'}\n`; 
                                 
-                                // 4. 計算三種模式的距離
-                                const travelModes = [
-                                    { mode: 'WALK', name: '🚶 步行' },
-                                    { mode: 'DRIVE', name: '🚗 開車' },
-                                    { mode: 'TWO_WHEELER', name: '🛵 騎機車' }
-                                ];
-                                
-                                for (const tm of travelModes) {
-                                    try {
-                                        const routeRes = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', { 
-                                            method: 'POST', 
-                                            headers: { 
-                                                'Content-Type': 'application/json', 
-                                                'X-Goog-Api-Key': appState.keys.gmaps, 
-                                                'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration' 
-                                            }, 
-                                            body: JSON.stringify({ 
-                                                origin: { location: { latLng: { latitude: userLat, longitude: userLon } } }, 
-                                                destination: { location: { latLng: { latitude: parseFloat(p.location.latitude), longitude: parseFloat(p.location.longitude) } } }, 
-                                                travelMode: tm.mode 
-                                            }) 
-                                        });
-                                        const routeData = await routeRes.json();
-                                        if (routeData.routes && routeData.routes.length > 0) { 
-                                            const dist = (routeData.routes[0].distanceMeters / 1000).toFixed(1);
-                                            const dur = Math.ceil(parseInt(routeData.routes[0].duration.replace('s','')) / 60); 
-                                            mapContext += `   └ ${tm.name}: 約 ${dist} 公里 (約 ${dur} 分鐘)\n`;
-                                        }
-                                    } catch (re) {}
+                                if (p.location && p.location.latitude && p.location.longitude) {
+                                    const travelModes = [
+                                        { mode: 'WALK', name: '🚶 步行' },
+                                        { mode: 'DRIVE', name: '🚗 開車' },
+                                        { mode: 'TWO_WHEELER', name: '🛵 騎機車' }
+                                    ];
+                                    
+                                    for (const tm of travelModes) {
+                                        try {
+                                            const routeRes = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', { 
+                                                method: 'POST', 
+                                                headers: { 
+                                                    'Content-Type': 'application/json', 
+                                                    'X-Goog-Api-Key': appState.keys.gmaps, 
+                                                    'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration' 
+                                                }, 
+                                                body: JSON.stringify({ 
+                                                    origin: { location: { latLng: { latitude: userLat, longitude: userLon } } }, 
+                                                    destination: { location: { latLng: { latitude: parseFloat(p.location.latitude), longitude: parseFloat(p.location.longitude) } } }, 
+                                                    travelMode: tm.mode 
+                                                }) 
+                                            });
+                                            
+                                            const routeRawText = await routeRes.text();
+                                            if (routeRes.ok && routeRawText) {
+                                                const routeData = JSON.parse(routeRawText);
+                                                if (routeData.routes && routeData.routes.length > 0) { 
+                                                    const dist = (routeData.routes[0].distanceMeters / 1000).toFixed(1);
+                                                    const dur = Math.ceil(parseInt(routeData.routes[0].duration.replace('s','')) / 60); 
+                                                    mapContext += `   └ ${tm.name}: 約 ${dist} 公里 (約 ${dur} 分鐘)\n`;
+                                                }
+                                            }
+                                        } catch (re) {}
+                                    }
+                                    mapContext += `🔗 導航: http://googleusercontent.com/maps.google.com/?api=1&origin=${userLat},${userLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
                                 }
-                                mapContext += `🔗 導航: http://googleusercontent.com/maps.google.com/?api=1&origin=${userLat},${userLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
                             } 
                             
-                            // 更新 AI 對話內容
+                            // 成功找到時，傳遞給 AI
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
                             } 
                             systemPromptAddon += `\n【系統指令】：你現在是地圖助理，請直接整理上述真實地址與交通數據，不要回答預設的台北地點。\n`; 
                         } else {
                             addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
+                            
+                            // 🌟 修正 2：如果找不到，嚴格命令 AI 承認找不到，禁止產生幻覺！
+                            if (lastMsgIndex !== -1) { 
+                                appState.currentChat.messages[lastMsgIndex].content = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
+                            } 
+                            systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
                         }
                     } catch (e) { 
                         console.error("Maps API 發生嚴重錯誤:", e.message);
