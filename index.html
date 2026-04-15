@@ -4946,9 +4946,25 @@ let injectedContext = "";
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
-                        const userQueryTarget = text.replace(/附近|最近|在哪|地點|地址|導航|怎麼走|距離|我附近|附近有什麼|我的位置|幫我找|告訴我/g, '').trim() || '地標與商家'; 
+                        // 1. 解析搜尋關鍵字
+                        const userQueryTarget = text.replace(/附近|最近|在哪|地點|地址|導航|怎麼走|距離|我附近|附近有什麼|我的位置|幫我找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
                         
-                        // 1. 取得周邊地點 (Places API)
+                        // 2. 強制轉為浮點數確保精確度
+                        const userLat = parseFloat(appState.lastLat);
+                        const userLon = parseFloat(appState.lastLon);
+                        
+                        // 🌟 核心修正 A：逆地址解析 (Reverse Geocoding)
+                        // 直接拿 GPS 座標去問 Google 真實地址，不再用不準的天氣 IP 定位
+                        let realAddress = "定位中...";
+                        try {
+                            const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${userLat},${userLon}&language=zh-TW&key=${appState.keys.gmaps}`);
+                            const geoData = await geoRes.json();
+                            if (geoData.results && geoData.results.length > 0) {
+                                realAddress = geoData.results[0].formatted_address;
+                            }
+                        } catch (err) { console.warn("Geocoding failed", err); }
+
+                        // 3. 取得周邊地點 (Places API)
                         const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
                             method: 'POST', 
                             headers: { 
@@ -4958,16 +4974,18 @@ let injectedContext = "";
                             }, 
                             body: JSON.stringify({ 
                                 textQuery: userQueryTarget, 
-                                locationBias: { circle: { center: { latitude: appState.lastLat, longitude: appState.lastLon }, radius: 5000.0 } } 
+                                // 🌟 核心修正 B：將 locationBias 改為 locationRestriction
+                                // 強制鎖定在座標半徑 5 公里內，絕對不會跑到台北去！
+                                locationRestriction: { circle: { center: { latitude: userLat, longitude: userLon }, radius: 5000.0 } } 
                             }) 
                         });
-                        const placeData = await placeRes.json(); 
+                        
+                        const placeRawText = await placeRes.text();
+                        const placeData = placeRawText ? JSON.parse(placeRawText) : {};
                         
                         let mapContext = "【Google Maps API 真實數據】\n";
-                        
-                        // 🌟 功能 1：回傳所在地座標及地點名稱
-                        mapContext += `📍 目前您的位置座標：緯度 ${appState.lastLat.toFixed(6)}, 經度 ${appState.lastLon.toFixed(6)}\n`;
-                        mapContext += `🏠 目前所在位置名稱：${appState.weather.fullLoc || appState.weather.loc || "未知地點"}\n\n`;
+                        mapContext += `📍 目前您的精確座標：緯度 ${userLat.toFixed(6)}, 經度 ${userLon.toFixed(6)}\n`;
+                        mapContext += `🏠 目前所在真實地址：${realAddress}\n\n`;
                         
                         if (placeData.places && placeData.places.length > 0) { 
                             const topPlaces = placeData.places.slice(0, 3);
@@ -4975,7 +4993,7 @@ let injectedContext = "";
                                 const p = topPlaces[i]; 
                                 mapContext += `🚩 ${i+1}. ${p.displayName?.text} (評分: ${p.rating||'無'})\n地址: ${p.formattedAddress}\n`; 
                                 
-                                // 🌟 功能 2：計算 步行, 開車, 騎機車 的距離
+                                // 4. 計算三種模式的距離
                                 const travelModes = [
                                     { mode: 'WALK', name: '🚶 步行' },
                                     { mode: 'DRIVE', name: '🚗 開車' },
@@ -4992,29 +5010,33 @@ let injectedContext = "";
                                                 'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration' 
                                             }, 
                                             body: JSON.stringify({ 
-                                                origin: { location: { latLng: { latitude: appState.lastLat, longitude: appState.lastLon } } }, 
-                                                destination: { location: { latLng: { latitude: p.location.latitude, longitude: p.location.longitude } } }, 
+                                                origin: { location: { latLng: { latitude: userLat, longitude: userLon } } }, 
+                                                destination: { location: { latLng: { latitude: parseFloat(p.location.latitude), longitude: parseFloat(p.location.longitude) } } }, 
                                                 travelMode: tm.mode 
                                             }) 
                                         });
-                                        const routeData = await routeRes.json(); 
+                                        const routeData = await routeRes.json();
                                         if (routeData.routes && routeData.routes.length > 0) { 
                                             const dist = (routeData.routes[0].distanceMeters / 1000).toFixed(1);
                                             const dur = Math.ceil(parseInt(routeData.routes[0].duration.replace('s','')) / 60); 
                                             mapContext += `   └ ${tm.name}: 約 ${dist} 公里 (約 ${dur} 分鐘)\n`;
                                         }
-                                    } catch (re) { console.error(`Route error for ${tm.mode}`, re); }
+                                    } catch (re) {}
                                 }
-                                mapContext += `🔗 導航: http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
+                                mapContext += `🔗 導航: http://googleusercontent.com/maps.google.com/?api=1&origin=${userLat},${userLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
                             } 
                             
+                            // 更新 AI 對話內容
                             if (lastMsgIndex !== -1) { 
-                                appState.currentChat.messages[lastMsgIndex].content = `請根據以下真實地理數據進行排版回覆，必須包含使用者的所在地座標、地名，以及每個景點的三種交通距離（步行、開車、機車）：\n\n${mapContext}`;
+                                appState.currentChat.messages[lastMsgIndex].content = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
                             } 
-                            systemPromptAddon += `\n【系統指令】：你現在是地圖助理，請直接整理數據，不要說「我無法獲取位置」或「我只是AI」。\n`; 
-                        } 
-                    } catch(e) { 
-                        console.warn("Maps API Error", e);
+                            systemPromptAddon += `\n【系統指令】：你現在是地圖助理，請直接整理上述真實地址與交通數據，不要回答預設的台北地點。\n`; 
+                        } else {
+                            addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
+                        }
+                    } catch (e) { 
+                        console.error("Maps API 發生嚴重錯誤:", e.message);
+                        addMessage(`⚠️ 地圖資料抓取失敗 (${e.message})`, 'system');
                     }
                 } else if (isLocationIntent && appState.keys.serpapi && appState.lastLat && appState.lastLon) {
                     // --- 備援 SerpApi 邏輯 ---
