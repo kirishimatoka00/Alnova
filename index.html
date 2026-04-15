@@ -4913,11 +4913,18 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
             }
 
 let injectedContext = "";
-                let modelToUse = appState.currentModel;
-                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離/.test(text);
                 
-                // --- 判斷是否為地點搜尋或導航意圖 ---
-                const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離');
+                // 🌟 核心修復：強制將 GPS 座標寫入 AI 的底層記憶，只要有定位，它隨時都答得出來！
+                if (appState.lastLat && appState.lastLon) {
+                    injectedContext += `\n【系統真實數據】使用者目前的 GPS 座標為：緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。若使用者問及「我在哪」、「我的位置」或「座標」，請務必直接提供此精確數據給使用者。\n`;
+                }
+
+                let modelToUse = appState.currentModel;
+                // 🌟 擴充關鍵字：把「位置」、「座標」、「定位」加進去
+                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位/.test(text);
+                
+                // --- 判斷是否為地點搜尋或導航意圖 (加入 位置、座標、定位) ---
+                const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離') || text.includes('位置') || text.includes('座標') || text.includes('定位');
                 
                 // 🌟 終極破解準備：攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
                 let originalUserMessage = "";
