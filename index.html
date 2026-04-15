@@ -5267,7 +5267,7 @@ if (appState.pendingAnalyzeContextId) {
                     } 
                     else if (selectedModelName === 'gemini-multi') {
                         isAutoRouted = true;
-                        selectedModelName = 'gemini-3.0-flash'; 
+                        selectedModelName = 'gemini-3-flash-preview'; 
                         if (finalPrompt.length > 500 || /(深入|詳細|分析|總結|論文|報告|程式碼|複雜|重點摘要|結構化)/.test(finalPrompt) || (options.file && options.file.category === 'media')) {
                             selectedModelName = 'gemini-3.1-pro-preview'; 
                         }
