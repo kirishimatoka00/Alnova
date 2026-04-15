@@ -4965,6 +4965,10 @@ let injectedContext = "";
                         } catch (err) { console.warn("Geocoding failed", err.message); }
 
                         // 2. 取得周邊地點 (Places API)
+                        // 🌟 修正 C：計算 5 公里半徑的經緯度方框 (矩形)，因為 locationRestriction 僅支援 rectangle 格式
+                        const latDelta = 5.0 / 111.32;
+                        const lonDelta = 5.0 / (111.32 * Math.cos(userLat * Math.PI / 180));
+
                         const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
                             method: 'POST', 
                             headers: { 
@@ -4974,7 +4978,12 @@ let injectedContext = "";
                             }, 
                             body: JSON.stringify({ 
                                 textQuery: userQueryTarget, 
-                                locationRestriction: { circle: { center: { latitude: userLat, longitude: userLon }, radius: 5000.0 } } 
+                                locationRestriction: { 
+                                    rectangle: { 
+                                        low: { latitude: userLat - latDelta, longitude: userLon - lonDelta }, 
+                                        high: { latitude: userLat + latDelta, longitude: userLon + lonDelta } 
+                                    } 
+                                } 
                             }) 
                         });
                         
