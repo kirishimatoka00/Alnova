@@ -4928,7 +4928,15 @@ let injectedContext = "";
                 }
 
                 // --- 👇 全新升級的 Google Maps 處理邏輯 (座標+名稱+三種交通距離) 👇 ---
-                if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
+                if (isLocationIntent && (!appState.lastLat || !appState.lastLon)) {
+                    addMessage(`⚠️ 無法取得 GPS 定位，正嘗試依據您輸入的地址進行搜尋...`, 'system');
+                    enableSearchTool = true; // 強制啟動連網搜尋
+                    if (lastMsgIndex !== -1) {
+                        appState.currentChat.messages[lastMsgIndex].content = `請使用連網搜尋工具，尋找使用者原始提問：「${text}」周圍的地點資訊。若對話中有給定地址或城市（例如桃園市），請以此為中心搜尋。不要回答預設的台北地點。`;
+                    }
+                } 
+                // 🌟 原本有 GPS 時才會觸發的 Google Maps API 邏輯
+                else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
                         const userQueryTarget = text.replace(/附近|最近|在哪|地點|地址|導航|怎麼走|距離|我附近|附近有什麼|我的位置|幫我找|告訴我/g, '').trim() || '地標與商家'; 
@@ -5261,7 +5269,7 @@ if (appState.pendingAnalyzeContextId) {
                         isAutoRouted = true;
                         selectedModelName = 'gemini-3.0-flash'; 
                         if (finalPrompt.length > 500 || /(深入|詳細|分析|總結|論文|報告|程式碼|複雜|重點摘要|結構化)/.test(finalPrompt) || (options.file && options.file.category === 'media')) {
-                            selectedModelName = 'gemini-3.1-pro'; 
+                            selectedModelName = 'gemini-3.1-pro-preview'; 
                         }
                     }
 
