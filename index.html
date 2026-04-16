@@ -4934,6 +4934,9 @@ let injectedContext = "";
                     originalUserMessage = appState.currentChat.messages[lastMsgIndex].content;
                 }
 
+                // 🌟 核心修復：在進入判斷之前，先在這裡宣告 promptToSent！
+                let promptToSent = text;
+
                 // --- 👇 全新升級的 Google Maps 處理邏輯 (座標+名稱+三種交通距離) 👇 ---
                 if (isLocationIntent && (!appState.lastLat || !appState.lastLon)) {
                     addMessage(`⚠️ 無法取得 GPS 定位，正嘗試依據您輸入的地址進行搜尋...`, 'system');
