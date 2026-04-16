@@ -4934,16 +4934,6 @@ let injectedContext = "";
                     originalUserMessage = appState.currentChat.messages[lastMsgIndex].content;
                 }
 
-                您目前的修改方向完全正確！但是，在您貼上的程式碼中，有幾個因為「複製貼上」產生的小失誤（重複貼上了幾行代碼，並且多了多餘的 } 大括號）。這些多餘的大括號會導致 JavaScript 發生 Syntax Error（語法錯誤），讓整個程式當掉。
-
-除此之外，最前面的「無 GPS」區塊與最後面的「無 API 備援」區塊也漏掉了 promptToSent 的覆寫。
-
-為了確保您能 100% 成功執行，我已經幫您把所有重複的代碼刪除，並補齊了所有場景的 promptToSent 變數。
-
-請直接複製以下這整段程式碼，將您檔案中從 // --- 👇 全新升級的 Google Maps 處理邏輯 開始，一直到判斷結束的地方，完整替換掉：
-
-🛠️ 最終無錯乾淨版：請替換此區塊
-JavaScript
                 // --- 👇 全新升級的 Google Maps 處理邏輯 (座標+名稱+三種交通距離) 👇 ---
                 if (isLocationIntent && (!appState.lastLat || !appState.lastLon)) {
                     addMessage(`⚠️ 無法取得 GPS 定位，正嘗試依據您輸入的地址進行搜尋...`, 'system');
