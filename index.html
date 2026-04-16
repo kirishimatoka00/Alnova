@@ -4923,6 +4923,13 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 
                 // --- 判斷是否為地點搜尋或導航意圖 (加入 位置、座標、定位) ---
                 const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離') || text.includes('位置') || text.includes('座標') || text.includes('定位');
+
+
+
+// 🌟 核心修復：確保 AI 呼叫前，必要的變數都已經存在！
+                let injectedContext = ""; 
+                let promptToSent = text
+
                 
                 // 🌟 終極破解準備：攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
                 let originalUserMessage = "";
