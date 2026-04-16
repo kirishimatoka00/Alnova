@@ -4154,7 +4154,7 @@ try {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
                 appState.chatFile = { category: 'media', data: r.audioData, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.weba' };
-                showFilePreview(appState.chatFile.name, false, null); switchTab('dashboard');
+                renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
                 if(!confirm(`即將對「${r.title}」進行深度分析。\n\n請在接下來的視窗中，手動選取您的原始音檔 (.webm, .weba 等)。`)) {
@@ -4177,7 +4177,7 @@ try {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
                 appState.chatFile = { category: 'media', data: n.audioData, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.weba' };
-                showFilePreview(appState.chatFile.name, false, null); switchTab('dashboard');
+                renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
                 if(!confirm(`即將對「${n.title}」進行深度分析。\n\n請在接下來的視窗中，選取該語音筆記的原始音檔。`)) {
@@ -5566,7 +5566,7 @@ if (appState.pendingAnalyzeContextId) {
             renderAll();
             
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-            safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-aws-ak', appState.keys.aws_ak); safeSet('key-aws-sk', appState.keys.aws_sk); safeSet('key-aws-region', appState.keys.aws_region); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl);
+            safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-aws-ak', appState.keys.aws_ak); safeSet('key-aws-sk', appState.keys.aws_sk); safeSet('key-aws-region', appState.keys.aws_region); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl); safeSet('key-gmaps', appState.keys.gmaps);
             safeSet('key-voice-timeout', appState.voiceTimeout);
             safeSet('key-translate-b-timeout', appState.translateBTimeout);
             safeSet('key-vad-multiplier', appState.vadMultiplier);
