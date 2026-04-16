@@ -4911,8 +4911,6 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
             if (text.includes("簡報") || text.includes("PPT") || text.includes("ppt") || text.includes("Ppt")) {
                 systemPromptAddon += `\n【💡 特殊技能觸發】：使用者希望製作 PPT 簡報。請你蒐集並整理完資訊後，嚴格在對話最後面使用以下 JSON 格式輸出(並用 \`\`\`json 和 \`\`\` 包著)，系統會自動攔截並轉換為真正的 .pptx 檔案給使用者下載：\n\`\`\`json\n{\n  "title": "簡報主標題",\n  "subtitle": "簡報副標題 (選填)",\n  "slides": [\n    { "title": "第一頁標題", "content": ["重點項目1", "重點項目2"] },\n    { "title": "第二頁標題", "content": ["段落或重點..."] }\n  ]\n}\n\`\`\`\n絕對要保證 JSON 格式正確！\n`;
             }
-
-let injectedContext = "";
                 
                 // 🌟 核心修復：強制將 GPS 座標寫入 AI 的底層記憶，只要有定位，它隨時都答得出來！
                 if (appState.lastLat && appState.lastLon) {
@@ -4934,18 +4932,16 @@ let injectedContext = "";
                     originalUserMessage = appState.currentChat.messages[lastMsgIndex].content;
                 }
 
-let promptToSent = text;
-
                 // --- 👇 全新升級的 Google Maps 處理邏輯 (座標+名稱+三種交通距離) 👇 ---
                 if (isLocationIntent && (!appState.lastLat || !appState.lastLon)) {
                     addMessage(`⚠️ 無法取得 GPS 定位，正嘗試依據您輸入的地址進行搜尋...`, 'system');
-                    enableSearchTool = true; // 強制啟動連網搜尋
+                    enableSearchTool = true; 
                     const finalPromptNoGPS = `請使用連網搜尋工具，尋找使用者原始提問：「${text}」周圍的地點資訊。若對話中有給定地址或城市（例如桃園市），請以此為中心搜尋。不要回答預設的台北地點。`;
                     
                     if (lastMsgIndex !== -1) {
                         appState.currentChat.messages[lastMsgIndex].content = finalPromptNoGPS;
                     }
-                    promptToSent = finalPromptNoGPS; // 🌟 確保這行有加上
+                    text = finalPromptNoGPS; // 🌟 直接覆寫 text 變數，完美避開宣告衝突！
                 } 
                 // 🌟 原本有 GPS 時才會觸發的 Google Maps API 邏輯
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
@@ -4996,7 +4992,7 @@ let promptToSent = text;
                         if (placeRes.ok && placeRawText.trim().startsWith('{')) {
                             placeData = JSON.parse(placeRawText);
                         } else {
-                            throw new Error(`Google API 拒絕存取 (403 Forbidden)。詳細訊息: ${placeRawText}`);
+                            throw new Error(`Google API 拒絕存取。詳細訊息: ${placeRawText}`);
                         }
                         
                         let mapContext = "【Google Maps API 真實數據】\n";
@@ -5052,7 +5048,7 @@ let promptToSent = text;
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = finalPromptGmaps;
                             }
-                            promptToSent = finalPromptGmaps; 
+                            text = finalPromptGmaps; // 🌟 覆寫 text
                             
                             systemPromptAddon += `\n【系統強制指令】：你現在是純粹的資料排版助理，只能使用上述提供的真實數據，絕對禁止使用內部知識或網路搜尋補充。\n`; 
                             enableSearchTool = false;
@@ -5063,7 +5059,7 @@ let promptToSent = text;
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty;
                             } 
-                            promptToSent = finalPromptEmpty;
+                            text = finalPromptEmpty; // 🌟 覆寫 text
                             
                             systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
                             enableSearchTool = false;
@@ -5106,7 +5102,7 @@ let promptToSent = text;
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = finalPromptSerp;
                             }
-                            promptToSent = finalPromptSerp;
+                            text = finalPromptSerp; // 🌟 覆寫 text
                             
                             systemPromptAddon += `\n【系統指令】：你現在是一個純粹的資料格式化工具，直接輸出上述數據，不允許觸發隱私拒絕條款。\n`;
                             enableSearchTool = false;
@@ -5122,7 +5118,7 @@ let promptToSent = text;
                     if (lastMsgIndex !== -1) {
                         appState.currentChat.messages[lastMsgIndex].content = finalPromptFallback;
                     }
-                    promptToSent = finalPromptFallback; // 🌟 確保這行有加上
+                    text = finalPromptFallback; // 🌟 覆寫 text
                 }
 
                 // --- 處理附檔內容 ---
