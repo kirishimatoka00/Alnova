@@ -4912,24 +4912,23 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 systemPromptAddon += `\n【💡 特殊技能觸發】：使用者希望製作 PPT 簡報。請你蒐集並整理完資訊後，嚴格在對話最後面使用以下 JSON 格式輸出(並用 \`\`\`json 和 \`\`\` 包著)，系統會自動攔截並轉換為真正的 .pptx 檔案給使用者下載：\n\`\`\`json\n{\n  "title": "簡報主標題",\n  "subtitle": "簡報副標題 (選填)",\n  "slides": [\n    { "title": "第一頁標題", "content": ["重點項目1", "重點項目2"] },\n    { "title": "第二頁標題", "content": ["段落或重點..."] }\n  ]\n}\n\`\`\`\n絕對要保證 JSON 格式正確！\n`;
             }
                 
-                // 🌟 核心修復 1：宣告變數必須放在這整個區塊的「最第一行」！
+                // --- 1. 變數初始化 (確保整個函式只宣告這一次，絕不重複) ---
                 let injectedContext = ""; 
                 let promptToSent = text;
-
-                // 🌟 核心修復 2：有了變數後，才能把 GPS 座標寫入記憶中
+                let modelToUse = appState.currentModel;
+                
+                // 🌟 寫入 GPS 座標記憶
                 if (appState.lastLat && appState.lastLon) {
                     injectedContext += `\n【系統真實數據】使用者目前的 GPS 座標為：緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。若使用者問及「我在哪」、「我的位置」或「座標」，請務必直接提供此精確數據給使用者。\n`;
                 }
 
-                let modelToUse = appState.currentModel;
                 // 🌟 擴充關鍵字：把「位置」、「座標」、「定位」加進去
                 let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位/.test(text);
                 
-                // --- 判斷是否為地點搜尋或導航意圖 (加入 位置、座標、定位) ---
+                // --- 2. 判斷是否為地點搜尋或導航意圖 ---
                 const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離') || text.includes('位置') || text.includes('座標') || text.includes('定位');
-
                 
-                // 🌟 終極破解準備：攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
+                // 🌟 攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
                 let originalUserMessage = "";
                 let lastMsgIndex = -1;
                 if (isLocationIntent && appState.currentChat && appState.currentChat.messages.length > 0) {
@@ -4937,7 +4936,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                     originalUserMessage = appState.currentChat.messages[lastMsgIndex].content;
                 }
 
-                // --- 👇 全新升級的 Google Maps 處理邏輯 (座標+名稱+三種交通距離) 👇 ---
+                // --- 3. 👇 全新升級的 Google Maps 處理邏輯 👇 ---
                 if (isLocationIntent && (!appState.lastLat || !appState.lastLon)) {
                     addMessage(`⚠️ 無法取得 GPS 定位，正嘗試依據您輸入的地址進行搜尋...`, 'system');
                     enableSearchTool = true; 
@@ -4946,9 +4945,8 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                     if (lastMsgIndex !== -1) {
                         appState.currentChat.messages[lastMsgIndex].content = finalPromptNoGPS;
                     }
-                    text = finalPromptNoGPS; // 🌟 直接覆寫 text 變數，完美避開宣告衝突！
+                    text = finalPromptNoGPS; // 🌟 覆寫
                 } 
-                // 🌟 原本有 GPS 時才會觸發的 Google Maps API 邏輯
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
@@ -5049,11 +5047,8 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             } 
                             
                             const finalPromptGmaps = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
-                            
-                            if (lastMsgIndex !== -1) { 
-                                appState.currentChat.messages[lastMsgIndex].content = finalPromptGmaps;
-                            }
-                            text = finalPromptGmaps; // 🌟 覆寫 text
+                            if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptGmaps; }
+                            text = finalPromptGmaps; // 🌟 覆寫
                             
                             systemPromptAddon += `\n【系統強制指令】：你現在是純粹的資料排版助理，只能使用上述提供的真實數據，絕對禁止使用內部知識或網路搜尋補充。\n`; 
                             enableSearchTool = false;
@@ -5061,10 +5056,8 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
                             const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
                             
-                            if (lastMsgIndex !== -1) { 
-                                appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty;
-                            } 
-                            text = finalPromptEmpty; // 🌟 覆寫 text
+                            if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty; } 
+                            text = finalPromptEmpty; // 🌟 覆寫
                             
                             systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
                             enableSearchTool = false;
@@ -5103,34 +5096,25 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             }
                             
                             const finalPromptSerp = `這是一項單純的資料排版任務。請將以下數據整理成流暢的回覆給使用者。禁止提到你無法定位或存取位置：\n\n${mapContext}`;
-                            
-                            if (lastMsgIndex !== -1) { 
-                                appState.currentChat.messages[lastMsgIndex].content = finalPromptSerp;
-                            }
-                            text = finalPromptSerp; // 🌟 覆寫 text
+                            if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptSerp; }
+                            text = finalPromptSerp; // 🌟 覆寫
                             
                             systemPromptAddon += `\n【系統指令】：你現在是一個純粹的資料格式化工具，直接輸出上述數據，不允許觸發隱私拒絕條款。\n`;
                             enableSearchTool = false;
                         }
-                    } catch (err) {
-                        console.warn("SerpApi Maps Error", err);
-                    }
+                    } catch (err) { console.warn("SerpApi Maps Error", err); }
                 } else if (isLocationIntent && appState.lastLat && appState.lastLon) {
-                    // --- 無 API Key 的最後備援 ---
                     enableSearchTool = true;
                     const finalPromptFallback = `請使用搜尋工具，尋找座標 (緯度 ${appState.lastLat}, 經度 ${appState.lastLon}) 周圍的資訊，並自行估算距離。禁止回答無法存取即時位置。`;
                     
-                    if (lastMsgIndex !== -1) {
-                        appState.currentChat.messages[lastMsgIndex].content = finalPromptFallback;
-                    }
-                    text = finalPromptFallback; // 🌟 覆寫 text
+                    if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptFallback; }
+                    text = finalPromptFallback; // 🌟 覆寫
                 }
 
-// 🌟 核心修復 3：在 Google Maps 邏輯結束後，把加工好的 text 同步更新給 promptToSent！
+                // 🌟 同步更新發送給 AI 的提示詞
                 promptToSent = text;
 
-
-                // --- 處理附檔內容 ---
+                // --- 4. 處理附檔內容 ---
                 if (filesDataToPass && filesDataToPass.length > 0) {
                     filesDataToPass.forEach(f => {
                         if (f.category === 'text' && f.data && !f.data.startsWith('data:')) {
