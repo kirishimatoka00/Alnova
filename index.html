@@ -5185,7 +5185,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 }
 
                 // 🌟 正確的單一提示詞組合
-                let promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
+                promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
                 if (appState.translateMode !== 'off') {
                     const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text;
                     promptToSent = `請進行文字翻譯。\n要翻譯的內容：${text}\n要求：\n1. 若為${langB}則翻為中文，否則翻為${langB}。\n2. 嚴格以 JSON 格式輸出：\n\`\`\`json\n{\n  "original": "原文內容",\n  "translated": "翻譯後的結果"\n}\n\`\`\``;
