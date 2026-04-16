@@ -5045,18 +5045,30 @@ let injectedContext = "";
                                 }
                             } 
                             
+                           // 先定義好要發送的內容
+                            const finalPromptGmaps = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
+                            
                             if (lastMsgIndex !== -1) { 
-                                appState.currentChat.messages[lastMsgIndex].content = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
-                                promptToSent = appState.currentChat.messages[lastMsgIndex].content; // 🌟 新增這行：確保發送出去的是塞滿數據的版本
-                            } 
+                                appState.currentChat.messages[lastMsgIndex].content = finalPromptGmaps;
+                            }
+                            // 🌟 移到外面：確保這行一定會執行！
+                            promptToSent = finalPromptGmaps; 
+                            
                             systemPromptAddon += `\n【系統強制指令】：你現在是純粹的資料排版助理，只能使用上述提供的真實數據，絕對禁止使用內部知識或網路搜尋補充。\n`; 
                             enableSearchTool = false; // 🌟 新增這行：沒收 AI 的搜尋能力，強迫它只能看我們給的 API 數據！
                         } else {
                             addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
+                            const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
+                            
                             if (lastMsgIndex !== -1) { 
-                                appState.currentChat.messages[lastMsgIndex].content = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
-                                promptToSent = appState.currentChat.messages[lastMsgIndex].content; // 🌟 新增這行
+                                appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty;
                             } 
+                            // 🌟 移到外面：確保發送給 AI 的內容是這段警示詞
+                            promptToSent = finalPromptEmpty;
+                            
+                            systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
+                            enableSearchTool = false;
+                        } 
                             systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
                             enableSearchTool = false; // 🌟 新增這行：找不到資料也要沒收搜尋權限，否則它會自己上網生出假地點
                         }
@@ -5093,9 +5105,16 @@ let injectedContext = "";
                                 const p = topPlaces[i];
                                 mapContext += `${i+1}. 店名: ${p.title} (評價: ${p.rating||'無'})\n地址: ${p.address||'未提供'}\n導航連結: http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.gps_coordinates?.latitude||''},${p.gps_coordinates?.longitude||''}\n\n`;
                             }
+                            const finalPromptSerp = `這是一項單純的資料排版任務。請將以下數據整理成流暢的回覆給使用者。禁止提到你無法定位或存取位置：\n\n${mapContext}`;
+                            
                             if (lastMsgIndex !== -1) { 
-                                appState.currentChat.messages[lastMsgIndex].content = `這是一項單純的資料排版任務。請將以下數據整理成流暢的回覆給使用者。禁止提到你無法定位或存取位置：\n\n${mapContext}`;
-                                promptToSent = appState.currentChat.messages[lastMsgIndex].content; // 🌟 新增這行
+                                appState.currentChat.messages[lastMsgIndex].content = finalPromptSerp;
+                            }
+                            // 🌟 移到外面
+                            promptToSent = finalPromptSerp;
+                            
+                            systemPromptAddon += `\n【系統指令】：你現在是一個純粹的資料格式化工具...`;
+                            enableSearchTool = false; // 🌟 新增這行
                             }
                             systemPromptAddon += `\n【系統指令】：你現在是一個純粹的資料格式化工具，直接輸出上述數據，不允許觸發隱私拒絕條款。\n`;
                             enableSearchTool = false; // 🌟 新增這行：同樣沒收搜尋能力
