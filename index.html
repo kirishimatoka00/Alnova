@@ -4912,7 +4912,11 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 systemPromptAddon += `\n【💡 特殊技能觸發】：使用者希望製作 PPT 簡報。請你蒐集並整理完資訊後，嚴格在對話最後面使用以下 JSON 格式輸出(並用 \`\`\`json 和 \`\`\` 包著)，系統會自動攔截並轉換為真正的 .pptx 檔案給使用者下載：\n\`\`\`json\n{\n  "title": "簡報主標題",\n  "subtitle": "簡報副標題 (選填)",\n  "slides": [\n    { "title": "第一頁標題", "content": ["重點項目1", "重點項目2"] },\n    { "title": "第二頁標題", "content": ["段落或重點..."] }\n  ]\n}\n\`\`\`\n絕對要保證 JSON 格式正確！\n`;
             }
                 
-                // 🌟 核心修復：強制將 GPS 座標寫入 AI 的底層記憶，只要有定位，它隨時都答得出來！
+                // 🌟 核心修復 1：宣告變數必須放在這整個區塊的「最第一行」！
+                let injectedContext = ""; 
+                let promptToSent = text;
+
+                // 🌟 核心修復 2：有了變數後，才能把 GPS 座標寫入記憶中
                 if (appState.lastLat && appState.lastLon) {
                     injectedContext += `\n【系統真實數據】使用者目前的 GPS 座標為：緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。若使用者問及「我在哪」、「我的位置」或「座標」，請務必直接提供此精確數據給使用者。\n`;
                 }
@@ -4923,12 +4927,6 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 
                 // --- 判斷是否為地點搜尋或導航意圖 (加入 位置、座標、定位) ---
                 const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離') || text.includes('位置') || text.includes('座標') || text.includes('定位');
-
-
-
-// 🌟 核心修復：確保 AI 呼叫前，必要的變數都已經存在！
-                let injectedContext = ""; 
-                let promptToSent = text
 
                 
                 // 🌟 終極破解準備：攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
@@ -5127,6 +5125,10 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                     }
                     text = finalPromptFallback; // 🌟 覆寫 text
                 }
+
+// 🌟 核心修復 3：在 Google Maps 邏輯結束後，把加工好的 text 同步更新給 promptToSent！
+                promptToSent = text;
+
 
                 // --- 處理附檔內容 ---
                 if (filesDataToPass && filesDataToPass.length > 0) {
