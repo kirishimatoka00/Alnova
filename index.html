@@ -5042,7 +5042,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                                             }
                                         } catch (re) {}
                                     }
-                                    mapContext += `🔗 導航: http://googleusercontent.com/maps.google.com/?api=1&origin=${userLat},${userLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
+                                    mapContext += `🔗 導航: https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
                                 }
                             } 
                             
@@ -5092,7 +5092,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             const topPlaces = serpMapData.local_results.slice(0, 3);
                             for (let i = 0; i < topPlaces.length; i++) {
                                 const p = topPlaces[i];
-                                mapContext += `${i+1}. 店名: ${p.title} (評價: ${p.rating||'無'})\n地址: ${p.address||'未提供'}\n導航連結: http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.gps_coordinates?.latitude||''},${p.gps_coordinates?.longitude||''}\n\n`;
+                                mapContext += `${i+1}. 店名: ${p.title} (評價: ${p.rating||'無'})\n地址: ${p.address||'未提供'}\n導航連結: https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.gps_coordinates?.latitude||''},${p.gps_coordinates?.longitude||''}\n\n`;
                             }
                             
                             const finalPromptSerp = `這是一項單純的資料排版任務。請將以下數據整理成流暢的回覆給使用者。禁止提到你無法定位或存取位置：\n\n${mapContext}`;
@@ -5185,7 +5185,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 }
 
                 // 🌟 正確的單一提示詞組合
-                let promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
+                promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
                 if (appState.translateMode !== 'off') {
                     const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text;
                     promptToSent = `請進行文字翻譯。\n要翻譯的內容：${text}\n要求：\n1. 若為${langB}則翻為中文，否則翻為${langB}。\n2. 嚴格以 JSON 格式輸出：\n\`\`\`json\n{\n  "original": "原文內容",\n  "translated": "翻譯後的結果"\n}\n\`\`\``;
