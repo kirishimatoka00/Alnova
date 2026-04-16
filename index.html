@@ -4934,13 +4934,26 @@ let injectedContext = "";
                     originalUserMessage = appState.currentChat.messages[lastMsgIndex].content;
                 }
 
+                您目前的修改方向完全正確！但是，在您貼上的程式碼中，有幾個因為「複製貼上」產生的小失誤（重複貼上了幾行代碼，並且多了多餘的 } 大括號）。這些多餘的大括號會導致 JavaScript 發生 Syntax Error（語法錯誤），讓整個程式當掉。
+
+除此之外，最前面的「無 GPS」區塊與最後面的「無 API 備援」區塊也漏掉了 promptToSent 的覆寫。
+
+為了確保您能 100% 成功執行，我已經幫您把所有重複的代碼刪除，並補齊了所有場景的 promptToSent 變數。
+
+請直接複製以下這整段程式碼，將您檔案中從 // --- 👇 全新升級的 Google Maps 處理邏輯 開始，一直到判斷結束的地方，完整替換掉：
+
+🛠️ 最終無錯乾淨版：請替換此區塊
+JavaScript
                 // --- 👇 全新升級的 Google Maps 處理邏輯 (座標+名稱+三種交通距離) 👇 ---
                 if (isLocationIntent && (!appState.lastLat || !appState.lastLon)) {
                     addMessage(`⚠️ 無法取得 GPS 定位，正嘗試依據您輸入的地址進行搜尋...`, 'system');
                     enableSearchTool = true; // 強制啟動連網搜尋
+                    const finalPromptNoGPS = `請使用連網搜尋工具，尋找使用者原始提問：「${text}」周圍的地點資訊。若對話中有給定地址或城市（例如桃園市），請以此為中心搜尋。不要回答預設的台北地點。`;
+                    
                     if (lastMsgIndex !== -1) {
-                        appState.currentChat.messages[lastMsgIndex].content = `請使用連網搜尋工具，尋找使用者原始提問：「${text}」周圍的地點資訊。若對話中有給定地址或城市（例如桃園市），請以此為中心搜尋。不要回答預設的台北地點。`;
+                        appState.currentChat.messages[lastMsgIndex].content = finalPromptNoGPS;
                     }
+                    promptToSent = finalPromptNoGPS; // 🌟 確保這行有加上
                 } 
                 // 🌟 原本有 GPS 時才會觸發的 Google Maps API 邏輯
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
@@ -4965,7 +4978,6 @@ let injectedContext = "";
                         } catch (err) { console.warn("Geocoding failed", err.message); }
 
                         // 2. 取得周邊地點 (Places API)
-                        // 🌟 修正 C：計算 5 公里半徑的經緯度方框 (矩形)，因為 locationRestriction 僅支援 rectangle 格式
                         const latDelta = 5.0 / 111.32;
                         const lonDelta = 5.0 / (111.32 * Math.cos(userLat * Math.PI / 180));
 
@@ -4988,12 +5000,11 @@ let injectedContext = "";
                         });
                         
                         const placeRawText = await placeRes.text();
-                        // 🛡️ 終極防護：確保 Places API 真的是回傳 JSON (以 { 開頭) 才解析，否則拋出文字錯誤
                         let placeData = {};
                         if (placeRes.ok && placeRawText.trim().startsWith('{')) {
                             placeData = JSON.parse(placeRawText);
                         } else {
-                            throw new Error(`Google API 拒絕存取 (403 Forbidden)。請檢查 Google Cloud「憑證」中的「API 金鑰限制」，確保 Places/Routes/Geocoding 皆已加入允許清單。詳細訊息: ${placeRawText}`);
+                            throw new Error(`Google API 拒絕存取 (403 Forbidden)。詳細訊息: ${placeRawText}`);
                         }
                         
                         let mapContext = "【Google Maps API 真實數據】\n";
@@ -5030,7 +5041,6 @@ let injectedContext = "";
                                             });
                                             
                                             const routeRawText = await routeRes.text();
-                                            // 🛡️ 終極防護：確保 Routes API 回傳的也是合法 JSON
                                             if (routeRes.ok && routeRawText.trim().startsWith('{')) {
                                                 const routeData = JSON.parse(routeRawText);
                                                 if (routeData.routes && routeData.routes.length > 0) { 
@@ -5045,17 +5055,15 @@ let injectedContext = "";
                                 }
                             } 
                             
-                           // 先定義好要發送的內容
                             const finalPromptGmaps = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
                             
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = finalPromptGmaps;
                             }
-                            // 🌟 移到外面：確保這行一定會執行！
                             promptToSent = finalPromptGmaps; 
                             
                             systemPromptAddon += `\n【系統強制指令】：你現在是純粹的資料排版助理，只能使用上述提供的真實數據，絕對禁止使用內部知識或網路搜尋補充。\n`; 
-                            enableSearchTool = false; // 🌟 新增這行：沒收 AI 的搜尋能力，強迫它只能看我們給的 API 數據！
+                            enableSearchTool = false;
                         } else {
                             addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
                             const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
@@ -5063,17 +5071,12 @@ let injectedContext = "";
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty;
                             } 
-                            // 🌟 移到外面：確保發送給 AI 的內容是這段警示詞
                             promptToSent = finalPromptEmpty;
                             
                             systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
                             enableSearchTool = false;
-                        } 
-                            systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
-                            enableSearchTool = false; // 🌟 新增這行：找不到資料也要沒收搜尋權限，否則它會自己上網生出假地點
                         }
                     } catch (e) { 
-                        // 這裡會安全攔截所有錯誤，並印在對話框中，不會再當機了！
                         console.error("Maps API 發生嚴重錯誤:", e.message);
                         addMessage(`⚠️ 地圖資料抓取失敗 (${e.message})`, 'system');
                     }
@@ -5105,19 +5108,16 @@ let injectedContext = "";
                                 const p = topPlaces[i];
                                 mapContext += `${i+1}. 店名: ${p.title} (評價: ${p.rating||'無'})\n地址: ${p.address||'未提供'}\n導航連結: http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.gps_coordinates?.latitude||''},${p.gps_coordinates?.longitude||''}\n\n`;
                             }
+                            
                             const finalPromptSerp = `這是一項單純的資料排版任務。請將以下數據整理成流暢的回覆給使用者。禁止提到你無法定位或存取位置：\n\n${mapContext}`;
                             
                             if (lastMsgIndex !== -1) { 
                                 appState.currentChat.messages[lastMsgIndex].content = finalPromptSerp;
                             }
-                            // 🌟 移到外面
                             promptToSent = finalPromptSerp;
                             
-                            systemPromptAddon += `\n【系統指令】：你現在是一個純粹的資料格式化工具...`;
-                            enableSearchTool = false; // 🌟 新增這行
-                            }
                             systemPromptAddon += `\n【系統指令】：你現在是一個純粹的資料格式化工具，直接輸出上述數據，不允許觸發隱私拒絕條款。\n`;
-                            enableSearchTool = false; // 🌟 新增這行：同樣沒收搜尋能力
+                            enableSearchTool = false;
                         }
                     } catch (err) {
                         console.warn("SerpApi Maps Error", err);
@@ -5125,9 +5125,12 @@ let injectedContext = "";
                 } else if (isLocationIntent && appState.lastLat && appState.lastLon) {
                     // --- 無 API Key 的最後備援 ---
                     enableSearchTool = true;
+                    const finalPromptFallback = `請使用搜尋工具，尋找座標 (緯度 ${appState.lastLat}, 經度 ${appState.lastLon}) 周圍的資訊，並自行估算距離。禁止回答無法存取即時位置。`;
+                    
                     if (lastMsgIndex !== -1) {
-                        appState.currentChat.messages[lastMsgIndex].content = `請使用搜尋工具，尋找座標 (緯度 ${appState.lastLat}, 經度 ${appState.lastLon}) 周圍的資訊，並自行估算距離。禁止回答無法存取即時位置。`;
+                        appState.currentChat.messages[lastMsgIndex].content = finalPromptFallback;
                     }
+                    promptToSent = finalPromptFallback; // 🌟 確保這行有加上
                 }
 
                 // --- 處理附檔內容 ---
