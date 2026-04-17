@@ -936,8 +936,6 @@
         let bgGainNode = null;
         let vadTimerWorker = null;
         let keepAliveInterval = null;
-        let vadTimerWorker = null;
-        let keepAliveInterval = null;
         
         try {
             const workerCode = `
@@ -1048,13 +1046,12 @@
 async function encodeMp3(audioBuffer) {
     const channels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
-    const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 128); // 128kbps
+    const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 128);
     const mp3Data = [];
 
     const samplesLeft = audioBuffer.getChannelData(0);
     const samplesRight = channels > 1 ? audioBuffer.getChannelData(1) : samplesLeft;
 
-    // 將 Float32 轉為 Int16
     const convert = (samples) => {
         const int16 = new Int16Array(samples.length);
         for (let i = 0; i < samples.length; i++) {
@@ -1071,7 +1068,12 @@ async function encodeMp3(audioBuffer) {
     for (let i = 0; i < left.length; i += sampleBlockSize) {
         const leftChunk = left.subarray(i, i + sampleBlockSize);
         const rightChunk = right.subarray(i, i + sampleBlockSize);
-        const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+
+        // ✅ 修正：mono 只傳一個 chunk
+        const mp3buf = channels === 1
+            ? mp3encoder.encodeBuffer(leftChunk)
+            : mp3encoder.encodeBuffer(leftChunk, rightChunk);
+
         if (mp3buf.length > 0) mp3Data.push(mp3buf);
     }
 
@@ -3271,7 +3273,7 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
 
                 let extraAudioButtons = '';
                 if(isAudio) {
-                    extraAudioButtons += `<button onclick="downloadLocalAudio('${n.id}', 'note')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded text-slate-300 transition-colors border border-slate-700 flex items-center gap-1"><i class="ph-bold ph-download-simple"></i> 下載 .weba</button>`;
+                    extraAudioButtons += `<button onclick="downloadLocalAudio('${n.id}', 'note')" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded text-slate-300 transition-colors border border-slate-700 flex items-center gap-1"><i class="ph-bold ph-download-simple"></i> 下載 .MP3</button>`;
                     extraAudioButtons += `<button onclick="summarizeVoiceNote('${n.id}')" class="text-xs bg-purple-900/50 border border-purple-500/50 hover:bg-purple-800/50 px-2 py-1.5 rounded text-purple-200 transition-colors flex items-center gap-1"><i class="ph-bold ph-sparkle"></i> AI 分析</button>`;
                 } else {
                     extraAudioButtons += `<button onclick="summarizeTextNote('${n.id}')" class="text-xs bg-purple-900/50 border border-purple-500/50 hover:bg-purple-800/50 px-2 py-1.5 rounded text-purple-200 transition-colors flex items-center gap-1"><i class="ph-bold ph-sparkle"></i> AI 分析</button>`;
@@ -3305,7 +3307,7 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                 let audioPlayerHtml = r.audioData ? `<div class="mb-3 w-full"><audio controls src="${r.audioData}" class="w-full h-10 rounded-lg bg-slate-800 shadow-inner"></audio></div>` : '';
                 let linkHtml = (r.driveUrl && !r.driveUrl.startsWith('blob:')) ? `<a href="${r.driveUrl}" target="_blank" class="flex items-center gap-1 text-sm bg-blue-900/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-800/50 transition-colors"><i class="ph-bold ph-cloud-arrow-down"></i> 雲端備份</a>` : '';
 
-                return `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative slide-in group"><div class="flex justify-between items-start mb-3"><div><h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-file-audio text-red-400"></i> ${escapeHtml(r.title)}</h3><p class="text-xs text-slate-500">${r.date}</p></div><button onclick="deleteAudioRecord('${r.id}')" class="text-slate-500 hover:text-red-400 p-2"><i class="ph-bold ph-trash"></i></button></div>${audioPlayerHtml}<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 mb-4"><p class="text-xs text-slate-400 font-bold mb-1">即時逐字稿：</p><p class="text-sm text-slate-300 max-h-32 overflow-y-auto scrollbar-thin whitespace-pre-wrap">${escapeHtml(r.transcript) || '<span class="text-slate-600 italic">無文字紀錄</span>'}</p></div><div class="flex flex-wrap items-center gap-3">${linkHtml}<button onclick="downloadLocalAudio('${r.id}', 'record')" class="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 .weba</button><button onclick="summarizeAudioRecord('${r.id}')" class="flex items-center gap-1 text-sm bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors shadow-lg"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button></div></div>`;
+                return `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative slide-in group"><div class="flex justify-between items-start mb-3"><div><h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-file-audio text-red-400"></i> ${escapeHtml(r.title)}</h3><p class="text-xs text-slate-500">${r.date}</p></div><button onclick="deleteAudioRecord('${r.id}')" class="text-slate-500 hover:text-red-400 p-2"><i class="ph-bold ph-trash"></i></button></div>${audioPlayerHtml}<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 mb-4"><p class="text-xs text-slate-400 font-bold mb-1">即時逐字稿：</p><p class="text-sm text-slate-300 max-h-32 overflow-y-auto scrollbar-thin whitespace-pre-wrap">${escapeHtml(r.transcript) || '<span class="text-slate-600 italic">無文字紀錄</span>'}</p></div><div class="flex flex-wrap items-center gap-3">${linkHtml}<button onclick="downloadLocalAudio('${r.id}', 'record')" class="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 .MP3</button><button onclick="summarizeAudioRecord('${r.id}')" class="flex items-center gap-1 text-sm bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors shadow-lg"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button></div></div>`;
             }).join('') || '<div class="text-center text-slate-500 mt-10"><i class="ph-thin ph-microphone text-6xl mb-3"></i><p>尚無錄音紀錄</p></div>';
         }
 
