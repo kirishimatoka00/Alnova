@@ -2470,7 +2470,7 @@ handleSendMessage(); }
                 let payloadObj = {};
                 if (n.type === 'audio' && n.audioData) {
                     const base64data = n.audioData.split(',')[1];
-                    payloadObj = { filename: n.filename || `NOVA_VoiceNote_${n.id}.weba`, mimeType: n.mimeType || 'audio/webm', data: base64data };
+                    payloadObj = { filename: n.filename || `NOVA_VoiceNote_${n.id}.mp3`, mimeType: n.mimeType || 'audio/mpeg', data: base64data };
                 } else {
                     let htmlContent = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>${n.title}</title></head><body style="font-family: sans-serif; padding: 20px;"><h1>${n.title}</h1><p style="color: gray;">${n.date}</p><hr><div style="line-height: 1.6;">${n.isHtml ? n.content : n.content.replace(/\n/g, '<br>')}</div>`;
                     const displayImages = n.images || (n.image ? [n.image] : []);
@@ -2939,7 +2939,7 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = record.filename || `NOVA_Audio_${id}.weba`;
+        a.download = record.filename || `NOVA_Audio_${id}.mp3`;
         a.click();
     }
 };
@@ -4118,7 +4118,7 @@ try {
             const year = dateObj.getFullYear();
             const timeStr = dateObj.toTimeString().split(' ')[0].replace(/:/g, '');
             
-            const filename = `NOVA_Audio_${month}${day}${year}_${timeStr}.weba`; 
+            const filename = `NOVA_Audio_${month}${day}${year}_${timeStr}.mp3`; 
             const displayDate = dateObj.toLocaleString();
             const recordId = Date.now();
 
@@ -4148,12 +4148,42 @@ try {
 
             let finalDriveUrl = "";
             if (appState.driveUrl) {
-                addMessage(`☁️ 正在與 Google Drive 同步中，請稍候...`, 'system');
-                try {
-                    let payloadObj = {};
-                    if (appState.recordingContext === 'note' && newNote && newNote.type === 'audio') {
-                        const base64data = base64dataWithPrefix.split(',')[1];
-                        payloadObj = { filename: filename, mimeType: actualMimeType, data: base64data };
+    addMessage(`☁️ 正在與 Google Drive 同步中，請稍候...`, 'system');
+    try {
+        let payloadObj = {};
+
+        // ✅ 音訊類型：先轉 MP3 再上傳
+        const isAudioUpload = (appState.recordingContext === 'note' && newNote && newNote.type === 'audio')
+                           || (appState.recordingContext !== 'note');
+
+        if (isAudioUpload) {
+            // 轉換成 MP3 Blob，再轉 base64
+            let mp3Base64 = null;
+            try {
+                const webmBlob = base64ToBlob(base64dataWithPrefix);
+                const arrayBuf = await webmBlob.arrayBuffer();
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+                const mp3Blob = await encodeMp3(audioBuffer);
+                audioCtx.close();
+                mp3Base64 = await new Promise((res, rej) => {
+                    const r2 = new FileReader();
+                    r2.onloadend = () => res(r2.result.split(',')[1]);
+                    r2.onerror = rej;
+                    r2.readAsDataURL(mp3Blob);
+                });
+            } catch(convErr) {
+                console.warn('MP3 轉換失敗，改用原格式上傳:', convErr);
+            }
+
+            if (mp3Base64) {
+                // ✅ MP3 轉換成功 → 上傳 MP3
+                payloadObj = { filename: filename, mimeType: 'audio/mpeg', data: mp3Base64 };
+            } else {
+                // 🔄 備援：MP3 失敗則上傳原始 WebM
+                const base64data = base64dataWithPrefix.split(',')[1];
+                payloadObj = { filename: filename.replace('.mp3', '.weba'), mimeType: actualMimeType, data: base64data };
+            }
                     } else if (appState.recordingContext === 'note' && newNote && newNote.type !== 'audio') {
                         let htmlContent = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>${newNote.title}</title></head><body style="font-family: sans-serif; padding: 20px;"><h1>${newNote.title}</h1><p style="color: gray;">${newNote.date}</p><hr><div style="line-height: 1.6;">${newNote.isHtml ? newNote.content : newNote.content.replace(/\n/g, '<br>')}</div>`;
                         const displayImages = newNote.images || (newNote.image ? [newNote.image] : []);
@@ -4220,11 +4250,11 @@ try {
                 if(!confirm(`即將對「${r.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
-                appState.chatFile = { category: 'media', data: r.audioData, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.weba' };
+                appState.chatFile = { category: 'media', data: r.audioData, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.mp3' };
                 renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
-                if(!confirm(`即將對「${r.title}」進行深度分析。\n\n請在接下來的視窗中，手動選取您的原始音檔 (.webm, .weba 等)。`)) {
+                if(!confirm(`即將對「${r.title}」進行深度分析。\n\n請在接下來的視窗中，手動選取您的音檔 (.mp3, .webm 等)。`)) {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
                 document.getElementById('audio-analyze-input').click();
@@ -4243,7 +4273,7 @@ try {
                 if(!confirm(`即將對「${n.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
-                appState.chatFile = { category: 'media', data: n.audioData, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.weba' };
+                appState.chatFile = { category: 'media', data: n.audioData, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.mp3' };
                 renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
